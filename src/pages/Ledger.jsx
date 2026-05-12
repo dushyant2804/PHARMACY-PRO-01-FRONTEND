@@ -37,7 +37,7 @@ export default function Ledger() {
        amount: Number(form.amount),
        mode: form.mode,
        notes: form.notes,
-       created_at: form.date || new Date().toISOString()
+       date: form.date
      });
       toast.success("Entry added");
       setOpen(false);
