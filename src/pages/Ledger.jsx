@@ -49,6 +49,22 @@ export default function Ledger() {
   if (!data) return <div className="text-slate-500">Loading…</div>;
   const entity = type === "distributor" ? data.distributor : data.customer;
 
+const handleDelete = async (txnId) => {
+  try {
+    const endpoint =
+      type === "distributor"
+        ? `/ledger/distributor/${id}/transaction/${txnId}`
+        : `/ledger/customer/${id}/transaction/${txnId}`;
+
+    await api.delete(endpoint);
+
+    toast.success("Transaction deleted");
+    load(); // refresh data
+  } catch (e) {
+    toast.error(formatApiError(e));
+  }
+};
+  
   return (
     <div className="space-y-6" data-testid="ledger-page">
       <div className="flex items-end justify-between">
@@ -75,7 +91,15 @@ export default function Ledger() {
       <div className="bg-white border border-slate-200 rounded-sm overflow-x-auto">
         <table className="data-table">
           <thead>
-            <tr><th>Date</th><th>Type</th><th>Reference / Notes</th><th>Mode</th><th className="text-right">Amount</th><th className="text-right">Running Balance</th></tr>
+            <tr>
+             <th>Date</th>
+             <th>Type</th>
+             <th>Reference / Notes</th>
+             <th>Mode</th>
+             <th className="text-right">Amount</th>
+             <th className="text-right">Running Balance</th>
+             <th>Actions</th>
+            </tr>
           </thead>
           <tbody>
             {data.transactions.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-500">No transactions yet.</td></tr>}
@@ -89,7 +113,15 @@ export default function Ledger() {
                   {t.type === "payment" ? "−" : "+"}{fmtINR(t.amount)}
                 </td>
                 <td className="num-cell">{fmtINR(t.running_balance)}</td>
-              </tr>
+                 <td>
+                  <button
+                   onClick={() => handleDelete(t.id)}
+                   className="text-red-600 text-xs hover:underline"
+                 >
+                   Delete
+                 </button>
+                </td>
+               </tr>
             ))}
           </tbody>
         </table>
