@@ -33,7 +33,12 @@ export default function Ledger() {
       const endpoint = type === "distributor"
         ? `/ledger/distributor/${id}/${txnType}`
         : `/ledger/customer/${id}/payment`;
-      await api.post(endpoint, { amount: Number(form.amount), mode: form.mode, notes: form.notes });
+      await api.post(endpoint, {
+       amount: Number(form.amount),
+       mode: form.mode,
+       notes: form.notes,
+       created_at: form.date || new Date().toISOString()
+     });
       toast.success("Entry added");
       setOpen(false);
       setForm({ amount: "", mode: "cash", notes: "" });
