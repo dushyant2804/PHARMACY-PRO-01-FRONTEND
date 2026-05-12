@@ -131,58 +131,106 @@ const handleDelete = async (txnId) => {
         <DialogContent className="rounded-sm">
           <DialogHeader><DialogTitle className="font-heading">New Transaction</DialogTitle></DialogHeader>
           <form onSubmit={submit} className="space-y-3">
-            {type === "distributor" && (
-              <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">Type</Label>
-                <Select value={txnType} onValueChange={setTxnType}>
-                  <SelectTrigger className="rounded-sm mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="purchase">Purchase (+)</SelectItem>
-                    <SelectItem value="payment">Payment to supplier (−)</SelectItem>
-                  </SelectContent>
-                </Select>
-                 <div>
-             <Label className="text-xs uppercase font-semibold text-slate-600">
-              Date
-            </Label>
+        {type === "distributor" && (
+    <div>
 
-            <Input
-             type="date"
-             value={form.date}
-             onChange={(e) =>
-              setForm({ ...form, date: e.target.value })
-             }
-             className="rounded-sm mt-1"
-            />
-            </div>
-                
-              </div>
-            )}
-              <Label className="text-xs uppercase font-semibold text-slate-600">Amount</Label>
-              <Input type="number" step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="rounded-sm mt-1" data-testid="txn-amount" />
-            </div>
-            <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">Mode</Label>
-              <Select value={form.mode} onValueChange={(v) => setForm({ ...form, mode: v })}>
-                <SelectTrigger className="rounded-sm mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="upi">UPI</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="bank">Bank Transfer</SelectItem>
-                  <SelectItem value="cheque">Cheque</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">Notes</Label>
-              <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="rounded-sm mt-1" />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} className="rounded-sm">Cancel</Button>
-              <Button type="submit" className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="save-txn">Save</Button>
-            </div>
-          </form>
+      <Label className="text-xs uppercase font-semibold text-slate-600">
+        Type
+      </Label>
+
+      <Select value={txnType} onValueChange={setTxnType}>
+        <SelectTrigger className="rounded-sm mt-1">
+          <SelectValue />
+        </SelectTrigger>
+
+        <SelectContent>
+          <SelectItem value="purchase">Purchase (+)</SelectItem>
+          <SelectItem value="payment">Payment to supplier (−)</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <div>
+        <Label className="text-xs uppercase font-semibold text-slate-600">
+          Date
+        </Label>
+
+        <Input
+          type="date"
+          value={form.date}
+          onChange={(e) =>
+            setForm({ ...form, date: e.target.value })
+          }
+          className="rounded-sm mt-1"
+        />
+      </div>
+
+    </div>
+  )}
+
+  <div>
+    <Label className="text-xs uppercase font-semibold text-slate-600">
+      Amount
+    </Label>
+
+    <Input
+      type="number"
+      step="0.01"
+      required
+      value={form.amount}
+      onChange={(e) =>
+        setForm({ ...form, amount: e.target.value })
+      }
+      className="rounded-sm mt-1"
+    />
+  </div>
+
+  <div>
+    <Label className="text-xs uppercase font-semibold text-slate-600">
+      Mode
+    </Label>
+
+    <Select value={form.mode} onValueChange={(v) =>
+      setForm({ ...form, mode: v })
+    }>
+      <SelectTrigger className="rounded-sm mt-1">
+        <SelectValue />
+      </SelectTrigger>
+
+      <SelectContent>
+        <SelectItem value="cash">Cash</SelectItem>
+        <SelectItem value="upi">UPI</SelectItem>
+        <SelectItem value="card">Card</SelectItem>
+        <SelectItem value="bank">Bank Transfer</SelectItem>
+        <SelectItem value="cheque">Cheque</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+
+  <div>
+    <Label className="text-xs uppercase font-semibold text-slate-600">
+      Notes
+    </Label>
+
+    <Input
+      value={form.notes}
+      onChange={(e) =>
+        setForm({ ...form, notes: e.target.value })
+      }
+      className="rounded-sm mt-1"
+    />
+  </div>
+
+  <div className="flex justify-end gap-2 pt-2">
+    <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+      Cancel
+    </Button>
+
+    <Button type="submit" className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="save-txn">
+      Save
+    </Button>
+  </div>
+
+</form>
         </DialogContent>
       </Dialog>
     </div>
