@@ -107,6 +107,19 @@ export default function Ledger() {
               </div>
             )}
             <div>
+             <Label className="text-xs uppercase font-semibold text-slate-600">
+              Date
+            </Label>
+
+            <Input
+             type="date"
+             value={form.date}
+             onChange={(e) =>
+              setForm({ ...form, date: e.target.value })
+             }
+             className="rounded-sm mt-1"
+            />
+            </div>
               <Label className="text-xs uppercase font-semibold text-slate-600">Amount</Label>
               <Input type="number" step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="rounded-sm mt-1" data-testid="txn-amount" />
             </div>
