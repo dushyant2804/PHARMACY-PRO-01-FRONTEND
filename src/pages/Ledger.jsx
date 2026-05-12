@@ -154,6 +154,8 @@ const handleDelete = async (txnId) => {
              }
              className="rounded-sm mt-1"
             />
+            </div>
+                
               </div>
             )}
               <Label className="text-xs uppercase font-semibold text-slate-600">Amount</Label>
