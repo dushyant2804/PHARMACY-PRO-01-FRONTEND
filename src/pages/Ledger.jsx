@@ -14,7 +14,12 @@ export default function Ledger() {
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(false);
   const [txnType, setTxnType] = useState(type === "distributor" ? "payment" : "payment");
-  const [form, setForm] = useState({ amount: "", mode: "cash", notes: "" });
+  const [form, setForm] = useState({
+    amount: "",
+    mode: "cash",
+    notes: "",
+    date: ""
+  });
 
   const load = async () => {
     const { data } = await api.get(`/ledger/${type}/${id}`);
