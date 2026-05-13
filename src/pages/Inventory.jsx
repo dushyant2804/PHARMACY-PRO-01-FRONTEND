@@ -20,9 +20,20 @@ const emptyForm = {
   name: "", batch_no: "", expiry_date: "", manufacturer: "",
   distributor: "", distributor_id: "",
   purchase_price: "", mrp: "",
-  boxes: 0, units_per_box: 1, loose_units: 0,
-  category: "OTC", gst_rate: 12,
-  barcode: "", low_stock_threshold: 10,
+
+  boxes: 0,
+  units_per_box: 1,
+  loose_units: 0,
+
+  current_boxes: 0,
+  current_strips: 0,
+  current_loose_units: 0,
+
+  category: "OTC",
+  gst_rate: 12,
+
+  barcode: "",
+  low_stock_threshold: 10,
 };
 
 function CategoryBadge({ cat }) {
