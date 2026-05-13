@@ -292,6 +292,72 @@ export default function Inventory() {
                     onChange={(e) => setForm({ ...form, loose_units: e.target.value })}
                     className="mt-1 rounded-sm" data-testid="form-loose_units" />
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+
+  <div className="col-span-full">
+    <h3 className="font-semibold text-sm text-slate-700">
+      Current Stock Situation
+    </h3>
+  </div>
+
+  <div>
+    <Label className="text-[11px] text-slate-500">
+      Current Boxes
+    </Label>
+
+    <Input
+      type="number"
+      min="0"
+      value={form.current_boxes}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          current_boxes: e.target.value
+        })
+      }
+      className="mt-1 rounded-sm"
+    />
+  </div>
+
+  <div>
+    <Label className="text-[11px] text-slate-500">
+      Current Strips
+    </Label>
+
+    <Input
+      type="number"
+      min="0"
+      value={form.current_strips}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          current_strips: e.target.value
+        })
+      }
+      className="mt-1 rounded-sm"
+    />
+  </div>
+
+  <div>
+    <Label className="text-[11px] text-slate-500">
+      Current Loose Tablets
+    </Label>
+
+    <Input
+      type="number"
+      min="0"
+      value={form.current_loose_units}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          current_loose_units: e.target.value
+        })
+      }
+      className="mt-1 rounded-sm"
+    />
+  </div>
+
+</div>
               </div>
               <div className="mt-2 text-xs text-slate-700">
                 Total stock = <span className="font-mono-nums font-bold text-blue-700">
