@@ -292,6 +292,7 @@ export default function Inventory() {
                     onChange={(e) => setForm({ ...form, loose_units: e.target.value })}
                     className="mt-1 rounded-sm" data-testid="form-loose_units" />
                 </div>
+               </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
 
   <div className="col-span-full">
