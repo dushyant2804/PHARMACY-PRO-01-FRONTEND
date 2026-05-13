@@ -13,7 +13,7 @@ export default function Ledger() {
   const { type, id } = useParams(); // type: distributor | customer
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(false);
-  const [txnType, setTxnType] = useState(type === "distributor" ? "payment" : "payment");
+  const [txnType, setTxnType] = useState(type === "distributor" ? "payment" : "sale");
   const [form, setForm] = useState({
     amount: "",
     mode: "cash",
@@ -32,7 +32,7 @@ export default function Ledger() {
     try {
       const endpoint = type === "distributor"
         ? `/ledger/distributor/${id}/${txnType}`
-        : `/ledger/customer/${id}/payment`;
+        : `/ledger/customer/${id}/${txnType}`;
       await api.post(endpoint, {
        amount: Number(form.amount),
        mode: form.mode,
@@ -131,41 +131,56 @@ const handleDelete = async (txnId) => {
         <DialogContent className="rounded-sm">
           <DialogHeader><DialogTitle className="font-heading">New Transaction</DialogTitle></DialogHeader>
           <form onSubmit={submit} className="space-y-3">
-        {type === "distributor" && (
-    <div>
+       {(type === "distributor" || type === "customer") && (
+        <div>
 
+    <Label className="text-xs uppercase font-semibold text-slate-600">
+      Type
+    </Label>
+
+    <Select value={txnType} onValueChange={setTxnType}>
+      <SelectTrigger className="rounded-sm mt-1">
+        <SelectValue />
+      </SelectTrigger>
+
+      <SelectContent>
+
+        {type === "distributor" ? (
+          <>
+            <SelectItem value="purchase">Purchase (+)</SelectItem>
+            <SelectItem value="payment">
+              Payment to supplier (−)
+            </SelectItem>
+          </>
+        ) : (
+          <>
+            <SelectItem value="sale">Sale / Due (+)</SelectItem>
+            <SelectItem value="payment">
+              Payment Received (−)
+            </SelectItem>
+          </>
+        )}
+
+      </SelectContent>
+    </Select>
+
+    <div>
       <Label className="text-xs uppercase font-semibold text-slate-600">
-        Type
+        Date
       </Label>
 
-      <Select value={txnType} onValueChange={setTxnType}>
-        <SelectTrigger className="rounded-sm mt-1">
-          <SelectValue />
-        </SelectTrigger>
-
-        <SelectContent>
-          <SelectItem value="purchase">Purchase (+)</SelectItem>
-          <SelectItem value="payment">Payment to supplier (−)</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <div>
-        <Label className="text-xs uppercase font-semibold text-slate-600">
-          Date
-        </Label>
-
-        <Input
-          type="date"
-          value={form.date}
-          onChange={(e) =>
-            setForm({ ...form, date: e.target.value })
-          }
-          className="rounded-sm mt-1"
-        />
-      </div>
-
+      <Input
+        type="date"
+        value={form.date}
+        onChange={(e) =>
+          setForm({ ...form, date: e.target.value })
+        }
+        className="rounded-sm mt-1"
+      />
     </div>
-  )}
+
+  </div>
+)}
 
   <div>
     <Label className="text-xs uppercase font-semibold text-slate-600">
