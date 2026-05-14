@@ -181,6 +181,111 @@ const [historicalSaving, setHistoricalSaving] = useState(false);
         </div>
       </div>
 
+      <div className="bg-white border border-slate-200 rounded-sm p-4">
+  <div className="flex items-center gap-2 mb-4">
+    <BookOpen className="w-5 h-5 text-slate-600" />
+    <div>
+      <div className="font-heading font-semibold">
+        Historical Daily Sales Entry
+      </div>
+      <div className="text-xs text-slate-500">
+        Add old register totals without affecting inventory
+      </div>
+    </div>
+  </div>
+
+  <form
+    onSubmit={submitHistoricalSale}
+    className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
+  >
+
+    <div>
+      <Label className="text-xs uppercase font-semibold text-slate-600">
+        Cash ₹
+      </Label>
+
+      <Input
+        type="number"
+        min="0"
+        value={historicalForm.cash_amount}
+        onChange={(e) =>
+          setHistoricalForm({
+            ...historicalForm,
+            cash_amount: e.target.value
+          })
+        }
+        className="rounded-sm mt-1"
+      />
+    </div>
+
+    <div>
+      <Label className="text-xs uppercase font-semibold text-slate-600">
+        UPI ₹
+      </Label>
+
+      <Input
+        type="number"
+        min="0"
+        value={historicalForm.upi_amount}
+        onChange={(e) =>
+          setHistoricalForm({
+            ...historicalForm,
+            upi_amount: e.target.value
+          })
+        }
+        className="rounded-sm mt-1"
+      />
+    </div>
+
+    <div>
+      <Label className="text-xs uppercase font-semibold text-slate-600">
+        Pending ₹
+      </Label>
+
+      <Input
+        type="number"
+        min="0"
+        value={historicalForm.pending_amount}
+        onChange={(e) =>
+          setHistoricalForm({
+            ...historicalForm,
+            pending_amount: e.target.value
+          })
+        }
+        className="rounded-sm mt-1"
+      />
+    </div>
+
+    <div>
+      <Label className="text-xs uppercase font-semibold text-slate-600">
+        Notes
+      </Label>
+
+      <Input
+        value={historicalForm.notes}
+        onChange={(e) =>
+          setHistoricalForm({
+            ...historicalForm,
+            notes: e.target.value
+          })
+        }
+        className="rounded-sm mt-1"
+      />
+    </div>
+
+    <div>
+      <Button
+        type="submit"
+        disabled={historicalSaving}
+        className="rounded-sm bg-slate-700 hover:bg-slate-800 w-full"
+      >
+        Add Historical Sale
+      </Button>
+    </div>
+
+  </form>
+</div>
+      
       {/* Quick entry */}
       <div className="bg-white border border-slate-200 rounded-sm p-4">
         <div className="font-heading font-semibold mb-3">New Entry</div>
