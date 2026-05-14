@@ -17,6 +17,7 @@ import PurchaseOrders from "@/pages/PurchaseOrders";
 import PurchaseOrderDetail from "@/pages/PurchaseOrderDetail";
 import DailySales from "@/pages/DailySales";
 import Layout from "@/components/Layout";
+import Patients from "./pages/Patients";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Link } from "react-router-dom";
 
@@ -57,6 +58,7 @@ function App() {
             <Route path="/purchase-orders" element={<Protected><PurchaseOrders /></Protected>} />
             <Route path="/purchase-orders/:id" element={<Protected><PurchaseOrderDetail /></Protected>} />
             <Route path="/daily-sales" element={<Protected><DailySales /></Protected>} />
+            <Route path="/patients" element={<Protected><Patients /></Protected>} /> 
             <Route path="/ledger/:type/:id" element={<Protected><Ledger /></Protected>} />
             <Route path="/reports" element={<Protected><Reports /></Protected>} />
             <Route path="/settings" element={<Protected><Settings /></Protected>} />
