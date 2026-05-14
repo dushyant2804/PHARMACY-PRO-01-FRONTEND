@@ -35,6 +35,23 @@ export default function Reports() {
   new Date().toISOString().slice(0, 7)
 );
 
+  const loadMonthly = async () => {
+  setMonthlyLoading(true);
+  try {
+    const res = await api.get("/reports/monthly-summary", {
+      params: { month },
+    });
+    setMonthlyData(res.data);
+  } finally {
+    setMonthlyLoading(false);
+  }
+};
+
+useEffect(() => {
+  loadMonthly();
+  // eslint-disable-next-line
+}, [month]);
+
   const loadSales = () => api.get("/reports/sales", { params: { start, end } }).then((r) => setSales(r.data));
   useEffect(() => { loadSales(); /* eslint-disable-next-line */ }, []);
   useEffect(() => {
@@ -235,6 +252,62 @@ export default function Reports() {
             </>
           )}
         </TabsContent>
+        <TabsContent value="monthly" className="space-y-4 mt-4">
+
+  {/* Month selector */}
+  <div className="bg-white border border-slate-200 rounded-sm p-4 flex gap-3 items-end">
+    <div>
+      <Label className="text-xs uppercase font-semibold text-slate-600">
+        Select Month
+      </Label>
+
+      <Input
+        type="month"
+        value={month}
+        onChange={(e) => setMonth(e.target.value)}
+        className="rounded-sm mt-1"
+      />
+    </div>
+
+    <Button
+      onClick={loadMonthly}
+      className="rounded-sm bg-blue-600 hover:bg-blue-700"
+    >
+      Refresh
+    </Button>
+  </div>
+
+  {/* Loading state */}
+  {monthlyLoading && (
+    <div className="text-slate-500">Loading monthly report...</div>
+  )}
+
+  {/* Data display */}
+  {monthlyData && (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+      <Kpi
+        label="Total Sales"
+        value={fmtINR(monthlyData.sales)}
+        tone="text-emerald-600"
+      />
+
+      <Kpi
+        label="Expenses"
+        value={fmtINR(monthlyData.expenses)}
+        tone="text-red-600"
+      />
+
+      <Kpi
+        label="Estimated Profit"
+        value={fmtINR(monthlyData.estimated_profit)}
+        tone="text-blue-600"
+      />
+
+    </div>
+  )}
+
+</TabsContent>
       </Tabs>
     </div>
   );
