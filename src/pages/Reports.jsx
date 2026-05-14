@@ -62,6 +62,7 @@ export default function Reports() {
           <TabsTrigger value="stock" className="rounded-sm">Stock Valuation</TabsTrigger>
           <TabsTrigger value="outstanding" className="rounded-sm">Outstanding</TabsTrigger>
           <TabsTrigger value="expiry" className="rounded-sm">Expiry</TabsTrigger>
+          <TabsTrigger value="monthly" className="rounded-sm">Monthly</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales" className="space-y-4 mt-4">
