@@ -140,6 +140,17 @@ useEffect(() => {
               </div>
             </>
           )}
+
+          <div className="bg-white border rounded-sm p-4 mt-4">
+  <div className="font-semibold mb-3">Daily Closing Entry</div>
+
+  <input placeholder="Total Sales" />
+  <input placeholder="Cash" />
+  <input placeholder="UPI" />
+  <input placeholder="Pending" />
+
+  <button>Save</button>
+ </div>
         </TabsContent>
 
         <TabsContent value="stock" className="space-y-4 mt-4">
