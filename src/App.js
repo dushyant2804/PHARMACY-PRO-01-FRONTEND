@@ -16,8 +16,8 @@ import Settings from "@/pages/Settings";
 import PurchaseOrders from "@/pages/PurchaseOrders";
 import PurchaseOrderDetail from "@/pages/PurchaseOrderDetail";
 import DailySales from "@/pages/DailySales";
+import Patients from "@/pages/Patients";
 import Layout from "@/components/Layout";
-import Patients from "./pages/Patients";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Link } from "react-router-dom";
 
