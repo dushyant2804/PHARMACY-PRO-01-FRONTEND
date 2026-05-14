@@ -81,8 +81,9 @@ export default function Reports() {
   const paid = sales.paid_sales || total;
   const pending = sales.pending_sales || 0;
 
-  const cash = Math.round(paid * 0.6);
-  const upi = Math.round(paid * 0.4);
+  const cash = sales?.cash_total || 0;
+  const upi = sales?.upi_total || 0;
+  const pending = sales?.pending_total || 0;
 
   setDailyClose((prev) => ({
     ...prev,
