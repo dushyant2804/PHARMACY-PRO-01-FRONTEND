@@ -139,6 +139,42 @@ const [expenseSaving, setExpenseSaving] = useState(false);
   }
 };
   
+  const submitExpense = async (e) => {
+  e.preventDefault();
+
+  if (!expenseForm.category) {
+    return toast.error("Expense category required");
+  }
+
+  if (!expenseForm.amount || Number(expenseForm.amount) <= 0) {
+    return toast.error("Expense amount required");
+  }
+
+  setExpenseSaving(true);
+
+  try {
+    await api.post("/expenses", {
+      date,
+      category: expenseForm.category,
+      amount: Number(expenseForm.amount),
+      notes: expenseForm.notes,
+    });
+
+    toast.success("Expense added");
+
+    setExpenseForm({
+      category: "",
+      amount: "",
+      notes: "",
+    });
+
+  } catch (e) {
+    toast.error(formatApiError(e));
+  } finally {
+    setExpenseSaving(false);
+  }
+};
+  
   const remove = async (id) => {
     if (!window.confirm("Delete this entry? Stock will be restored.")) return;
     try {
