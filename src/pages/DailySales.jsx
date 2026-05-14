@@ -101,6 +101,38 @@ const [historicalSaving, setHistoricalSaving] = useState(false);
     finally { setSaving(false); }
   };
 
+  const submitHistoricalSale = async (e) => {
+  e.preventDefault();
+
+  setHistoricalSaving(true);
+
+  try {
+    await api.post("/historical-sales", {
+      date,
+      cash_amount: Number(historicalForm.cash_amount || 0),
+      upi_amount: Number(historicalForm.upi_amount || 0),
+      pending_amount: Number(historicalForm.pending_amount || 0),
+      notes: historicalForm.notes,
+    });
+
+    toast.success("Historical sale added");
+
+    setHistoricalForm({
+      cash_amount: "",
+      upi_amount: "",
+      pending_amount: "",
+      notes: "",
+    });
+
+    load(date);
+
+  } catch (e) {
+    toast.error(formatApiError(e));
+  } finally {
+    setHistoricalSaving(false);
+  }
+};
+  
   const remove = async (id) => {
     if (!window.confirm("Delete this entry? Stock will be restored.")) return;
     try {
