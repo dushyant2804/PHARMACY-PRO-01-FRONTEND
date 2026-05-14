@@ -54,6 +54,20 @@ export default function Dashboard() {
           sub={data.expired_count > 0 ? `${data.expired_count} expired` : "≤60 days"} tone="red" testid="kpi-near-expiry" />
       </div>
 
+      {alerts.length > 0 && (
+  <div className="bg-red-100 border border-red-300 p-3 rounded-sm">
+    <div className="font-semibold text-red-700 mb-2">
+      Patient Medicine Alerts
+    </div>
+
+    {alerts.map((p) => (
+      <div key={p.phone}>
+        {p.name} - {p.medicine_name} ({p.phone})
+      </div>
+    ))}
+  </div>
+)}
+
       <div className="grid lg:grid-cols-2 gap-4">
         <div className="bg-white border border-slate-200 rounded-sm">
           <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
