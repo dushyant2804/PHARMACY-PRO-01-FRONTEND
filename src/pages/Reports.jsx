@@ -272,166 +272,51 @@ export default function Reports() {
   )}
         </TabsContent>
           {categoryData.length > 0 && (
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-white border border-slate-200 rounded-sm p-4">
-                <div className="font-heading font-semibold mb-3 text-slate-900">Stock value by category</div>
-<Tabs defaultValue="sales">
-  <TabsList className="rounded-sm bg-slate-100">
-    <TabsTrigger value="sales" className="rounded-sm">Sales</TabsTrigger>
-    <TabsTrigger value="stock" className="rounded-sm">Stock Valuation</TabsTrigger>
-    <TabsTrigger value="outstanding" className="rounded-sm">Outstanding</TabsTrigger>
-    <TabsTrigger value="expiry" className="rounded-sm">Expiry</TabsTrigger>
-    <TabsTrigger value="monthly" className="rounded-sm">Monthly</TabsTrigger>
-  </TabsList>
+  <div className="grid md:grid-cols-2 gap-4">
 
-  {/* SALES */}
-  <TabsContent value="sales" className="space-y-4 mt-4">
-    <div className="bg-white border border-slate-200 rounded-sm p-4 flex flex-wrap gap-3 items-end">
-      <div>
-        <Label className="text-xs uppercase font-semibold text-slate-600">From</Label>
-        <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="rounded-sm mt-1" />
+    <div className="bg-white border border-slate-200 rounded-sm p-4">
+      <div className="font-heading font-semibold mb-3 text-slate-900">
+        Stock value by category
       </div>
 
-      <div>
-        <Label className="text-xs uppercase font-semibold text-slate-600">To</Label>
-        <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="rounded-sm mt-1" />
-      </div>
-
-      <Button onClick={loadSales} className="rounded-sm bg-blue-600 hover:bg-blue-700">
-        Run Report
-      </Button>
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart>
+          <Pie
+            data={categoryData}
+            dataKey="value"
+            nameKey="name"
+            innerRadius={50}
+            outerRadius={90}
+          >
+            {categoryData.map((_, i) => (
+              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
     </div>
 
-    {sales && (
-      <>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Kpi label="Total Sales" value={fmtINR(sales?.total_sales || 0)} tone="text-emerald-600" />
-          <Kpi label="GST Collected" value={fmtINR(sales?.total_gst || 0)} />
-          <Kpi label="Invoices" value={sales?.invoice_count || 0} />
-          <Kpi label="Est. Profit" value={fmtINR(sales?.estimated_profit || 0)} tone="text-blue-600" />
-        </div>
-
-        {sales?.daily?.length > 0 && (
-          <div className="bg-white border border-slate-200 rounded-sm p-4">
-            <div className="font-heading font-semibold mb-3 text-slate-900">Daily sales trend</div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={sales.daily}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#64748b" />
-                  <YAxis tick={{ fontSize: 11 }} stroke="#64748b" />
-                  <Tooltip contentStyle={{ borderRadius: 2, fontSize: 12 }} />
-                  <Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-      </>
-    )}
-  </TabsContent>
-
-  {/* STOCK */}
-  <TabsContent value="stock" className="space-y-4 mt-4">
-    {stock && (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Kpi label="Total Items" value={stock?.total_items || 0} />
-        <Kpi label="Total Units" value={stock?.total_units || 0} />
-        <Kpi label="Cost Value" value={fmtINR(stock?.cost_value || 0)} />
-        <Kpi label="MRP Value" value={fmtINR(stock?.mrp_value || 0)} tone="text-emerald-600" />
+    <div className="bg-white border border-slate-200 rounded-sm p-4">
+      <div className="font-heading font-semibold mb-3 text-slate-900">
+        Category breakdown
       </div>
-    )}
 
-    {categoryData.length > 0 && (
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white border p-4 rounded-sm">
-          <div className="font-semibold mb-3">Stock by category</div>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie data={categoryData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90}>
-                {categoryData.map((_, i) => (
-                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={categoryData} layout="vertical">
+          <XAxis type="number" />
+          <YAxis dataKey="name" type="category" width={130} />
+          <Tooltip />
+          <Bar dataKey="value" fill="#2563eb" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
 
-        <div className="bg-white border p-4 rounded-sm">
-          <div className="font-semibold mb-3">Category breakdown</div>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={categoryData} layout="vertical">
-              <XAxis type="number" />
-              <YAxis dataKey="name" type="category" width={130} />
-              <Tooltip />
-              <Bar dataKey="value" fill="#2563eb" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    )}
-  </TabsContent>
+  </div>
+)}
 
-  {/* OUTSTANDING */}
-  <TabsContent value="outstanding" className="space-y-4 mt-4">
-    {outstanding && (
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white border p-4 rounded-sm">
-          <div className="font-semibold mb-2">Customer Dues</div>
-          <table className="data-table">
-            <tbody>
-              {outstanding.customers?.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.name}</td>
-                  <td className="text-red-600">{fmtINR(c.balance)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="bg-white border p-4 rounded-sm">
-          <div className="font-semibold mb-2">Distributor Payables</div>
-          <table className="data-table">
-            <tbody>
-              {outstanding.distributors?.map((d) => (
-                <tr key={d.id}>
-                  <td>{d.name}</td>
-                  <td className="text-amber-600">{fmtINR(d.balance)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    )}
-  </TabsContent>
-
-  {/* EXPIRY */}
-  <TabsContent value="expiry" className="space-y-4 mt-4">
-    {expiry && (
-      <>
-        <div className="bg-white border p-4 rounded-sm">
-          <div className="font-semibold mb-2">Expiry List</div>
-        </div>
-      </>
-    )}
-  </TabsContent>
-
-  {/* MONTHLY */}
-  <TabsContent value="monthly" className="space-y-4 mt-4">
-    {monthlyData && (
-      <div className="grid md:grid-cols-3 gap-3">
-        <Kpi label="Sales" value={fmtINR(monthlyData?.sales || 0)} />
-        <Kpi label="Expenses" value={fmtINR(monthlyData?.expenses || 0)} />
-        <Kpi label="Profit" value={fmtINR(monthlyData?.estimated_profit || 0)} />
-      </div>
-    )}
-  </TabsContent>
-  </Tabs>
-
-</div>
-);
+      </Tabs>
+    </div>
+  );
 }
