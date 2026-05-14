@@ -74,6 +74,29 @@ export default function Reports() {
     api.get("/medicines").then((r) => setMedicines(r.data));
   }, []);
 
+  const autoFillDailyClose = () => {
+  if (!sales) return;
+
+  const total = sales.total_sales || 0;
+  const paid = sales.paid_sales || total;
+  const pending = sales.pending_sales || 0;
+
+  const cash = Math.round(paid * 0.6);
+  const upi = Math.round(paid * 0.4);
+
+  setDailyClose((prev) => ({
+    ...prev,
+    total_sales: total,
+    cash,
+    upi,
+    pending,
+  }));
+};
+
+  useEffect(() => {
+  autoFillDailyClose();
+}, [sales]);
+
   const saveDailySummary = async () => {
   setSavingClose(true);
   try {
