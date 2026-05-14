@@ -26,6 +26,14 @@ export default function DailySales() {
   const [error, setError] = useState(null);
   const [form, setForm] = useState(emptyEntry);
   const [saving, setSaving] = useState(false);
+  const [historicalForm, setHistoricalForm] = useState({
+  cash_amount: "",
+  upi_amount: "",
+  pending_amount: "",
+  notes: "",
+});
+
+const [historicalSaving, setHistoricalSaving] = useState(false);
 
   const load = async (d = date) => {
     setLoading(true); setError(null);
