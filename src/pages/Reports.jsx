@@ -191,7 +191,13 @@ export default function Reports() {
   <input placeholder="UPI" />
   <input placeholder="Pending" />
 
-  <button>Save</button>
+  <button
+  onClick={saveDailySummary}
+  disabled={savingClose}
+  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-sm"
+>
+  {savingClose ? "Saving..." : "Save Closing"}
+</button>
  </div>
         </TabsContent>
 
