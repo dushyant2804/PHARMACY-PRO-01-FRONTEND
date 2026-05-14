@@ -32,36 +32,38 @@ export default function Reports() {
   const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   const [month, setMonth] = useState(
-  new Date().toISOString().slice(0, 7)
-);
-
-  const loadMonthly = async () => {
-  setMonthlyLoading(true);
-  try {
-    const res = await api.get("/reports/monthly-summary", {
-      params: { month },
-    });
-    setMonthlyData(res.data);
-  } finally {
-    setMonthlyLoading(false);
+    new Date().toISOString().slice(0, 7)
+  );
 
   const [dailyClose, setDailyClose] = useState({
-  date: today,
-  total_sales: "",
-  cash: "",
-  upi: "",
-  pending: "",
-  notes: ""
-});
+    date: today,
+    total_sales: "",
+    cash: "",
+    upi: "",
+    pending: "",
+    notes: ""
+  });
 
-const [savingClose, setSavingClose] = useState(false);
-  }
-};
+  const [savingClose, setSavingClose] = useState(false);
 
-useEffect(() => {
-  loadMonthly();
-  // eslint-disable-next-line
-}, [month]);
+  const loadMonthly = async () => {
+    setMonthlyLoading(true);
+    try {
+      const res = await api.get("/reports/monthly-summary", {
+        params: { month },
+      });
+      setMonthlyData(res.data);
+    } catch (err) {
+      console.error("Monthly load failed", err);
+    } finally {
+      setMonthlyLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMonthly();
+    // eslint-disable-next-line
+  }, [month]);
 
   const loadSales = () => api.get("/reports/sales", { params: { start, end } }).then((r) => setSales(r.data));
   useEffect(() => { loadSales(); /* eslint-disable-next-line */ }, []);
