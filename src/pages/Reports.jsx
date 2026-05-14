@@ -432,6 +432,3 @@ export default function Reports() {
   </TabsContent>
 
    </Tabs>
-    </div>
-  );
-  }
