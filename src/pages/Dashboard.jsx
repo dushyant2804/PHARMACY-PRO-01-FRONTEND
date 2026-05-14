@@ -45,24 +45,44 @@ export default function Dashboard() {
         </h1>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Kpi icon={IndianRupee} label="Today's Sales" value={fmtINR(data.today_sales)}
-          sub={`${data.today_invoice_count} invoices`} tone="emerald" testid="kpi-today-sales" />
-        <Kpi icon={Package} label="Stock Items" value={data.total_medicines} tone="blue" testid="kpi-stock-items" />
-        <Kpi icon={AlertTriangle} label="Low Stock" value={data.low_stock_count} tone="amber" testid="kpi-low-stock" />
-        <Kpi icon={Clock} label="Near Expiry" value={data.near_expiry_count}
-          sub={data.expired_count > 0 ? `${data.expired_count} expired` : "≤60 days"} tone="red" testid="kpi-near-expiry" />
-      </div>
+<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
-      {alerts.length > 0 && (
-  <div className="bg-red-100 border border-red-300 p-3 rounded-sm">
+  <div className="kpi-card">
+    <div className="text-xs uppercase text-slate-500">Today Sales</div>
+    <div className="text-2xl font-bold">{fmtINR(summary?.sales || 0)}</div>
+  </div>
+
+  <div className="kpi-card">
+    <div className="text-xs uppercase text-slate-500">Stock Value</div>
+    <div className="text-2xl font-bold">{fmtINR(stock?.mrp_value || 0)}</div>
+  </div>
+
+  <div className="kpi-card">
+    <div className="text-xs uppercase text-red-500">Pending Dues</div>
+    <div className="text-2xl font-bold text-red-600">{fmtINR(outstanding?.total || 0)}</div>
+  </div>
+
+  <div className="kpi-card">
+    <div className="text-xs uppercase text-amber-500">Expiry Risk</div>
+    <div className="text-2xl font-bold">{expiry?.near_expiry?.length || 0}</div>
+  </div>
+
+</div>
+
+{alerts?.length > 0 && (
+  <div className="mt-4 bg-red-50 border border-red-200 rounded-sm p-3">
     <div className="font-semibold text-red-700 mb-2">
-      Patient Medicine Alerts
+      Patient Alerts (Due Medicines)
     </div>
 
     {alerts.map((p) => (
-      <div key={p.phone}>
-        {p.name} - {p.medicine_name} ({p.phone})
+      <div key={p.phone} className="text-sm flex justify-between">
+        <span>
+          {p.name} — {p.medicine_name}
+        </span>
+        <span className="text-red-600 font-medium">
+          {p.phone}
+        </span>
       </div>
     ))}
   </div>
