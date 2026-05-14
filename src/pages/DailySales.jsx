@@ -327,6 +327,91 @@ const [expenseSaving, setExpenseSaving] = useState(false);
 
   </form>
 </div>
+
+     <div className="bg-white border border-slate-200 rounded-sm p-4">
+  <div className="flex items-center gap-2 mb-4">
+    <div>
+      <div className="font-heading font-semibold">
+        Daily Expenses
+      </div>
+
+      <div className="text-xs text-slate-500">
+        Track operational expenses for this date
+      </div>
+    </div>
+  </div>
+
+  <form
+    onSubmit={submitExpense}
+    className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end"
+  >
+
+    <div>
+      <Label className="text-xs uppercase font-semibold text-slate-600">
+        Category
+      </Label>
+
+      <Input
+        value={expenseForm.category}
+        onChange={(e) =>
+          setExpenseForm({
+            ...expenseForm,
+            category: e.target.value
+          })
+        }
+        placeholder="Electricity / Delivery / Rent"
+        className="rounded-sm mt-1"
+      />
+    </div>
+
+    <div>
+      <Label className="text-xs uppercase font-semibold text-slate-600">
+        Amount ₹
+      </Label>
+
+      <Input
+        type="number"
+        min="0"
+        value={expenseForm.amount}
+        onChange={(e) =>
+          setExpenseForm({
+            ...expenseForm,
+            amount: e.target.value
+          })
+        }
+        className="rounded-sm mt-1"
+      />
+    </div>
+
+    <div>
+      <Label className="text-xs uppercase font-semibold text-slate-600">
+        Notes
+      </Label>
+
+      <Input
+        value={expenseForm.notes}
+        onChange={(e) =>
+          setExpenseForm({
+            ...expenseForm,
+            notes: e.target.value
+          })
+        }
+        className="rounded-sm mt-1"
+      />
+    </div>
+
+    <div>
+      <Button
+        type="submit"
+        disabled={expenseSaving}
+        className="rounded-sm bg-red-600 hover:bg-red-700 w-full"
+      >
+        Add Expense
+      </Button>
+    </div>
+
+  </form>
+</div>
       
       {/* Quick entry */}
       <div className="bg-white border border-slate-200 rounded-sm p-4">
