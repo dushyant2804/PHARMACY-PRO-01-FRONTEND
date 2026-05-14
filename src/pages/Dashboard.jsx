@@ -48,9 +48,11 @@ export default function Dashboard() {
 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
   <div className="kpi-card">
-    <div className="text-xs uppercase text-slate-500">Today Sales</div>
-    <div className="text-2xl font-bold">{fmtINR(summary?.sales || 0)}</div>
+  <div className="text-xs uppercase text-slate-500">Today Sales</div>
+  <div className="text-2xl font-bold">
+    {fmtINR(sales?.total_sales || 0)}
   </div>
+</div>
 
   <div className="kpi-card">
     <div className="text-xs uppercase text-slate-500">Stock Value</div>
