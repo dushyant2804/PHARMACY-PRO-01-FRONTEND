@@ -28,6 +28,12 @@ export default function Reports() {
   const [outstanding, setOutstanding] = useState(null);
   const [expiry, setExpiry] = useState(null);
   const [medicines, setMedicines] = useState([]);
+  const [monthlyData, setMonthlyData] = useState(null);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
+
+  const [month, setMonth] = useState(
+  new Date().toISOString().slice(0, 7)
+);
 
   const loadSales = () => api.get("/reports/sales", { params: { start, end } }).then((r) => setSales(r.data));
   useEffect(() => { loadSales(); /* eslint-disable-next-line */ }, []);
