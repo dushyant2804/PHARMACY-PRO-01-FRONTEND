@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "react-toastify";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, PieChart, Pie, Cell, Legend,
@@ -110,7 +109,7 @@ export default function Reports() {
       notes: dailyClose.notes,
     });
 
-    toast.success("Daily summary saved");
+    console.log("Daily summary saved");
 
     setDailyClose({
       date: today,
@@ -121,7 +120,7 @@ export default function Reports() {
       notes: ""
     });
   } catch (e) {
-    toast.error("Failed to save daily summary");
+    console.log("Failed to save daily summary");
   } finally {
     setSavingClose(false);
   }
