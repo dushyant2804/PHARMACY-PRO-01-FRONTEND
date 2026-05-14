@@ -34,7 +34,13 @@ export default function DailySales() {
 });
 
 const [historicalSaving, setHistoricalSaving] = useState(false);
+const [expenseForm, setExpenseForm] = useState({
+  category: "",
+  amount: "",
+  notes: "",
+});
 
+const [expenseSaving, setExpenseSaving] = useState(false);
   const load = async (d = date) => {
     setLoading(true); setError(null);
     try {
