@@ -14,6 +14,7 @@ const nav = [
   { to: "/billing", label: "New Bill", icon: Receipt, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/daily-sales", label: "Daily Sales", icon: BookOpen, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/invoices", label: "Invoices", icon: FileText, roles: ["admin", "cashier", "pharmacist"] },
+  { to: "/patients", label: "Patients", icon: Users, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/distributors", label: "Distributors", icon: Truck, roles: ["admin", "pharmacist"] },
   { to: "/customers", label: "Customers", icon: Users, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "pharmacist"] },
