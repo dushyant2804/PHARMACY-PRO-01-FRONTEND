@@ -29,10 +29,16 @@ function Kpi({ icon: Icon, label, value, sub, tone = "blue", testid }) {
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [alerts, setAlerts] = useState([]);
 
   useEffect(() => {
     api.get("/dashboard").then((r) => setData(r.data)).catch(() => {});
   }, []);
+  useEffect(() => {
+  api.get("/patients/alerts")
+    .then((r) => setAlerts(r.data || []))
+    .catch(() => {});
+}, []);
 
   if (!data) return <div className="text-slate-500">Loading dashboard…</div>;
 
