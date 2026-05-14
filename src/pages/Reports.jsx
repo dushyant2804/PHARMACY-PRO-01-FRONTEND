@@ -83,7 +83,6 @@ export default function Reports() {
 
   const cash = sales?.cash_total || 0;
   const upi = sales?.upi_total || 0;
-  const pending = sales?.pending_total || 0;
 
   setDailyClose((prev) => ({
     ...prev,
