@@ -48,29 +48,35 @@ export default function Dashboard() {
 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
   <div className="kpi-card">
-  <div className="text-xs uppercase text-slate-500">Today Sales</div>
-  <div className="text-2xl font-bold">
-    {fmtINR(sales?.total_sales || 0)}
+    <div className="text-xs uppercase text-slate-500">Today Sales</div>
+    <div className="text-2xl font-bold">
+      {fmtINR(data?.today_sales || 0)}
+    </div>
   </div>
-</div>
 
   <div className="kpi-card">
     <div className="text-xs uppercase text-slate-500">Stock Value</div>
-    <div className="text-2xl font-bold">{fmtINR(stock?.mrp_value || 0)}</div>
+    <div className="text-2xl font-bold">
+      {fmtINR(data?.stock_value || 0)}
+    </div>
   </div>
 
   <div className="kpi-card">
     <div className="text-xs uppercase text-red-500">Pending Dues</div>
-    <div className="text-2xl font-bold text-red-600">{fmtINR(outstanding?.total || 0)}</div>
+    <div className="text-2xl font-bold text-red-600">
+      {fmtINR(data?.pending_dues || 0)}
+    </div>
   </div>
 
   <div className="kpi-card">
     <div className="text-xs uppercase text-amber-500">Expiry Risk</div>
-    <div className="text-2xl font-bold">{expiry?.near_expiry?.length || 0}</div>
+    <div className="text-2xl font-bold">
+      {data?.near_expiry_count || 0}
+    </div>
   </div>
 
 </div>
-
+      
 {alerts?.length > 0 && (
   <div className="mt-4 bg-red-50 border border-red-200 rounded-sm p-3">
     <div className="font-semibold text-red-700 mb-2">
