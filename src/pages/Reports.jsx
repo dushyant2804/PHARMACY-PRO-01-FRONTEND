@@ -44,6 +44,17 @@ export default function Reports() {
     setMonthlyData(res.data);
   } finally {
     setMonthlyLoading(false);
+
+  const [dailyClose, setDailyClose] = useState({
+  date: today,
+  total_sales: "",
+  cash: "",
+  upi: "",
+  pending: "",
+  notes: ""
+});
+
+const [savingClose, setSavingClose] = useState(false);
   }
 };
 
