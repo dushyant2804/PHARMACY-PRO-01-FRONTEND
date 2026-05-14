@@ -74,6 +74,35 @@ export default function Reports() {
     api.get("/medicines").then((r) => setMedicines(r.data));
   }, []);
 
+  const saveDailySummary = async () => {
+  setSavingClose(true);
+  try {
+    await api.post("/daily-summary", {
+      date: dailyClose.date,
+      total_sales: Number(dailyClose.total_sales),
+      cash: Number(dailyClose.cash),
+      upi: Number(dailyClose.upi),
+      pending: Number(dailyClose.pending),
+      notes: dailyClose.notes,
+    });
+
+    toast.success("Daily summary saved");
+
+    setDailyClose({
+      date: today,
+      total_sales: "",
+      cash: "",
+      upi: "",
+      pending: "",
+      notes: ""
+    });
+  } catch (e) {
+    toast.error("Failed to save daily summary");
+  } finally {
+    setSavingClose(false);
+  }
+};
+  
   const categoryData = React.useMemo(() => {
     const map = {};
     medicines.forEach((m) => {
