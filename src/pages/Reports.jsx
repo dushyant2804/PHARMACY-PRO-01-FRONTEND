@@ -168,11 +168,30 @@ export default function Reports() {
           {sales && (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Kpi label="Total Sales" value={fmtINR(sales.total_sales)} tone="text-emerald-600" />
-                <Kpi label="GST Collected" value={fmtINR(sales.total_gst)} />
-                <Kpi label="Invoices" value={sales.invoice_count} />
-                <Kpi label="Est. Profit" value={fmtINR(sales.estimated_profit)} tone="text-blue-600" />
-              </div>
+
+  <Kpi
+    label="Total Sales"
+    value={fmtINR(sales?.total_sales || 0)}
+    tone="text-emerald-600"
+  />
+
+  <Kpi
+    label="GST Collected"
+    value={fmtINR(sales?.total_gst || 0)}
+  />
+
+  <Kpi
+    label="Invoices"
+    value={sales?.invoice_count || 0}
+  />
+
+  <Kpi
+    label="Est. Profit"
+    value={fmtINR(sales?.estimated_profit || 0)}
+    tone="text-blue-600"
+  />
+
+</div>
               {sales.daily.length > 0 && (
                 <div className="bg-white border border-slate-200 rounded-sm p-4">
                   <div className="font-heading font-semibold mb-3 text-slate-900">Daily sales trend</div>
@@ -225,14 +244,33 @@ export default function Reports() {
         </TabsContent>
 
         <TabsContent value="stock" className="space-y-4 mt-4">
-          {stock && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Kpi label="Total Items" value={stock.total_items} />
-              <Kpi label="Total Units" value={stock.total_units} />
-              <Kpi label="Cost Value" value={fmtINR(stock.cost_value)} />
-              <Kpi label="MRP Value" value={fmtINR(stock.mrp_value)} tone="text-emerald-600" />
-            </div>
-          )}
+  {stock && (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+      <Kpi
+        label="Total Items"
+        value={stock?.total_items || 0}
+      />
+
+      <Kpi
+        label="Total Units"
+        value={stock?.total_units || 0}
+      />
+
+      <Kpi
+        label="Cost Value"
+        value={fmtINR(stock?.cost_value || 0)}
+      />
+
+      <Kpi
+        label="MRP Value"
+        value={fmtINR(stock?.mrp_value || 0)}
+        tone="text-emerald-600"
+      />
+
+    </div>
+  )}
+        </TabsContent>
           {categoryData.length > 0 && (
             <div className="grid md:grid-cols-2 gap-4">
               <div className="bg-white border border-slate-200 rounded-sm p-4">
@@ -368,23 +406,23 @@ export default function Reports() {
   {monthlyData && (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
-      <Kpi
-        label="Total Sales"
-        value={fmtINR(monthlyData.sales)}
-        tone="text-emerald-600"
-      />
+<Kpi
+  label="Total Sales"
+  value={fmtINR(monthlyData?.sales || 0)}
+  tone="text-emerald-600"
+/>
 
-      <Kpi
-        label="Expenses"
-        value={fmtINR(monthlyData.expenses)}
-        tone="text-red-600"
-      />
+<Kpi
+  label="Expenses"
+  value={fmtINR(monthlyData?.expenses || 0)}
+  tone="text-red-600"
+/>
 
-      <Kpi
-        label="Estimated Profit"
-        value={fmtINR(monthlyData.estimated_profit)}
-        tone="text-blue-600"
-      />
+<Kpi
+  label="Estimated Profit"
+  value={fmtINR(monthlyData?.estimated_profit || 0)}
+  tone="text-blue-600"
+/>
 
     </div>
   )}
