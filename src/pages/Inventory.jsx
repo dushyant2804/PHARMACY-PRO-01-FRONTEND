@@ -198,7 +198,12 @@ export default function Inventory() {
               )}
               {meds.map((m) => {
                 const dte = daysToExpiry(m.expiry_date);
-                const low = m.quantity <= (m.low_stock_threshold || 10);
+
+                const currentQty =
+                (Number(m.current_boxes || 0) * Number(m.units_per_box || 1)) +
+                 Number(m.current_loose_units || 0);
+
+                const low = currentQty <= (m.low_stock_threshold || 10);
                 return (
                   <tr key={m.id}>
                     <td className="font-medium text-slate-900">{m.name}</td>
@@ -209,7 +214,7 @@ export default function Inventory() {
                     <td className="text-slate-700">{m.manufacturer}</td>
                     <td className="text-slate-700">{m.distributor}</td>
                     <td><CategoryBadge cat={m.category} /></td>
-                    <td className={`num-cell ${low ? "text-red-600 font-bold" : ""}`}>{m.quantity}</td>
+                    <td className={`num-cell ${low ? "text-red-600 font-bold" : ""}`}>{currentQty}</td>
                     <td className="num-cell text-slate-600">{fmtINR(m.purchase_price)}</td>
                     <td className="num-cell">{fmtINR(m.mrp)}</td>
                     {canEdit && (
