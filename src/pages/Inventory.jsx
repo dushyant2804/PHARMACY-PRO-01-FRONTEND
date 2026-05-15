@@ -94,7 +94,24 @@ export default function Inventory() {
     window.removeEventListener("keydown", handleKeyDown);
   };
 }, []);
+useEffect(() => {
+  const handleKeyDown = (e) => {
+    // Ctrl + / → Focus search
+    if (e.ctrlKey && e.key === "/") {
+      e.preventDefault();
 
+      document
+        .querySelector('[data-testid="inventory-search"]')
+        ?.focus();
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+  };
+}, []);
   const openNew = () => {
     setEditing(null);
     setForm(emptyForm);
