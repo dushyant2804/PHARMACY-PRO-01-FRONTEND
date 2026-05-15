@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -26,6 +26,30 @@ export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+  const handleKeyDown = (e) => {
+    // Esc → close any open dialog
+    if (e.key === "Escape") {
+      // close sidebar if open
+      setOpen(false);
+
+      // close any dialog in app
+      const closeBtn = document.querySelector(
+        '[data-radix-dialog-content] button[aria-label="Close"]'
+      );
+
+      if (closeBtn) {
+        closeBtn.click();
+      }
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+  };
+}, []);
 
   const role = user?.role || "cashier";
   const visibleNav = nav.filter((n) => n.roles.includes(role));
