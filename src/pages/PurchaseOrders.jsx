@@ -48,6 +48,30 @@ export default function PurchaseOrders() {
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+  const handleKeyDown = (e) => {
+    const tag = document.activeElement.tagName;
+
+    if (
+      tag === "INPUT" ||
+      tag === "TEXTAREA"
+    ) {
+      return;
+    }
+
+    // F6 → Open Purchase Order dialog
+    if (e.key === "F6") {
+      e.preventDefault();
+      setOpen(true);
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+  };
+}, []);
 
   const updateItem = (i, k, v) => {
     const c = [...items]; c[i] = { ...c[i], [k]: v }; setItems(c);
