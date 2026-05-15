@@ -117,17 +117,24 @@ useEffect(() => {
     setForm(emptyForm);
     setOpen(true);
   };
-  const openEdit = (m) => {
+ const openEdit = (m) => {
   setEditing(m);
+
   setForm({
     ...emptyForm,
     ...m,
+
+    boxes: m.boxes ?? 0,
+    units_per_box: m.units_per_box ?? 1,
+    loose_units: m.loose_units ?? 0,
+
     current_boxes: m.current_boxes ?? 0,
     current_strips: m.current_strips ?? 0,
     current_loose_units: m.current_loose_units ?? 0,
   });
+
   setOpen(true);
-};
+}; 
   const save = async (e) => {
     e.preventDefault();
     const boxes = Number(form.boxes || 0);
