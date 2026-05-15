@@ -33,6 +33,32 @@ export default function Billing() {
     api.get("/customers").then((r) => setCustomers(Array.isArray(r.data) ? r.data : [])).catch(() => setCustomers([]));
     api.get("/doctors").then((r) => setDoctors(Array.isArray(r.data) ? r.data : [])).catch(() => setDoctors([]));
   }, []);
+  useEffect(() => {
+  const handleKeyDown = (e) => {
+    const tag = document.activeElement.tagName;
+
+    if (
+      tag === "INPUT" ||
+      tag === "TEXTAREA"
+    ) {
+      return;
+    }
+
+    // F1 → New Bill
+    if (e.key === "F1") {
+      e.preventDefault();
+
+      // Reset bill / open fresh bill
+      newBill();
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+  };
+}, []);
 
   const filtered = useMemo(() => {
     if (!search) return [];
