@@ -118,11 +118,16 @@ useEffect(() => {
     setOpen(true);
   };
   const openEdit = (m) => {
-    setEditing(m);
-    setForm({ ...m });
-    setOpen(true);
-  };
-
+  setEditing(m);
+  setForm({
+    ...emptyForm,
+    ...m,
+    current_boxes: m.current_boxes ?? 0,
+    current_strips: m.current_strips ?? 0,
+    current_loose_units: m.current_loose_units ?? 0,
+  });
+  setOpen(true);
+};
   const save = async (e) => {
     e.preventDefault();
     const boxes = Number(form.boxes || 0);
