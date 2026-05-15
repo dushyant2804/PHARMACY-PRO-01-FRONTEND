@@ -243,10 +243,47 @@ export default function Inventory() {
                 className="mt-1 rounded-sm" data-testid="form-batch_no" />
             </div>
             <div>
-              <Label className="text-xs uppercase tracking-wider font-semibold text-slate-600">Expiry *</Label>
-              <Input required type="date" value={form.expiry_date} onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}
-                className="mt-1 rounded-sm" data-testid="form-expiry_date" />
-            </div>
+  <Label className="text-xs uppercase tracking-wider font-semibold text-slate-600">
+    Expiry (MM/YY) *
+  </Label>
+
+  <Input
+    required
+    placeholder="08/27"
+    value={
+      form.expiry_date
+        ? `${form.expiry_date.split("-")[1]}/${form.expiry_date.split("-")[0].slice(2)}`
+        : ""
+    }
+    onChange={(e) => {
+      let value = e.target.value;
+
+      // Auto add slash
+      if (value.length === 2 && !value.includes("/")) {
+        value += "/";
+      }
+
+      // Convert MM/YY → YYYY-MM-01
+      if (value.length === 5) {
+        const [month, year] = value.split("/");
+
+        if (month && year) {
+          setForm({
+            ...form,
+            expiry_date: `20${year}-${month}-01`,
+          });
+        }
+      } else {
+        setForm({
+          ...form,
+          expiry_date: "",
+        });
+      }
+    }}
+    className="mt-1 rounded-sm"
+    data-testid="form-expiry_date"
+  />
+</div>
             <div>
               <Label className="text-xs uppercase tracking-wider font-semibold text-slate-600">Manufacturer *</Label>
               <Input required value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
