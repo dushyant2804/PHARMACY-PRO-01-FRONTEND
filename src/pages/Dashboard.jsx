@@ -120,11 +120,6 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="bg-white border border-slate-200 rounded-sm">
-      <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-        <div className="font-heading font-semibold text-slate-900">
-          Low stock alerts
-        </div>
         <Link to="/inventory" className="text-xs text-blue-600 hover:underline">
           View all →
         </Link>
