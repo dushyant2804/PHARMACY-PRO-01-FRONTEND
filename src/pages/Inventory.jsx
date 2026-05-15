@@ -250,35 +250,37 @@ export default function Inventory() {
   <Input
     required
     placeholder="08/27"
-    value={
-      form.expiry_date
-        ? `${form.expiry_date.split("-")[1]}/${form.expiry_date.split("-")[0].slice(2)}`
-        : ""
-    }
+    value={form.expiry_display || ""}
     onChange={(e) => {
       let value = e.target.value;
+
+      // Allow only numbers and /
+      value = value.replace(/[^0-9/]/g, "");
 
       // Auto add slash
       if (value.length === 2 && !value.includes("/")) {
         value += "/";
       }
 
+      // Save display value
+      let updatedForm = {
+        ...form,
+        expiry_display: value,
+      };
+
       // Convert MM/YY → YYYY-MM-01
       if (value.length === 5) {
         const [month, year] = value.split("/");
 
-        if (month && year) {
-          setForm({
-            ...form,
-            expiry_date: `20${year}-${month}-01`,
-          });
+        if (
+          Number(month) >= 1 &&
+          Number(month) <= 12
+        ) {
+          updatedForm.expiry_date = `20${year}-${month}-01`;
         }
-      } else {
-        setForm({
-          ...form,
-          expiry_date: "",
-        });
       }
+
+      setForm(updatedForm);
     }}
     className="mt-1 rounded-sm"
     data-testid="form-expiry_date"
