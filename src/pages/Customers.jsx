@@ -18,6 +18,30 @@ export default function Customers() {
 
   const load = () => api.get("/customers").then((r) => setList(r.data));
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+  const handleKeyDown = (e) => {
+    const tag = document.activeElement.tagName;
+
+    if (
+      tag === "INPUT" ||
+      tag === "TEXTAREA"
+    ) {
+      return;
+    }
+
+    // F3 → Open customer transaction
+    if (e.key === "F3") {
+      e.preventDefault();
+      setOpen(true);
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+  };
+}, []);
 
   const save = async (e) => {
     e.preventDefault();
