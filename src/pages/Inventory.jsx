@@ -69,6 +69,31 @@ export default function Inventory() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [search, filterCat, sortBy]);
+  useEffect(() => {
+  const handleKeyDown = (e) => {
+    // Ignore typing inside inputs
+    const tag = document.activeElement.tagName;
+
+    if (
+      tag === "INPUT" ||
+      tag === "TEXTAREA"
+    ) {
+      return;
+    }
+
+    // F2 → Open Add Medicine
+    if (e.key === "F2") {
+      e.preventDefault();
+      openNew();
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+  };
+}, []);
 
   const openNew = () => {
     setEditing(null);
