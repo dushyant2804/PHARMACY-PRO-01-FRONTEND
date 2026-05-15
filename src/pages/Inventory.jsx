@@ -57,16 +57,34 @@ export default function Inventory() {
     api.get("/distributors").then((r) => setDistributors(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
 
-  const load = async () => {
-    try {
-      const params = {};
-      if (search) params.search = search;
-      if (filterCat !== "all") params.category = filterCat;
-      params.sort_by = sortBy;
-      const { data } = await api.get("/medicines", { params });
-      setMeds(data);
-    } catch (e) { toast.error(formatApiError(e)); }
-  };
+const load = async () => {
+  try {
+    const params = {};
+    if (search) params.search = search;
+    if (filterCat !== "all") params.category = filterCat;
+    params.sort_by = sortBy;
+
+    const { data } = await api.get("/medicines", { params });
+
+    setMeds(
+      (Array.isArray(data) ? data : []).map(m => ({
+        ...m,
+        boxes: Number(m.boxes || 0),
+        units_per_box: Number(m.units_per_box || 1),
+        loose_units: Number(m.loose_units || 0),
+
+        current_boxes: Number(m.current_boxes || 0),
+        current_strips: Number(m.current_strips || 0),
+        current_loose_units: Number(m.current_loose_units || 0),
+
+        low_stock_threshold: Number(m.low_stock_threshold || 10),
+        quantity: Number(m.quantity || 0),
+      }))
+    );
+  } catch (e) {
+    toast.error(formatApiError(e));
+  }
+};
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [search, filterCat, sortBy]);
   useEffect(() => {
@@ -120,21 +138,22 @@ useEffect(() => {
  const openEdit = (m) => {
   setEditing(m);
 
-  setForm({
+  const safe = {
     ...emptyForm,
     ...m,
 
-    boxes: m.boxes ?? 0,
-    units_per_box: m.units_per_box ?? 1,
-    loose_units: m.loose_units ?? 0,
+    boxes: Number(m.boxes || 0),
+    units_per_box: Number(m.units_per_box || 1),
+    loose_units: Number(m.loose_units || 0),
 
-    current_boxes: m.current_boxes ?? 0,
-    current_strips: m.current_strips ?? 0,
-    current_loose_units: m.current_loose_units ?? 0,
-  });
+    current_boxes: Number(m.current_boxes || 0),
+    current_strips: Number(m.current_strips || 0),
+    current_loose_units: Number(m.current_loose_units || 0),
+  };
 
+  setForm(safe);
   setOpen(true);
-}; 
+};
   const save = async (e) => {
     e.preventDefault();
     const boxes = Number(form.boxes || 0);
@@ -142,8 +161,11 @@ useEffect(() => {
     const loose = Number(form.loose_units || 0);
     const totalQty = boxes * upb + loose;
     const payload = {
-      ...form,
+      ...form, 
       boxes, units_per_box: upb, loose_units: loose,
+      current_boxes: Number(form.current_boxes || 0),
+      current_strips: Number(form.current_strips || 0),
+      current_loose_units: Number(form.current_loose_units || 0),
       quantity: totalQty,
       purchase_price: Number(form.purchase_price),
       mrp: Number(form.mrp),
