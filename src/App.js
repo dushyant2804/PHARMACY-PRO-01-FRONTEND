@@ -49,7 +49,7 @@ function Protected({ children }) {
 function KeyboardShortcuts() {
   const navigate = useNavigate();
 
-  React.useEffect(() => {
+  useEffect(() => {
 
     const handleKey = (e) => {
 
