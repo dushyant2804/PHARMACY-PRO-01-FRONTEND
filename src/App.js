@@ -40,7 +40,13 @@ function NotFound() {
 }
 
 function Protected({ children }) {
-  function KeyboardShortcuts() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="h-screen flex items-center justify-center text-slate-500">Loading…</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  return <Layout><ErrorBoundary>{children}</ErrorBoundary></Layout>;
+}
+
+function KeyboardShortcuts() {
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -119,11 +125,6 @@ function Protected({ children }) {
   }, [navigate]);
 
   return null;
-}
-  const { user, loading } = useAuth();
-  if (loading) return <div className="h-screen flex items-center justify-center text-slate-500">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace />;
-  return <Layout><ErrorBoundary>{children}</ErrorBoundary></Layout>;
 }
 
 function App() {
