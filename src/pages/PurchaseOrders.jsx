@@ -25,6 +25,7 @@ export default function PurchaseOrders() {
   const [open, setOpen] = useState(false);
   const [distId, setDistId] = useState("");
   const [invoiceRef, setInvoiceRef] = useState("");
+  const [packSize, setPackSize] = useState(1);
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState([{ ...emptyItem }]);
 
