@@ -196,11 +196,14 @@ export default function Inventory() {
                   <td>{m.name}</td>
                   <td>{m.batch_no}</td>
                   <td>{fmtDate(m.expiry_date)}</td>
+                  <td>{m.distributor}</td>
+                  <td>{m.pack_size || "-"}</td>
 
                   <td className={low ? "text-red-600 font-bold" : ""}>
                     {qty}
                   </td>
 
+                  <td>{fmtINR(m.purchase_price)}</td> 
                   <td>{fmtINR(m.mrp)}</td>
 
                   <td>
