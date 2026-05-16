@@ -62,6 +62,24 @@ export default function Inventory() {
   const [distributors, setDistributors] = useState([]);
 
   useEffect(() => {
+
+  const handleKey = (e) => {
+
+    if (e.key === "F2") {
+      e.preventDefault();
+      setOpen(true);
+    }
+
+  };
+
+  window.addEventListener("keydown", handleKey);
+
+  return () => {
+    window.removeEventListener("keydown", handleKey);
+  };
+
+}, []);
+  useEffect(() => {
     api.get("/distributors")
       .then((r) => setDistributors(Array.isArray(r.data) ? r.data : []))
       .catch(() => {});
