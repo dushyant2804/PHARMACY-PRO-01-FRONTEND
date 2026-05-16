@@ -218,47 +218,204 @@ export default function Inventory() {
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={save} className="space-y-3">
+<form onSubmit={save} className="grid grid-cols-2 gap-4">
 
-            <Input
-              placeholder="Name"
-              value={form.name}
-              onChange={(e) =>
-                setForm({ ...form, name: e.target.value })
-              }
-            />
+  <div>
+    <Label>Medicine Name</Label>
+    <Input
+      value={form.name}
+      onChange={(e) =>
+        setForm({ ...form, name: e.target.value })
+      }
+    />
+  </div>
 
-            <Input
-              placeholder="Batch"
-              value={form.batch_no}
-              onChange={(e) =>
-                setForm({ ...form, batch_no: e.target.value })
-              }
-            />
+  <div>
+    <Label>Batch Number</Label>
+    <Input
+      value={form.batch_no}
+      onChange={(e) =>
+        setForm({ ...form, batch_no: e.target.value })
+      }
+    />
+  </div>
 
-            <Input
-              type="number"
-              placeholder="Quantity Units"
-              value={form.quantity_units}
-              onChange={(e) =>
-                setForm({ ...form, quantity_units: e.target.value })
-              }
-            />
+  <div>
+    <Label>Expiry Date</Label>
+    <Input
+      type="date"
+      value={form.expiry_date}
+      onChange={(e) =>
+        setForm({ ...form, expiry_date: e.target.value })
+      }
+    />
+  </div>
 
-            <Input
-              type="number"
-              placeholder="MRP"
-              value={form.mrp}
-              onChange={(e) =>
-                setForm({ ...form, mrp: e.target.value })
-              }
-            />
+  <div>
+    <Label>Manufacturer</Label>
+    <Input
+      value={form.manufacturer}
+      onChange={(e) =>
+        setForm({ ...form, manufacturer: e.target.value })
+      }
+    />
+  </div>
 
-            <Button type="submit">
-              Save
-            </Button>
+  <div className="col-span-2">
+    <Label>Distributor</Label>
 
-          </form>
+    <Autocomplete
+      value={form.distributor}
+      onChange={(text, item) =>
+        setForm({
+          ...form,
+          distributor: text,
+          distributor_id: item?.id || "",
+        })
+      }
+      options={distributors.map((d) => ({
+        id: d.id,
+        label: d.name,
+        value: d.name,
+      }))}
+      placeholder="Search distributor..."
+    />
+  </div>
+
+  <div>
+    <Label>Purchase Price</Label>
+    <Input
+      type="number"
+      step="0.01"
+      value={form.purchase_price}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          purchase_price: e.target.value,
+        })
+      }
+    />
+  </div>
+
+  <div>
+    <Label>MRP</Label>
+    <Input
+      type="number"
+      step="0.01"
+      value={form.mrp}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          mrp: e.target.value,
+        })
+      }
+    />
+  </div>
+
+  <div>
+    <Label>Purchased Units</Label>
+
+    <Input
+      type="number"
+      min="0"
+      value={form.purchased_units || 0}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          purchased_units: e.target.value,
+        })
+      }
+    />
+  </div>
+
+  <div>
+    <Label>Low Stock Alert</Label>
+
+    <Input
+      type="number"
+      min="0"
+      value={form.low_stock_threshold}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          low_stock_threshold: e.target.value,
+        })
+      }
+    />
+  </div>
+
+  <div>
+    <Label>GST %</Label>
+
+    <Input
+      type="number"
+      value={form.gst_rate}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          gst_rate: e.target.value,
+        })
+      }
+    />
+  </div>
+
+  <div>
+    <Label>Barcode</Label>
+
+    <Input
+      value={form.barcode}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          barcode: e.target.value,
+        })
+      }
+    />
+  </div>
+
+  <div className="col-span-2">
+    <Label>Category</Label>
+
+    <Select
+      value={form.category}
+      onValueChange={(v) =>
+        setForm({
+          ...form,
+          category: v,
+        })
+      }
+    >
+      <SelectTrigger>
+        <SelectValue />
+      </SelectTrigger>
+
+      <SelectContent>
+        {CATEGORIES.map((c) => (
+          <SelectItem key={c} value={c}>
+            {c}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+
+  <div className="col-span-2 flex justify-end gap-2 pt-2">
+
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => setOpen(false)}
+    >
+      Cancel
+    </Button>
+
+    <Button type="submit">
+      {editing ? "Update Medicine" : "Add Medicine"}
+    </Button>
+
+  </div>
+
+</form>
         </DialogContent>
       </Dialog>
 
