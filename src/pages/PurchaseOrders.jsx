@@ -13,6 +13,7 @@ import { CATEGORIES } from "@/lib/categories";
 const emptyItem = {
   name: "", batch_no: "", expiry_date: "", manufacturer: "",
   category: "OTC", quantity: 1, purchase_price: 0, mrp: 0, gst_rate: 12,
+  pack_size: 1,
 };
 
 export default function PurchaseOrders() {
@@ -266,7 +267,8 @@ export default function PurchaseOrders() {
                 <thead>
                   <tr>
                     <th>Medicine *</th><th>Batch *</th><th>Expiry *</th><th>Mfr</th><th>Category</th>
-                    <th className="text-right">Qty</th><th className="text-right">Purchase ₹</th>
+                    <th className="text-right">Qty</th><th className="text-right">Pack Size</th>
+                    <th className="text-right">Purchase ₹</th>
                     <th className="text-right">MRP ₹</th><th className="text-right">GST%</th><th></th>
                   </tr>
                 </thead>
