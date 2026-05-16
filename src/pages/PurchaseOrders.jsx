@@ -287,6 +287,18 @@ export default function PurchaseOrders() {
                           </SelectContent>
                         </Select>
                       </td>
+                      <td>
+                       <Input
+                        type="number"
+                        min="1"
+                        value={it.pack_size || 1}
+                        onChange={(e) =>
+                         updateItem(i, "pack_size", Number(e.target.value))
+                        }
+                        className="h-8 w-20 text-right rounded-sm"
+                        placeholder="Pack"
+                       />
+                      </td>
                       <td><Input type="number" value={it.quantity} onChange={(e) => updateItem(i, "quantity", e.target.value)} className="h-8 w-20 text-right rounded-sm" /></td>
                       <td><Input type="number" step="0.01" value={it.purchase_price} onChange={(e) => updateItem(i, "purchase_price", e.target.value)} className="h-8 w-24 text-right rounded-sm" /></td>
                       <td><Input type="number" step="0.01" value={it.mrp} onChange={(e) => updateItem(i, "mrp", e.target.value)} className="h-8 w-24 text-right rounded-sm" /></td>
