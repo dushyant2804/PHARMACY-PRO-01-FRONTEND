@@ -300,19 +300,35 @@ export default function Inventory() {
   </div>
 
   <div>
-    <Label>MRP</Label>
-    <Input
-      type="number"
-      step="0.01"
-      value={form.mrp}
-      onChange={(e) =>
-        setForm({
-          ...form,
-          mrp: e.target.value,
-        })
-      }
-    />
-  </div>
+  <Label>MRP</Label>
+
+  <Input
+    type="number"
+    step="0.01"
+    value={form.mrp}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        mrp: e.target.value,
+      })
+    }
+  />
+</div>
+
+<div>
+  <Label>Pack Size</Label>
+
+  <Input
+    placeholder="10 tablets / strip"
+    value={form.pack_size}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        pack_size: e.target.value,
+      })
+    }
+  />
+</div>
 
   <div>
     <Label>Purchased Units</Label>
