@@ -1,4 +1,5 @@
 import "@/App.css";
+import { useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -132,6 +133,7 @@ function App() {
     <div className="App">
       <AuthProvider>
         <BrowserRouter>
+         <KeyboardShortcuts />
           <Toaster position="top-right" richColors />
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -152,7 +154,6 @@ function App() {
             <Route path="*" element={<Protected><NotFound /></Protected>} />
           </Routes>
         </BrowserRouter>
-       <KeyboardShortcuts />
       </AuthProvider>
     </div>
   );
