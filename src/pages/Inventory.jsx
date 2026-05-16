@@ -177,7 +177,10 @@ export default function Inventory() {
               <th>Name</th>
               <th>Batch</th>
               <th>Expiry</th>
+              <th>Distributor</th>
+              <th>Pack Size</th>
               <th>Qty</th>
+              <th>Purchase</th>
               <th>MRP</th>
               <th>Actions</th>
             </tr>
