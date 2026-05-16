@@ -26,6 +26,7 @@ const emptyForm = {
 
   purchase_price: "",
   mrp: "",
+  pack_size: str = ""
 
   // ONLY STOCK SOURCE
   quantity_units: 0,
