@@ -31,6 +31,7 @@ const emptyForm = {
 
   // ONLY STOCK SOURCE
   quantity_units: 0,
+  sold_units: 0,
 
   category: "OTC",
   gst_rate: 12,
@@ -113,6 +114,8 @@ export default function Inventory() {
     setForm({
       ...emptyForm,
       ...m,
+      sold_units: Number(m.sold_units || 0),
+      purchased_units: Number(m.purchased_units || m.quantity_units || 0),
       quantity_units: Number(m.quantity_units || 0),
     });
     setOpen(true);
@@ -124,6 +127,8 @@ export default function Inventory() {
     const payload = {
       ...form,
       quantity_units: Number(form.quantity_units || 0),
+      purchased_units: Number(form.purchased_units || 0),
+      sold_units: Number(form.sold_units || 0),
       purchase_price: Number(form.purchase_price),
       mrp: Number(form.mrp),
       gst_rate: Number(form.gst_rate),
@@ -206,7 +211,9 @@ export default function Inventory() {
 
           <tbody>
             {meds.map((m) => {
-              const qty = Number(m.quantity_units || 0);
+              const purchased = Number(m.purchased_units || m.quantity_units || 0);
+              const sold = Number(m.sold_units || 0);
+              const qty = purchased - sold;
               const low = qty <= Number(m.low_stock_threshold || 10);
 
               return (
@@ -269,12 +276,26 @@ export default function Inventory() {
   <div>
     <Label>Expiry Date</Label>
     <Input
-      type="date"
-      value={form.expiry_date}
-      onChange={(e) =>
-        setForm({ ...form, expiry_date: e.target.value })
-      }
-    />
+     placeholder="MM/YY"
+     value={form.expiry_date}
+     onChange={(e) => {
+    const value = e.target.value;
+
+    if (value.length === 5 && value.includes("/")) {
+      const [mm, yy] = value.split("/");
+
+      setForm({
+        ...form,
+        expiry_date: `01/${mm.padStart(2, "0")}/20${yy}`,
+      });
+    } else {
+      setForm({
+        ...form,
+        expiry_date: value,
+      });
+    }
+  }}
+/>
   </div>
 
   <div>
@@ -369,6 +390,22 @@ export default function Inventory() {
       }
     />
   </div>
+
+  <div>
+  <Label>Sold Units</Label>
+
+  <Input
+    type="number"
+    min="0"
+    value={form.sold_units || 0}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        sold_units: e.target.value,
+      })
+    }
+  />
+</div>
 
   <div>
     <Label>Low Stock Alert</Label>
