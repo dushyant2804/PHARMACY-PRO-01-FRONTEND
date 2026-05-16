@@ -271,6 +271,76 @@ export default function Reports() {
     </div>
   )}
         </TabsContent>
+        <TabsContent value="outstanding" className="space-y-4 mt-4">
+
+  <div className="grid md:grid-cols-2 gap-4">
+
+    {/* CUSTOMER OUTSTANDING */}
+    <div className="bg-white border border-slate-200 rounded-sm p-4">
+      <div className="font-heading font-semibold mb-3 text-slate-900">
+        Customer Outstanding
+      </div>
+
+      {!outstanding?.customers?.length ? (
+        <div className="text-sm text-slate-500">
+          No customer outstanding
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {outstanding.customers.map((c) => (
+            <div
+              key={c.id}
+              className="flex justify-between border-b py-2 text-sm"
+            >
+              <div>
+                <div className="font-medium">{c.name}</div>
+                <div className="text-slate-500 text-xs">
+                  {c.phone}
+                </div>
+              </div>
+
+              <div className="font-bold text-red-600">
+                {fmtINR(c.balance)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* DISTRIBUTOR OUTSTANDING */}
+    <div className="bg-white border border-slate-200 rounded-sm p-4">
+      <div className="font-heading font-semibold mb-3 text-slate-900">
+        Distributor Outstanding
+      </div>
+
+      {!outstanding?.distributors?.length ? (
+        <div className="text-sm text-slate-500">
+          No distributor outstanding
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {outstanding.distributors.map((d) => (
+            <div
+              key={d.id}
+              className="flex justify-between border-b py-2 text-sm"
+            >
+              <div className="font-medium">
+                {d.name}
+              </div>
+
+              <div className="font-bold text-amber-600">
+                {fmtINR(d.balance)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+  </div>
+
+</TabsContent>
           {categoryData.length > 0 && (
   <div className="grid md:grid-cols-2 gap-4">
 
