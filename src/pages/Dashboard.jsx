@@ -45,7 +45,7 @@ export default function Dashboard() {
       </div>
 
       {/* TOP CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
 
         <Card>
           <CardContent className="p-4">
@@ -82,6 +82,30 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        <Card>
+  <CardContent className="p-4">
+    <div className="text-sm text-slate-500">
+      Customer Outstanding
+    </div>
+
+    <div className="text-xl font-bold text-orange-600">
+      {fmtINR(data.customer_outstanding || 0)}
+    </div>
+  </CardContent>
+</Card>
+
+<Card>
+  <CardContent className="p-4">
+    <div className="text-sm text-slate-500">
+      Distributor Payable
+    </div>
+
+    <div className="text-xl font-bold text-rose-600">
+      {fmtINR(data.distributor_outstanding || 0)}
+    </div>
+  </CardContent>
+</Card>
 
       </div>
 
