@@ -1,5 +1,11 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate
+} from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Toaster } from "sonner";
 import Login from "@/pages/Login";
@@ -34,6 +40,86 @@ function NotFound() {
 }
 
 function Protected({ children }) {
+  function KeyboardShortcuts() {
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+
+    const handleKey = (e) => {
+
+      // Ignore typing inside inputs
+      const tag = document.activeElement?.tagName;
+
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA"
+      ) {
+        return;
+      }
+
+      switch (e.key) {
+
+        case "F1":
+          e.preventDefault();
+          navigate("/");
+          break;
+
+        case "F2":
+          e.preventDefault();
+          navigate("/inventory");
+          break;
+
+        case "F3":
+          e.preventDefault();
+          navigate("/billing");
+          break;
+
+        case "F4":
+          e.preventDefault();
+          navigate("/invoices");
+          break;
+
+        case "F5":
+          e.preventDefault();
+          navigate("/customers");
+          break;
+
+        case "F6":
+          e.preventDefault();
+          navigate("/distributors");
+          break;
+
+        case "F7":
+          e.preventDefault();
+          navigate("/reports");
+          break;
+
+        case "F8":
+          e.preventDefault();
+          navigate("/purchase-orders");
+          break;
+
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener(
+      "keydown",
+      handleKey
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleKey
+      );
+    };
+
+  }, [navigate]);
+
+  return null;
+}
   const { user, loading } = useAuth();
   if (loading) return <div className="h-screen flex items-center justify-center text-slate-500">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
@@ -65,6 +151,7 @@ function App() {
             <Route path="*" element={<Protected><NotFound /></Protected>} />
           </Routes>
         </BrowserRouter>
+       <KeyboardShortcuts />
       </AuthProvider>
     </div>
   );
