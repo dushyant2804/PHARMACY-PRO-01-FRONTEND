@@ -82,7 +82,7 @@ export default function PurchaseOrders() {
   const removeRow = (i) => setItems(items.length > 1 ? items.filter((_, idx) => idx !== i) : items);
 
   const total = items.reduce(
-    (s, i) => s + Number(i.purchase_price || 0) * Number(i.quantity || 0),
+    (s, i) => s + Number(i.purchase_price || 0) * Number(i.quantity || 0) * Number(i.pack_size || 1),
     0
   );
 
