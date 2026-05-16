@@ -1,11 +1,9 @@
 import "@/App.css";
-import { useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
   Route,
   Navigate,
-  useNavigate
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Toaster } from "sonner";
@@ -47,93 +45,11 @@ function Protected({ children }) {
   return <Layout><ErrorBoundary>{children}</ErrorBoundary></Layout>;
 }
 
-function KeyboardShortcuts() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-
-    const handleKey = (e) => {
-
-      // Ignore typing inside inputs
-      const tag = document.activeElement?.tagName;
-
-      if (
-        tag === "INPUT" ||
-        tag === "TEXTAREA"
-      ) {
-        return;
-      }
-
-      switch (e.key) {
-
-        case "F1":
-          e.preventDefault();
-          navigate("/");
-          break;
-
-        case "F2":
-          e.preventDefault();
-          navigate("/inventory");
-          break;
-
-        case "F3":
-          e.preventDefault();
-          navigate("/billing");
-          break;
-
-        case "F4":
-          e.preventDefault();
-          navigate("/invoices");
-          break;
-
-        case "F5":
-          e.preventDefault();
-          navigate("/customers");
-          break;
-
-        case "F6":
-          e.preventDefault();
-          navigate("/distributors");
-          break;
-
-        case "F7":
-          e.preventDefault();
-          navigate("/reports");
-          break;
-
-        case "F8":
-          e.preventDefault();
-          navigate("/purchase-orders");
-          break;
-
-        default:
-          break;
-      }
-    };
-
-    window.addEventListener(
-      "keydown",
-      handleKey
-    );
-
-    return () => {
-      window.removeEventListener(
-        "keydown",
-        handleKey
-      );
-    };
-
-  }, [navigate]);
-
-  return null;
-}
-
 function App() {
   return (
     <div className="App">
       <AuthProvider>
         <BrowserRouter>
-         <KeyboardShortcuts />
           <Toaster position="top-right" richColors />
           <Routes>
             <Route path="/login" element={<Login />} />
