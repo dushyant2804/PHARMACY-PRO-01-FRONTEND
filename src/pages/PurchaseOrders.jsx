@@ -11,9 +11,20 @@ import { Link, useNavigate } from "react-router-dom";
 import { CATEGORIES } from "@/lib/categories";
 
 const emptyItem = {
-  name: "", batch_no: "", expiry_date: "", manufacturer: "",
-  category: "OTC", quantity: 1, purchase_price: 0, mrp: 0, gst_rate: 12,
+  name: "",
+  batch_no: "",
+  expiry_date: "",
+  manufacturer: "",
+  category: "OTC",
+
+  quantity: 1,
   pack_size: 1,
+
+  sold_units: 0,
+
+  purchase_price: 0,
+  mrp: 0,
+  gst_rate: 12,
 };
 
 export default function PurchaseOrders() {
@@ -28,6 +39,9 @@ export default function PurchaseOrders() {
   const [invoiceRef, setInvoiceRef] = useState("");
   const [packSize, setPackSize] = useState(1);
   const [notes, setNotes] = useState("");
+  const [poDate, setPoDate] = useState(
+  new Date().toISOString().split("T")[0]
+);
   const [items, setItems] = useState([{ ...emptyItem }]);
 
   const load = async () => {
@@ -99,6 +113,7 @@ export default function PurchaseOrders() {
         distributor_name: d.name,
         invoice_ref: invoiceRef || "",
         notes: notes || "",
+        po_date: poDate,
         items: validItems.map((i) => ({
           name: i.name.trim(),
           batch_no: i.batch_no.trim(),
@@ -106,6 +121,8 @@ export default function PurchaseOrders() {
           manufacturer: i.manufacturer || "",
           category: i.category || "OTC",
           quantity: Number(i.quantity) || 0,
+          pack_size: Number(i.pack_size || 1),
+          sold_units: Number(i.sold_units || 0),
           purchase_price: Number(i.purchase_price) || 0,
           mrp: Number(i.mrp) || 0,
           gst_rate: Number(i.gst_rate) || 0,
@@ -260,6 +277,18 @@ export default function PurchaseOrders() {
                 <Label className="text-xs uppercase font-semibold text-slate-600">Notes</Label>
                 <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="rounded-sm mt-1" />
               </div>
+                <div>
+  <Label className="text-xs uppercase font-semibold text-slate-600">
+    PO Date
+  </Label>
+
+  <Input
+    type="date"
+    value={poDate}
+    onChange={(e) => setPoDate(e.target.value)}
+    className="rounded-sm mt-1"
+  />
+</div>
             </div>
 
             <div className="border border-slate-200 rounded-sm overflow-x-auto">
@@ -267,7 +296,7 @@ export default function PurchaseOrders() {
                 <thead>
                   <tr>
                     <th>Medicine *</th><th>Batch *</th><th>Expiry *</th><th>Mfr</th><th>Category</th>
-                    <th className="text-right">Qty</th><th className="text-right">Pack Size</th>
+                    <th className="text-right">Qty</th><th className="text-right">Sold</th><th className="text-right">Pack Size</th>
                     <th className="text-right">Purchase ₹</th>
                     <th className="text-right">MRP ₹</th><th className="text-right">GST%</th><th></th>
                   </tr>
@@ -277,7 +306,28 @@ export default function PurchaseOrders() {
                     <tr key={i}>
                       <td><Input value={it.name} onChange={(e) => updateItem(i, "name", e.target.value)} required className="h-8 rounded-sm" data-testid={`po-item-name-${i}`} /></td>
                       <td><Input value={it.batch_no} onChange={(e) => updateItem(i, "batch_no", e.target.value)} required className="h-8 rounded-sm w-24" /></td>
-                      <td><Input type="date" value={it.expiry_date} onChange={(e) => updateItem(i, "expiry_date", e.target.value)} required className="h-8 rounded-sm w-36" /></td>
+                      <Input
+  placeholder="MM/YY"
+  value={it.expiry_date}
+  onChange={(e) => {
+
+    let val = e.target.value;
+
+    if (
+      val.length === 5 &&
+      val.includes("/")
+    ) {
+
+      const [mm, yy] = val.split("/");
+
+      val = `20${yy}-${mm}-01`;
+    }
+
+    updateItem(i, "expiry_date", val);
+  }}
+  required
+  className="h-8 rounded-sm w-36"
+/>
                       <td><Input value={it.manufacturer} onChange={(e) => updateItem(i, "manufacturer", e.target.value)} className="h-8 rounded-sm w-28" /></td>
                       <td>
                         <Select value={it.category} onValueChange={(v) => updateItem(i, "category", v)}>
@@ -300,6 +350,16 @@ export default function PurchaseOrders() {
                        />
                       </td>
                       <td><Input type="number" value={it.quantity} onChange={(e) => updateItem(i, "quantity", e.target.value)} className="h-8 w-20 text-right rounded-sm" /></td>
+                        <td>
+  <Input
+    type="number"
+    value={it.sold_units}
+    onChange={(e) =>
+      updateItem(i, "sold_units", e.target.value)
+    }
+    className="h-8 w-20 text-right rounded-sm"
+  />
+</td>
                       <td><Input type="number" step="0.01" value={it.purchase_price} onChange={(e) => updateItem(i, "purchase_price", e.target.value)} className="h-8 w-24 text-right rounded-sm" /></td>
                       <td><Input type="number" step="0.01" value={it.mrp} onChange={(e) => updateItem(i, "mrp", e.target.value)} className="h-8 w-24 text-right rounded-sm" /></td>
                       <td><Input type="number" value={it.gst_rate} onChange={(e) => updateItem(i, "gst_rate", e.target.value)} className="h-8 w-16 text-right rounded-sm" /></td>
