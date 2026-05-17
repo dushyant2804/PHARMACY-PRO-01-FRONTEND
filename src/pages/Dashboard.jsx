@@ -2,10 +2,12 @@ import React, { useEffect, useState } from "react";
 import api, { fmtINR } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const load = async () => {
     try {
@@ -47,33 +49,78 @@ export default function Dashboard() {
       {/* TOP CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-slate-500">Total Sales</div>
-            <div className="text-xl font-bold text-green-600">
-              {fmtINR(data.sales)}
-            </div>
-          </CardContent>
-        </Card>
+<Card
+  className="cursor-pointer hover:shadow-md transition"
+  onClick={() => navigate("/reports")}
+>
+  <CardContent className="p-4">
+    <div className="text-sm text-slate-500">
+      Total Sales
+    </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-slate-500">Expenses</div>
-            <div className="text-xl font-bold text-red-600">
-              {fmtINR(data.expenses)}
-            </div>
-          </CardContent>
-        </Card>
+    <div className="text-xl font-bold text-green-600">
+      {fmtINR(data.sales)}
+    </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-slate-500">Profit</div>
-            <div className="text-xl font-bold text-blue-600">
-              {fmtINR(data.profit)}
-            </div>
-          </CardContent>
-        </Card>
+    <div className="mt-2 text-xs text-slate-500">
+      This Month: {fmtINR(data.sales_month || 0)}
+    </div>
 
+    <div className="text-xs text-slate-500">
+      Today: {fmtINR(data.sales_today || 0)}
+    </div>
+  </CardContent>
+</Card>
+
+<Card
+  className="cursor-pointer hover:shadow-md transition"
+  onClick={() => navigate("/reports")}
+>
+  <CardContent className="p-4">
+
+    <div className="text-sm text-slate-500">
+      Expenses
+    </div>
+
+    <div className="text-xl font-bold text-red-600">
+      {fmtINR(data.expenses)}
+    </div>
+
+    <div className="mt-2 text-xs text-slate-500">
+      This Month: {fmtINR(data.expenses_month || 0)}
+    </div>
+
+    <div className="text-xs text-slate-500">
+      Today: {fmtINR(data.expenses_today || 0)}
+    </div>
+
+  </CardContent>
+</Card>
+
+<Card
+  className="cursor-pointer hover:shadow-md transition"
+  onClick={() => navigate("/reports")}
+>
+  <CardContent className="p-4">
+
+    <div className="text-sm text-slate-500">
+      Profit
+    </div>
+
+    <div className="text-xl font-bold text-blue-600">
+      {fmtINR(data.profit)}
+    </div>
+
+    <div className="mt-2 text-xs text-slate-500">
+      This Month: {fmtINR(data.profit_month || 0)}
+    </div>
+
+    <div className="text-xs text-slate-500">
+      Today: {fmtINR(data.profit_today || 0)}
+    </div>
+
+  </CardContent>
+</Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-slate-500">Stock Value</div>
@@ -83,8 +130,12 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+<Card
+  className="cursor-pointer hover:shadow-md transition"
+  onClick={() => navigate("/reports")}
+>
   <CardContent className="p-4">
+
     <div className="text-sm text-slate-500">
       Customer Outstanding
     </div>
@@ -92,6 +143,40 @@ export default function Dashboard() {
     <div className="text-xl font-bold text-orange-600">
       {fmtINR(data.customer_outstanding || 0)}
     </div>
+
+    <div className="mt-2 text-xs text-slate-500">
+      This Month: {fmtINR(data.customer_outstanding_month || 0)}
+    </div>
+
+    <div className="text-xs text-slate-500">
+      Today: {fmtINR(data.customer_outstanding_today || 0)}
+    </div>
+
+  </CardContent>
+</Card>
+        
+        <Card
+  className="cursor-pointer hover:shadow-md transition"
+  onClick={() => navigate("/reports")}
+>
+  <CardContent className="p-4">
+
+    <div className="text-sm text-slate-500">
+      Amount Received
+    </div>
+
+    <div className="text-xl font-bold text-emerald-600">
+      {fmtINR(data.amount_received || 0)}
+    </div>
+
+    <div className="mt-2 text-xs text-slate-500">
+      This Month: {fmtINR(data.amount_received_month || 0)}
+    </div>
+
+    <div className="text-xs text-slate-500">
+      Today: {fmtINR(data.amount_received_today || 0)}
+    </div>
+
   </CardContent>
 </Card>
 
