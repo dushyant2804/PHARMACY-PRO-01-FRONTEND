@@ -36,8 +36,10 @@ export default function BarcodeScanner({ open, onClose, onScan }) {
           back.id,
           { fps: 10, qrbox: { width: 260, height: 160 } },
           (decodedText) => {
-            onScan(decodedText);
-            stop();
+           if (qrRef.current) {
+             onScan(decodedText);
+             stop();
+           }
           },
           () => {}
         );
@@ -62,7 +64,12 @@ export default function BarcodeScanner({ open, onClose, onScan }) {
   }, [open]); // eslint-disable-line
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog
+  open={open}
+  onOpenChange={(value) => {
+    if (!value) onClose();
+  }}
+>
       <DialogContent className="rounded-sm max-w-md" data-testid="barcode-scanner">
         <DialogHeader>
           <DialogTitle className="font-heading">Scan Barcode</DialogTitle>
