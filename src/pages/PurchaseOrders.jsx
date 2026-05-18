@@ -33,14 +33,12 @@ import {
   Plus,
   Trash2,
   ArrowLeft,
-  AlertTriangle,
   RefreshCw,
 } from "lucide-react";
 
 import { toast } from "sonner";
 
 import {
-  Link,
   useNavigate,
 } from "react-router-dom";
 
@@ -52,12 +50,15 @@ const emptyItem = {
   expiry_date: "",
 
   manufacturer: "",
+
   category: "OTC",
 
   quantity: 1,
+
   free_quantity: 0,
 
   purchase_price: 0,
+
   mrp: 0,
 
   gst_rate: 12,
@@ -74,10 +75,10 @@ export default function PurchaseOrders() {
   const navigate = useNavigate();
 
   const [pos, setPos] = useState([]);
+
   const [dists, setDists] = useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   const [open, setOpen] = useState(false);
 
@@ -111,16 +112,18 @@ export default function PurchaseOrders() {
       ]);
 
       setPos(poRes.data || []);
+
       setDists(dRes.data || []);
 
     } catch (e) {
 
-      setError("Failed to load purchases");
+      toast.error(
+        "Failed to load purchase orders"
+      );
 
     } finally {
 
       setLoading(false);
-
     }
   };
 
@@ -175,10 +178,10 @@ export default function PurchaseOrders() {
 
   const total = items.reduce(
 
-    (s, i) => {
+    (sum, i) => {
 
       return (
-        s +
+        sum +
         (
           Number(i.purchase_price || 0) *
           Number(i.quantity || 0)
@@ -205,6 +208,11 @@ export default function PurchaseOrders() {
       po.notes || ""
     );
 
+    setPoDate(
+      po.po_date ||
+      new Date().toISOString().split("T")[0]
+    );
+
     setItems(
       (po.items || []).map((i) => ({
         ...emptyItem,
@@ -229,7 +237,35 @@ export default function PurchaseOrders() {
         `/purchase-orders/${po.id}`
       );
 
-      toast.success("PO deleted");
+      toast.success(
+        "PO deleted"
+      );
+
+      load();
+
+    } catch (e) {
+
+      toast.error(
+        formatApiError(e)
+      );
+    }
+  };
+
+  const updateStatus = async (
+    poId,
+    status
+  ) => {
+
+    try {
+
+      await api.put(
+        `/purchase-orders/${poId}/status`,
+        { status }
+      );
+
+      toast.success(
+        "Status updated"
+      );
 
       load();
 
@@ -250,6 +286,7 @@ export default function PurchaseOrders() {
     );
 
     if (!d) {
+
       return toast.error(
         "Select distributor"
       );
@@ -263,8 +300,9 @@ export default function PurchaseOrders() {
     );
 
     if (validItems.length === 0) {
+
       return toast.error(
-        "Add minimum one item"
+        "Add at least one item"
       );
     }
 
@@ -356,7 +394,9 @@ export default function PurchaseOrders() {
       ]);
 
       setDistId("");
+
       setInvoiceRef("");
+
       setNotes("");
 
       load();
@@ -381,8 +421,11 @@ export default function PurchaseOrders() {
             variant="outline"
             onClick={() => navigate("/")}
           >
+
             <ArrowLeft className="w-4 h-4 mr-1" />
+
             Dashboard
+
           </Button>
 
           <h1 className="text-2xl font-bold">
@@ -397,18 +440,30 @@ export default function PurchaseOrders() {
             variant="outline"
             onClick={load}
           >
+
             <RefreshCw className="w-4 h-4 mr-1" />
+
             Refresh
+
           </Button>
 
           <Button
             onClick={() => {
+
               setEditingPO(null);
+
+              setItems([
+                { ...emptyItem }
+              ]);
+
               setOpen(true);
             }}
           >
+
             <Plus className="w-4 h-4 mr-1" />
+
             New PO
+
           </Button>
 
         </div>
@@ -424,10 +479,15 @@ export default function PurchaseOrders() {
             <tr>
 
               <th>PO #</th>
+
               <th>Date</th>
+
               <th>Distributor</th>
+
               <th>Total</th>
+
               <th>Status</th>
+
               <th></th>
 
             </tr>
@@ -440,7 +500,9 @@ export default function PurchaseOrders() {
 
               <tr key={p.id}>
 
-                <td>{p.po_no}</td>
+                <td>
+                  {p.po_no}
+                </td>
 
                 <td>
                   {fmtDate(
@@ -457,12 +519,44 @@ export default function PurchaseOrders() {
                 </td>
 
                 <td>
-                  {p.status}
+
+                  <Select
+                    value={
+                      p.status || "pending"
+                    }
+                    onValueChange={(v) =>
+                      updateStatus(
+                        p.id,
+                        v
+                      )
+                    }
+                  >
+
+                    <SelectTrigger className="w-32 h-8">
+
+                      <SelectValue />
+
+                    </SelectTrigger>
+
+                    <SelectContent>
+
+                      <SelectItem value="pending">
+                        Pending
+                      </SelectItem>
+
+                      <SelectItem value="received">
+                        Received
+                      </SelectItem>
+
+                    </SelectContent>
+
+                  </Select>
+
                 </td>
 
                 <td>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-3">
 
                     <button
                       className="text-blue-600"
@@ -524,7 +618,7 @@ export default function PurchaseOrders() {
               <div>
 
                 <Label>
-                  Distributor
+                  Distributor *
                 </Label>
 
                 <Select
@@ -560,7 +654,7 @@ export default function PurchaseOrders() {
               <div>
 
                 <Label>
-                  Invoice Ref
+                  Invoice Ref *
                 </Label>
 
                 <Input
@@ -577,7 +671,7 @@ export default function PurchaseOrders() {
               <div>
 
                 <Label>
-                  PO Date
+                  PO Date *
                 </Label>
 
                 <Input
@@ -619,20 +713,30 @@ export default function PurchaseOrders() {
 
                   <tr>
 
-                    <th>Name</th>
-                    <th>Batch</th>
-                    <th>Expiry</th>
+                    <th>Name *</th>
+
+                    <th>Batch *</th>
+
+                    <th>Expiry *</th>
+
                     <th>Mfr</th>
+
                     <th>Category</th>
 
                     <th>Qty</th>
+
                     <th>Free</th>
+
                     <th>Pack Size</th>
+
                     <th>Sold</th>
 
                     <th>Purchase</th>
+
                     <th>MRP</th>
+
                     <th>GST%</th>
+
                     <th>Low</th>
 
                     <th></th>
@@ -741,7 +845,9 @@ export default function PurchaseOrders() {
                         >
 
                           <SelectTrigger>
+
                             <SelectValue />
+
                           </SelectTrigger>
 
                           <SelectContent>
@@ -926,7 +1032,6 @@ export default function PurchaseOrders() {
                       </td>
 
                     </tr>
-
                   ))}
 
                 </tbody>
@@ -940,8 +1045,11 @@ export default function PurchaseOrders() {
                   variant="outline"
                   onClick={addRow}
                 >
+
                   <Plus className="w-4 h-4 mr-1" />
+
                   Add Row
+
                 </Button>
 
                 <div className="text-lg font-bold">
