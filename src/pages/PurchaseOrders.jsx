@@ -388,8 +388,7 @@ const total = items.reduce(
                       </td>
                       <td>
                        <Input
-                        min="1"
-                        value={it.pack_size || 1}
+                        value={it.pack_size}
                         onChange={(e) =>
                          updateItem(i, "pack_size", Number(e.target.value))
                         }
