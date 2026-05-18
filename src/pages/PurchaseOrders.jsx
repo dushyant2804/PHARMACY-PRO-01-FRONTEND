@@ -18,6 +18,8 @@ const emptyItem = {
   category: "OTC",
 
   quantity: 1,
+  free_quantity: 0,
+  low_stock_threshold: 10,
   pack_size: 1,
 
   sold_units: 0,
@@ -95,10 +97,15 @@ export default function PurchaseOrders() {
   const addRow = () => setItems([...items, { ...emptyItem }]);
   const removeRow = (i) => setItems(items.length > 1 ? items.filter((_, idx) => idx !== i) : items);
 
-  const total = items.reduce(
-    (s, i) => s + Number(i.purchase_price || 0) * Number(i.quantity || 0) * Number(i.pack_size || 1),
-    0
-  );
+const total = items.reduce(
+  (s, i) =>
+    s +
+    (
+      Number(i.purchase_price || 0) *
+      Number(i.quantity || 0)
+    ),
+  0
+);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -126,6 +133,8 @@ export default function PurchaseOrders() {
           purchase_price: Number(i.purchase_price) || 0,
           mrp: Number(i.mrp) || 0,
           gst_rate: Number(i.gst_rate) || 0,
+          free_quantity: Number(i.free_quantity) || 0,
+          low_stock_threshold: Number(i.low_stock_threshold) || 10,
         })),
       });
       toast.success("Purchase order created");
@@ -296,9 +305,9 @@ export default function PurchaseOrders() {
                 <thead>
                   <tr>
                     <th>Medicine *</th><th>Batch *</th><th>Expiry *</th><th>Mfr</th><th>Category</th>
-                    <th className="text-right">Qty</th><th className="text-right">Sold</th><th className="text-right">Pack Size</th>
+                    <th className="text-right">Qty</th><th className="text-right">Free</th><th className="text-right">Sold</th><th className="text-right">Pack Size</th>
                     <th className="text-right">Purchase ₹</th>
-                    <th className="text-right">MRP ₹</th><th className="text-right">GST%</th><th></th>
+                    <th className="text-right">MRP ₹</th><th className="text-right">GST%</th><th className="text-right">Low Stock</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -339,7 +348,6 @@ export default function PurchaseOrders() {
                       </td>
                       <td>
                        <Input
-                        type="number"
                         min="1"
                         value={it.pack_size || 1}
                         onChange={(e) =>
@@ -350,6 +358,16 @@ export default function PurchaseOrders() {
                        />
                       </td>
                       <td><Input type="number" value={it.quantity} onChange={(e) => updateItem(i, "quantity", e.target.value)} className="h-8 w-20 text-right rounded-sm" /></td>
+                      <td>
+  <Input
+    type="number"
+    value={it.free_quantity || 0}
+    onChange={(e) =>
+      updateItem(i, "free_quantity", e.target.value)
+    }
+    className="h-8 w-20 text-right rounded-sm"
+  />
+</td>
                         <td>
   <Input
     type="number"
@@ -363,6 +381,20 @@ export default function PurchaseOrders() {
                       <td><Input type="number" step="0.01" value={it.purchase_price} onChange={(e) => updateItem(i, "purchase_price", e.target.value)} className="h-8 w-24 text-right rounded-sm" /></td>
                       <td><Input type="number" step="0.01" value={it.mrp} onChange={(e) => updateItem(i, "mrp", e.target.value)} className="h-8 w-24 text-right rounded-sm" /></td>
                       <td><Input type="number" value={it.gst_rate} onChange={(e) => updateItem(i, "gst_rate", e.target.value)} className="h-8 w-16 text-right rounded-sm" /></td>
+                      <td>
+  <Input
+    type="number"
+    value={it.low_stock_threshold || 10}
+    onChange={(e) =>
+      updateItem(
+        i,
+        "low_stock_threshold",
+        e.target.value
+      )
+    }
+    className="h-8 w-20 text-right rounded-sm"
+  />
+</td>
                       <td>
                         <button type="button" onClick={() => removeRow(i)} className="text-slate-400 hover:text-red-600" disabled={items.length === 1}>
                           <Trash2 className="w-4 h-4" />
