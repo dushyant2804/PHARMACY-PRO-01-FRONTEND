@@ -20,14 +20,36 @@ export const RESTRICTED_CATEGORIES = [
   "NDPS-END",
 ];
 
-export function isRestricted(cat) {
-  return RESTRICTED_CATEGORIES.includes(cat);
+export function isRestricted(category) {
+  if (!category) return false;
+
+  return RESTRICTED_CATEGORIES.includes(category);
 }
 
-export function categoryBadgeClass(cat) {
-  if (cat === "OTC") return "badge-otc";
-  if (cat === "Schedule H" || cat === "Schedule H1") return "badge-sch-h1";
-  if (cat === "Schedule X" || cat?.startsWith("NDPS")) return "badge-sch-h";
-  if (cat === "Schedule G") return "badge-sch-h1";
-  return "badge-other";
+export function categoryBadgeClass(category) {
+  if (!category) {
+    return "badge-other";
+  }
+
+  switch (category) {
+    case "OTC":
+      return "badge-otc";
+
+    case "Schedule G":
+      return "badge-sch-h1";
+
+    case "Schedule H":
+    case "Schedule H1":
+      return "badge-sch-h1";
+
+    case "Schedule X":
+      return "badge-sch-h";
+
+    default:
+      if (category.startsWith("NDPS")) {
+        return "badge-sch-h";
+      }
+
+      return "badge-other";
+  }
 }
