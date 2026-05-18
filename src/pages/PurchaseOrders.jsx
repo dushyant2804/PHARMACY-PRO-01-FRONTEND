@@ -19,18 +19,19 @@ const emptyItem = {
   batch_no: "",
   expiry_date: "",
   manufacturer: "",
+
   category: "OTC",
 
   quantity: 1,
   free_quantity: 0,
-  low_stock_threshold: 10,
-  pack_size: "",
-
-  sold_units: 0,
 
   purchase_price: 0,
   mrp: 0,
   gst_rate: 12,
+
+  pack_size: "",
+
+  low_stock_threshold: 10,
 };
 
 export default function PurchaseOrders() {
@@ -386,23 +387,32 @@ const total = items.reduce(
                           </SelectContent>
                         </Select>
                       </td>
-                      <td>
-                       <Input
-                        value={it.pack_size}
-                        onChange={(e) =>
-                         updateItem(i, "pack_size", e.target.value)
-                        }
-                        className="h-8 w-20 text-right rounded-sm"
-                        placeholder="Pack"
-                       />
-                      </td>
-                      <td><Input type="number" value={it.quantity} onChange={(e) => updateItem(i, "quantity", e.target.value)} className="h-8 w-20 text-right rounded-sm" /></td>
-                      <td>
+                     <td>
+  <Input
+    type="text"
+    value={it.pack_size || ""}
+    onChange={(e) =>
+      updateItem(i, "pack_size", e.target.value)
+    }
+    className="h-8 w-24 rounded-sm"
+    placeholder="10*1"
+  />
+</td>
+                      <td><Input type="number" value={it.quantity} onChange={(e) => updateItem(
+  i,
+  "quantity",
+  Number(e.target.value || 0)
+)} className="h-8 w-20 text-right rounded-sm" /></td>
+                     <td>
   <Input
     type="number"
     value={it.free_quantity || 0}
     onChange={(e) =>
-      updateItem(i, "free_quantity", e.target.value)
+      updateItem(
+        i,
+        "free_quantity",
+        Number(e.target.value || 0)
+      )
     }
     className="h-8 w-20 text-right rounded-sm"
   />
