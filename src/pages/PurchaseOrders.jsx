@@ -1,4 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+} from "react";
 import api, { fmtINR, fmtDate, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +49,7 @@ export default function PurchaseOrders() {
   new Date().toISOString().split("T")[0]
 );
   const [items, setItems] = useState([{ ...emptyItem }]);
+  const itemRefs = useRef([]);
 
   const load = async () => {
     setLoading(true);
@@ -94,7 +99,25 @@ export default function PurchaseOrders() {
   const updateItem = (i, k, v) => {
     const c = [...items]; c[i] = { ...c[i], [k]: v }; setItems(c);
   };
-  const addRow = () => setItems([...items, { ...emptyItem }]);
+  const addRow = () => {
+
+  const newItems = [
+    ...items,
+    { ...emptyItem }
+  ];
+
+  setItems(newItems);
+
+  setTimeout(() => {
+
+    const lastIndex =
+      newItems.length - 1;
+
+    itemRefs.current[lastIndex]?.focus();
+
+  }, 100);
+
+};
   const removeRow = (i) => setItems(items.length > 1 ? items.filter((_, idx) => idx !== i) : items);
 
 const total = items.reduce(
@@ -313,7 +336,24 @@ const total = items.reduce(
                 <tbody>
                   {items.map((it, i) => (
                     <tr key={i}>
-                      <td><Input value={it.name} onChange={(e) => updateItem(i, "name", e.target.value)} required className="h-8 rounded-sm" data-testid={`po-item-name-${i}`} /></td>
+                      <td>
+  <Input
+    ref={(el) =>
+      itemRefs.current[i] = el
+    }
+    value={it.name}
+    onChange={(e) =>
+      updateItem(
+        i,
+        "name",
+        e.target.value
+      )
+    }
+    required
+    className="h-8 rounded-sm"
+    data-testid={`po-item-name-${i}`}
+  />
+</td>
                       <td><Input value={it.batch_no} onChange={(e) => updateItem(i, "batch_no", e.target.value)} required className="h-8 rounded-sm w-24" /></td>
                       <Input
   placeholder="MM/YY"
