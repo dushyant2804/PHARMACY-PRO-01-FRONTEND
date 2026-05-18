@@ -24,7 +24,7 @@ const emptyItem = {
   quantity: 1,
   free_quantity: 0,
   low_stock_threshold: 10,
-  pack_size: 1,
+  pack_size: "",
 
   sold_units: 0,
 
@@ -151,7 +151,7 @@ const total = items.reduce(
           manufacturer: i.manufacturer || "",
           category: i.category || "OTC",
           quantity: Number(i.quantity) || 0,
-          pack_size: Number(i.pack_size || 1),
+          pack_size: i.pack_size || "",
           sold_units: Number(i.sold_units || 0),
           purchase_price: Number(i.purchase_price) || 0,
           mrp: Number(i.mrp) || 0,
@@ -390,7 +390,7 @@ const total = items.reduce(
                        <Input
                         value={it.pack_size}
                         onChange={(e) =>
-                         updateItem(i, "pack_size", Number(e.target.value))
+                         updateItem(i, "pack_size", e.target.value)
                         }
                         className="h-8 w-20 text-right rounded-sm"
                         placeholder="Pack"
