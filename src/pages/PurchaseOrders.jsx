@@ -50,6 +50,7 @@ export default function PurchaseOrders() {
   new Date().toISOString().split("T")[0]
 );
   const [items, setItems] = useState([{ ...emptyItem }]);
+  const [editingPO, setEditingPO] = useState(null);
   const itemRefs = useRef([]);
 
   const load = async () => {
@@ -100,6 +101,23 @@ export default function PurchaseOrders() {
   const updateItem = (i, k, v) => {
     const c = [...items]; c[i] = { ...c[i], [k]: v }; setItems(c);
   };
+  const openEditPO = (po) => {
+
+  setEditingPO(po);
+
+  setDistId(po.distributor_id || "");
+  setInvoiceRef(po.invoice_ref || "");
+  setNotes(po.notes || "");
+
+  setItems(
+    (po.items || []).map((i) => ({
+      ...emptyItem,
+      ...i,
+    }))
+  );
+
+  setOpen(true);
+};
   const addRow = () => {
 
   const newItems = [
@@ -130,6 +148,30 @@ const total = items.reduce(
     ),
   0
 );
+  const deletePO = async (po) => {
+
+  if (!window.confirm(
+    `Delete ${po.po_no}?`
+  )) return;
+
+  try {
+
+    await api.delete(
+      `/purchase-orders/${po.id}`
+    );
+
+    toast.success("PO deleted");
+
+    load();
+
+  } catch (e) {
+
+    toast.error(
+      formatApiError(e)
+    );
+
+  }
+};
 
   const submit = async (e) => {
     e.preventDefault();
@@ -139,32 +181,106 @@ const total = items.reduce(
     if (validItems.length === 0) return toast.error("Add at least one item with name, batch & expiry");
 
     try {
-      await api.post("/purchase-orders", {
-        distributor_id: d.id,
-        distributor_name: d.name,
-        invoice_ref: invoiceRef || "",
-        notes: notes || "",
-        po_date: poDate,
-        items: validItems.map((i) => ({
-          name: i.name.trim(),
-          batch_no: i.batch_no.trim(),
-          expiry_date: i.expiry_date,
-          manufacturer: i.manufacturer || "",
-          category: i.category || "OTC",
-          quantity: Number(i.quantity) || 0,
-          pack_size: i.pack_size || "",
-          sold_units: Number(i.sold_units || 0),
-          purchase_price: Number(i.purchase_price) || 0,
-          mrp: Number(i.mrp) || 0,
-          gst_rate: Number(i.gst_rate) || 0,
-          free_quantity: Number(i.free_quantity) || 0,
-          low_stock_threshold: Number(i.low_stock_threshold) || 10,
-        })),
-      });
-      toast.success("Purchase order created");
-      setOpen(false);
-      setItems([{ ...emptyItem }]); setDistId(""); setInvoiceRef(""); setNotes("");
-      load();
+      if (editingPO) {
+
+  await api.put(`/purchase-orders/${editingPO.id}`, {
+    distributor_id: d.id,
+    distributor_name: d.name,
+    invoice_ref: invoiceRef || "",
+    notes: notes || "",
+    po_date: poDate,
+
+    items: validItems.map((i) => ({
+      name: i.name.trim(),
+
+      batch_no: i.batch_no.trim(),
+
+      expiry_date: i.expiry_date,
+
+      manufacturer: i.manufacturer || "",
+
+      category: i.category || "OTC",
+
+      quantity: Number(i.quantity) || 0,
+
+      free_quantity: Number(i.free_quantity || 0),
+
+      pack_size: i.pack_size || "",
+
+      sold_units: Number(i.sold_units || 0),
+
+      purchase_price: Number(i.purchase_price) || 0,
+
+      mrp: Number(i.mrp) || 0,
+
+      gst_rate: Number(i.gst_rate) || 0,
+
+      low_stock_threshold:
+        Number(i.low_stock_threshold) || 10,
+    })),
+  });
+
+  toast.success("Purchase order updated");
+
+} else {
+
+  await api.post("/purchase-orders", {
+    distributor_id: d.id,
+
+    distributor_name: d.name,
+
+    invoice_ref: invoiceRef || "",
+
+    notes: notes || "",
+
+    po_date: poDate,
+
+    items: validItems.map((i) => ({
+      name: i.name.trim(),
+
+      batch_no: i.batch_no.trim(),
+
+      expiry_date: i.expiry_date,
+
+      manufacturer: i.manufacturer || "",
+
+      category: i.category || "OTC",
+
+      quantity: Number(i.quantity) || 0,
+
+      free_quantity: Number(i.free_quantity || 0),
+
+      pack_size: i.pack_size || "",
+
+      sold_units: Number(i.sold_units || 0),
+
+      purchase_price: Number(i.purchase_price) || 0,
+
+      mrp: Number(i.mrp) || 0,
+
+      gst_rate: Number(i.gst_rate) || 0,
+
+      low_stock_threshold:
+        Number(i.low_stock_threshold) || 10,
+    })),
+  });
+
+  toast.success("Purchase order created");
+}
+
+setOpen(false);
+
+setEditingPO(null);
+
+setItems([{ ...emptyItem }]);
+
+setDistId("");
+
+setInvoiceRef("");
+
+setNotes("");
+
+load();
     } catch (e) { toast.error(formatApiError(e)); }
   };
 
@@ -267,13 +383,34 @@ const total = items.reduce(
                         p.status === "received" ? "badge-otc" : "badge-sch-h1"
                       }`}>{p.status || "pending"}</span>
                     </td>
-                    <td className="text-right">
-                      {p.id && (
-                        <Link to={`/purchase-orders/${p.id}`} className="text-blue-600 text-xs hover:underline">
-                          View →
-                        </Link>
-                      )}
-                    </td>
+                   <td className="text-right">
+  <div className="flex gap-2 justify-end">
+
+    <button
+      onClick={() => openEditPO(p)}
+      className="text-blue-600 text-xs hover:underline"
+    >
+      Edit
+    </button>
+
+    <button
+      onClick={() => deletePO(p)}
+      className="text-red-600 text-xs hover:underline"
+    >
+      Delete
+    </button>
+
+    {p.id && (
+      <Link
+        to={`/purchase-orders/${p.id}`}
+        className="text-slate-600 text-xs hover:underline"
+      >
+        View →
+      </Link>
+    )}
+
+  </div>
+</td>
                   </tr>
                 );
               })}
