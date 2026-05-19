@@ -251,31 +251,6 @@ export default function PurchaseOrders() {
     }
   };
 
-  const updateStatus = async (
-    poId,
-    status
-  ) => {
-
-    try {
-
-      await api.put(
-        `/purchase-orders/${poId}/status`,
-        { status }
-      );
-
-      toast.success(
-        "Status updated"
-      );
-
-      load();
-
-    } catch (e) {
-
-      toast.error(
-        formatApiError(e)
-      );
-    }
-  };
 
   const submit = async (e) => {
 
@@ -486,8 +461,6 @@ export default function PurchaseOrders() {
 
               <th>Total</th>
 
-              <th>Status</th>
-
               <th></th>
 
             </tr>
@@ -516,42 +489,6 @@ export default function PurchaseOrders() {
 
                 <td>
                   {fmtINR(p.total)}
-                </td>
-
-                <td>
-
-                  <Select
-                    value={
-                      p.status || "pending"
-                    }
-                    onValueChange={(v) =>
-                      updateStatus(
-                        p.id,
-                        v
-                      )
-                    }
-                  >
-
-                    <SelectTrigger className="w-32 h-8">
-
-                      <SelectValue />
-
-                    </SelectTrigger>
-
-                    <SelectContent>
-
-                      <SelectItem value="pending">
-                        Pending
-                      </SelectItem>
-
-                      <SelectItem value="received">
-                        Received
-                      </SelectItem>
-
-                    </SelectContent>
-
-                  </Select>
-
                 </td>
 
                 <td>
@@ -999,21 +936,18 @@ export default function PurchaseOrders() {
                       <td>
 
                         <Input
-                          type="number"
-                          value={
-                            it.low_stock_threshold
-                          }
-                          onChange={(e) =>
-                            updateItem(
-                              i,
-                              "low_stock_threshold",
-                              Number(
-                                e.target.value || 10
-                              )
-                            )
-                          }
-                        />
-
+  type="number"
+  value={it.low_stock_threshold}
+  onChange={(e) =>
+    updateItem(
+      i,
+      "low_stock_threshold",
+      e.target.value === ""
+        ? 10
+        : Number(e.target.value)
+    )
+  }
+/>
                       </td>
 
                       <td>
