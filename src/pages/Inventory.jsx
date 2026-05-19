@@ -336,6 +336,8 @@ export default function Inventory() {
                   <div className="font-medium">
                     {selected.distributor_name || "-"}
                   </div>
+                </div>
+                
                 <div>
                   <div className="text-slate-500">
                     Manufacturer
