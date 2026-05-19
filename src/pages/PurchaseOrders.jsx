@@ -477,11 +477,11 @@ export default function PurchaseOrders() {
                   {p.po_no}
                 </td>
 
-                <td>
-                  {fmtDate(
-                    p.created_at
-                  )}
-                </td>
+<td>
+  {fmtDate(
+    p.po_date || p.created_at
+  )}
+</td>
 
                 <td>
                   {p.distributor_name}
