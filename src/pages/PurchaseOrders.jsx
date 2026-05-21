@@ -61,7 +61,7 @@ const emptyItem = {
 
   mrp: 0,
 
-  gst_rate: 12,
+  gst_rate: 5,
 
   pack_size: "",
 
@@ -321,7 +321,7 @@ export default function PurchaseOrders() {
 
         gst_rate:
           Number(i.gst_rate || 0),
-
+        
         sold_units:
           Number(i.sold_units || 0),
 
