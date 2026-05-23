@@ -42,6 +42,8 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import { Upload } from "lucide-react";
+
 import { CATEGORIES } from "@/lib/categories";
 
 const emptyItem = {
@@ -99,6 +101,38 @@ export default function PurchaseOrders() {
   ]);
 
   const itemRefs = useRef([]);
+
+  const uploadInvoice = async (file) => {
+
+  if (!file) return;
+
+  try {
+
+    const formData = new FormData();
+
+    formData.append("file", file);
+
+    const response = await fetch(
+      "https://pharmacy-pro-01-docker.onrender.com",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const data = await response.json();
+
+    console.log(data);
+
+    toast.success("Invoice OCR completed");
+
+  } catch (e) {
+
+    console.error(e);
+
+    toast.error("OCR failed");
+  }
+};
 
   const load = async () => {
 
@@ -549,6 +583,26 @@ export default function PurchaseOrders() {
             onSubmit={submit}
             className="space-y-4"
           >
+
+            <div className="border rounded-lg p-4 bg-gray-50">
+
+  <Label className="mb-2 block font-semibold">
+    Upload Invoice Image
+  </Label>
+
+  <Input
+    type="file"
+    accept="image/*"
+    onChange={(e) =>
+      uploadInvoice(e.target.files[0])
+    }
+  />
+
+  <p className="text-sm text-gray-500 mt-2">
+    Upload distributor invoice to extract text automatically
+  </p>
+
+</div>
 
             <div className="grid grid-cols-4 gap-3">
 
