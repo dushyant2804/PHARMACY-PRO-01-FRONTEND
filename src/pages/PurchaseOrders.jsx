@@ -128,6 +128,9 @@ export default function PurchaseOrders() {
      data.text ||
      JSON.stringify(data)
     );
+    if (data.items && data.items.length > 0) {
+      setItems(data.items);
+    }
 
     toast.success("Invoice text extracted");
     
