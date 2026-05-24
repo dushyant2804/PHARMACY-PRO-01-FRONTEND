@@ -113,7 +113,7 @@ export default function PurchaseOrders() {
     formData.append("file", file);
 
     const response = await fetch(
-      "https://pharmacy-pro-01-docker.onrender.com",
+      "https://pharmacy-pro-01-docker.onrender.com/ocr",
       {
         method: "POST",
         body: formData,
