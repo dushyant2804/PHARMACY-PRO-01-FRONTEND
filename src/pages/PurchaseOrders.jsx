@@ -119,16 +119,8 @@ export default function PurchaseOrders() {
         body: formData,
       }
     );
+    const data = await response.json();
 
-    const data = await response.json(); 
-    alert(JSON.stringify(data));
-
-    setNotes(
-     data.extracted_text ||
-     data.text ||
-     JSON.stringify(data)
-    );
-   
 if (data.invoice_ref) {
   setInvoiceRef(data.invoice_ref);
 }
@@ -138,17 +130,17 @@ if (data.po_date) {
 }
 
 if (data.items?.length) {
+
   setItems(
-  data.items.filter(
-    (x) =>
-      x.name &&
-      x.name.length > 4
-  )
-);
+    data.items.filter(
+      (x) =>
+        x.name &&
+        x.name.length > 4
+    )
+  );
+}
 
-
-
-    toast.success("Invoice text extracted");
+toast.success("Invoice parsed");
     
   } catch (e) {
 
