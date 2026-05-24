@@ -120,8 +120,15 @@ export default function PurchaseOrders() {
       }
     );
 
-    const data = await response.json();
-    setNotes(data.extracted_text || "");
+    const data = await response.json(); 
+    alert(JSON.stringify(data));
+
+    setNotes(
+     data.extracted_text ||
+     data.text ||
+     JSON.stringify(data)
+    );
+
     toast.success("Invoice text extracted");
     
   } catch (e) {
