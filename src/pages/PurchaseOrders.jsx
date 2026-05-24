@@ -128,9 +128,20 @@ export default function PurchaseOrders() {
      data.text ||
      JSON.stringify(data)
     );
-    if (data.items && data.items.length > 0) {
-      setItems(data.items);
-    }
+   
+if (data.invoice_ref) {
+  setInvoiceRef(data.invoice_ref);
+}
+
+if (data.po_date) {
+  setPoDate(data.po_date);
+}
+
+if (data.items?.length) {
+  setItems(data.items);
+}
+
+
 
     toast.success("Invoice text extracted");
     
