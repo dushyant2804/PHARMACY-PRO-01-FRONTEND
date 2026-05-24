@@ -138,8 +138,13 @@ if (data.po_date) {
 }
 
 if (data.items?.length) {
-  setItems(data.items);
-}
+  setItems(
+  data.items.filter(
+    (x) =>
+      x.name &&
+      x.name.length > 4
+  )
+);
 
 
 
