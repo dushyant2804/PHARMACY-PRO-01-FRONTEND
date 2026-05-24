@@ -122,7 +122,8 @@ export default function PurchaseOrders() {
 
     const data = await response.json();
 
-    console.log(data);
+      setNotes(data.extracted_text);
+
 
     toast.success("Invoice OCR completed");
 
