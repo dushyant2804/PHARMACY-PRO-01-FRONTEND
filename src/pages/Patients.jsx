@@ -238,6 +238,16 @@ export default function Patients() {
         />
 
         <input
+          placeholder="Condition / Disease"
+          value={form.condition}
+          onChange={(e) =>
+            setForm({ ...form, condition: e.target.value })
+      
+          }
+          className="border p-2 w-full"
+        />
+
+        <input
           placeholder="Duration (days)"
           value={form.duration_days}
           onChange={(e) =>
@@ -292,13 +302,35 @@ export default function Patients() {
                   )}
                 </div>
               </div>
+              <div className="flex gap-3">
 
-              <button
-                onClick={() => deletePatient(p.phone)}
-                className="text-red-600 text-xs"
-              >
-                Delete
-              </button>
+  <button
+    className="text-blue-600 text-xs"
+    onClick={() => {
+
+      setEditingPatient(p);
+
+      setForm({
+        name: p.name || "",
+        age: p.age || "",
+        phone: p.phone || "",
+        address: p.address || "",
+        medicine_name: p.medicine_name || "",
+        duration_days: p.duration_days || "",
+        last_refill_date: p.last_refill_date || "",
+        condition: p.condition || "",
+      });
+    }}
+  >
+    Edit
+  </button>
+
+  <button
+    onClick={() => deletePatient(p.phone)}
+    className="text-red-600 text-xs"
+  >
+    Delete
+  </button>
             </div>
           ))
         )}
