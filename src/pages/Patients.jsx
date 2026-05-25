@@ -10,11 +10,12 @@ export default function Patients() {
     medicine_name: "",
     duration_days: "",
     last_refill_date: "",
-    condition: "bp",
+    condition: "",
   });
 
   const [patients, setPatients] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [editingPatient, setEditingPatient] = useState(null); 
 
   // ---------- LOAD PATIENTS ----------
   const loadPatients = async () => {
@@ -43,30 +44,52 @@ export default function Patients() {
 
   // ---------- SAVE PATIENT ----------
   const savePatient = async () => {
-    try {
-      await api.post("/patients", {
-        ...form,
-        age: Number(form.age),
-        duration_days: Number(form.duration_days),
-      });
 
-      setForm({
-        name: "",
-        age: "",
-        phone: "",
-        address: "",
-        medicine_name: "",
-        duration_days: "",
-        last_refill_date: "",
-        condition: "bp",
-      });
+  try {
 
-      loadPatients();
-      loadAlerts();
-    } catch (err) {
-      console.log(err);
+    const payload = {
+      ...form,
+      age: Number(form.age),
+      duration_days: Number(form.duration_days),
+    };
+
+    if (editingPatient) {
+
+      await api.put(
+        `/patients/${editingPatient.id}`,
+        payload
+      );
+
+    } else {
+
+      await api.post(
+        "/patients",
+        payload
+      );
     }
-  };
+
+    setForm({
+      name: "",
+      age: "",
+      phone: "",
+      address: "",
+      medicine_name: "",
+      duration_days: "",
+      last_refill_date: "",
+      condition: "",
+    });
+
+    setEditingPatient(null);
+
+    loadPatients();
+
+    loadAlerts();
+
+  } catch (err) {
+
+    console.log(err);
+  }
+};
 
   // ---------- DELETE ----------
   const deletePatient = async (phone) => {
@@ -131,6 +154,27 @@ export default function Patients() {
                 >
                   Contacted
                 </button>
+              
+                <button
+  className="text-blue-600"
+  onClick={() => {
+
+    setEditingPatient(p);
+
+    setForm({
+      name: p.name || "",
+      age: p.age || "",
+      phone: p.phone || "",
+      address: p.address || "",
+      medicine_name: p.medicine_name || "",
+      duration_days: p.duration_days || "",
+      last_refill_date: p.last_refill_date || "",
+      condition: p.condition || "",
+    });
+  }}
+>
+  Edit
+</button>
 
                 <button
                   onClick={() => deletePatient(p.phone)}
