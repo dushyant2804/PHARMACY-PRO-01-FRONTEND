@@ -273,68 +273,72 @@ export default function Patients() {
         </button>
       </div>
 
-      {/* LIST */}
-      <div className="space-y-2">
-        {patients.length === 0 ? (
-          <div className="text-slate-500">No patients yet</div>
-        ) : (
-          patients.map((p) => (
-            <div
-              key={p.phone}
-              className="border p-3 rounded-sm flex justify-between"
-            >
-              <div>
-                <div className="font-semibold">{p.name}</div>
-
-                <div className="text-sm text-slate-500">
-                  {p.medicine_name} • {p.condition}
-                </div>
-
-                <div className="text-xs mt-1">
-                  {p.is_due ? (
-                    <span className="text-red-600 font-semibold">
-                      🔴 Due
-                    </span>
-                  ) : (
-                    <span className="text-green-600">
-                      🟢 OK
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-3">
-
-  <button
-    className="text-blue-600 text-xs"
-    onClick={() => {
-
-      setEditingPatient(p);
-
-      setForm({
-        name: p.name || "",
-        age: p.age || "",
-        phone: p.phone || "",
-        address: p.address || "",
-        medicine_name: p.medicine_name || "",
-        duration_days: p.duration_days || "",
-        last_refill_date: p.last_refill_date || "",
-        condition: p.condition || "",
-      });
-    }}
-  >
-    Edit
-  </button>
-
-  <button
-    onClick={() => deletePatient(p.phone)}
-    className="text-red-600 text-xs"
-  >
-    Delete
-  </button>
-            </div>
-          ))
-        )}
-      </div>
+{/* LIST */}
+<div className="space-y-2">
+  {patients.length === 0 ? (
+    <div className="text-slate-500">
+      No patients yet
     </div>
-  );
-}
+  ) : (
+    patients.map((p) => (
+      <div
+        key={p.phone}
+        className="border p-3 rounded-sm flex justify-between"
+      >
+        <div>
+          <div className="font-semibold">
+            {p.name}
+          </div>
+
+          <div className="text-sm text-slate-500">
+            {p.medicine_name} • {p.condition}
+          </div>
+
+          <div className="text-xs mt-1">
+            {p.is_due ? (
+              <span className="text-red-600 font-semibold">
+                🔴 Due
+              </span>
+            ) : (
+              <span className="text-green-600">
+                🟢 OK
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+
+          <button
+            className="text-blue-600 text-xs"
+            onClick={() => {
+
+              setEditingPatient(p);
+
+              setForm({
+                name: p.name || "",
+                age: p.age || "",
+                phone: p.phone || "",
+                address: p.address || "",
+                medicine_name: p.medicine_name || "",
+                duration_days: p.duration_days || "",
+                last_refill_date: p.last_refill_date || "",
+                condition: p.condition || "",
+              });
+            }}
+          >
+            Edit
+          </button>
+
+          <button
+            onClick={() => deletePatient(p.phone)}
+            className="text-red-600 text-xs"
+          >
+            Delete
+          </button>
+
+        </div>
+      </div>
+    ))
+  )}
+</div>
