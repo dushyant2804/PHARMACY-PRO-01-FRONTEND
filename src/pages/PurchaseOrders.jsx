@@ -691,6 +691,13 @@ export default function PurchaseOrders() {
                       <td>
 
                         <Input
+                          className="
+  transition-all
+  duration-150
+  focus:min-w-[250px]
+  focus:z-20
+  focus:relative
+"
                           ref={(el) =>
                             itemRefs.current[i] = el
                           }
@@ -709,6 +716,13 @@ export default function PurchaseOrders() {
                       <td>
 
                         <Input
+                          className="
+  transition-all
+  duration-150
+  focus:min-w-[250px]
+  focus:z-20
+  focus:relative
+"
                           value={it.batch_no}
                           onChange={(e) =>
                             updateItem(
@@ -724,6 +738,13 @@ export default function PurchaseOrders() {
                       <td>
 
                         <Input
+                         className="
+  transition-all
+  duration-150
+  focus:min-w-[250px]
+  focus:z-20
+  focus:relative
+" 
                           value={it.expiry_date || ""}
                           onChange={(e) => {
 
@@ -755,6 +776,13 @@ export default function PurchaseOrders() {
                       <td>
 
                         <Input
+                          className="
+  transition-all
+  duration-150
+  focus:min-w-[250px]
+  focus:z-20
+  focus:relative
+"
                           value={it.manufacturer}
                           onChange={(e) =>
                             updateItem(
@@ -808,6 +836,11 @@ export default function PurchaseOrders() {
                       <td>
 
                         <Input
+                          className="
+  transition-all
+  duration-150
+  focus:min-w-[90px]
+"
                           type="number"
                           value={it.quantity}
                           onChange={(e) =>
@@ -826,6 +859,11 @@ export default function PurchaseOrders() {
                       <td>
 
                         <Input
+                          className="
+  transition-all
+  duration-150
+  focus:min-w-[90px]
+"
                           type="number"
                           value={it.free_quantity}
                           onChange={(e) =>
@@ -879,6 +917,11 @@ export default function PurchaseOrders() {
                       <td>
 
                         <Input
+                          className="
+  transition-all
+  duration-150
+  focus:min-w-[90px]
+"
                           type="number"
                           step="0.01"
                           value={it.purchase_price}
@@ -898,6 +941,11 @@ export default function PurchaseOrders() {
                       <td>
 
                         <Input
+                          className="
+  transition-all
+  duration-150
+  focus:min-w-[90px]
+"
                           type="number"
                           step="0.01"
                           value={it.mrp}
