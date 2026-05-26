@@ -31,6 +31,10 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { CATEGORIES } from "@/lib/categories";
 
+/* ✅ shared expand behavior */
+const expandInputClass =
+  "transition-all duration-150 focus:min-w-[250px] focus:z-20 focus:relative";
+
 const emptyItem = {
   name: "",
   batch_no: "",
@@ -65,7 +69,6 @@ export default function PurchaseOrders() {
   );
 
   const [items, setItems] = useState([{ ...emptyItem }]);
-
   const itemRefs = useRef([]);
 
   const load = async () => {
@@ -294,8 +297,9 @@ export default function PurchaseOrders() {
 
           <form onSubmit={submit} className="space-y-4">
 
-            {/* TOP FORM */}
+            {/* TOP */}
             <div className="grid grid-cols-4 gap-3">
+
               <div>
                 <Label>Distributor</Label>
                 <Select value={distId} onValueChange={setDistId}>
@@ -328,7 +332,7 @@ export default function PurchaseOrders() {
               </div>
             </div>
 
-            {/* ITEM TABLE (FULL RESTORED) */}
+            {/* ITEM TABLE */}
             <div className="border rounded overflow-x-auto">
               <table className="data-table">
                 <thead>
@@ -344,7 +348,7 @@ export default function PurchaseOrders() {
                     <th>Sold</th>
                     <th>Purchase</th>
                     <th>MRP</th>
-                    <th>GST%</th>
+                    <th>GST</th>
                     <th>Low</th>
                     <th></th>
                   </tr>
@@ -353,25 +357,35 @@ export default function PurchaseOrders() {
                 <tbody>
                   {items.map((it, i) => (
                     <tr key={i}>
+
                       <td>
-                        <Input
-                          className="focus:min-w-[250px] transition-all duration-150"
-                          ref={(el) => (itemRefs.current[i] = el)}
+                        <Input className={expandInputClass}
+                          ref={(el) => itemRefs.current[i] = el}
                           value={it.name}
                           onChange={(e) => updateItem(i, "name", e.target.value)}
                         />
                       </td>
 
                       <td>
-                        <Input value={it.batch_no} onChange={(e) => updateItem(i, "batch_no", e.target.value)} />
+                        <Input className={expandInputClass}
+                          value={it.batch_no}
+                          onChange={(e) => updateItem(i, "batch_no", e.target.value)}
+                        />
                       </td>
 
                       <td>
-                        <Input type="date" value={it.expiry_date} onChange={(e) => updateItem(i, "expiry_date", e.target.value)} />
+                        <Input className={expandInputClass}
+                          type="date"
+                          value={it.expiry_date}
+                          onChange={(e) => updateItem(i, "expiry_date", e.target.value)}
+                        />
                       </td>
 
                       <td>
-                        <Input value={it.manufacturer} onChange={(e) => updateItem(i, "manufacturer", e.target.value)} />
+                        <Input className={expandInputClass}
+                          value={it.manufacturer}
+                          onChange={(e) => updateItem(i, "manufacturer", e.target.value)}
+                        />
                       </td>
 
                       <td>
@@ -406,11 +420,19 @@ export default function PurchaseOrders() {
                       </td>
 
                       <td>
-                        <Input type="number" value={it.purchase_price} onChange={(e) => updateItem(i, "purchase_price", Number(e.target.value))} />
+                        <Input className={expandInputClass}
+                          type="number"
+                          value={it.purchase_price}
+                          onChange={(e) => updateItem(i, "purchase_price", Number(e.target.value))}
+                        />
                       </td>
 
                       <td>
-                        <Input type="number" value={it.mrp} onChange={(e) => updateItem(i, "mrp", Number(e.target.value))} />
+                        <Input className={expandInputClass}
+                          type="number"
+                          value={it.mrp}
+                          onChange={(e) => updateItem(i, "mrp", Number(e.target.value))}
+                        />
                       </td>
 
                       <td>
@@ -426,6 +448,7 @@ export default function PurchaseOrders() {
                           <Trash2 className="w-4 h-4 text-red-600" />
                         </button>
                       </td>
+
                     </tr>
                   ))}
                 </tbody>
@@ -455,8 +478,10 @@ export default function PurchaseOrders() {
             </div>
 
           </form>
+
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
