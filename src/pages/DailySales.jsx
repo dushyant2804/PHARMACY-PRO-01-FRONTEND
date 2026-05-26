@@ -425,7 +425,11 @@ const [expenseSaving, setExpenseSaving] = useState(false);
                 setForm({ ...form, medicine_name: text, medicine_id: item?.id || "" });
                 setAutoTotal(true);
               }}
-              options={meds.map((m) => ({ id: m.id, label: `${m.name} · ${m.batch_no} · stk ${m.quantity}`, value: m.name }))}
+              options={meds.map((m) => ({
+                id: m.name,
+                label: `${m.name} · total stk ${m.total_stock}`,
+                value: m.name
+              }))}
               placeholder="Search…"
               className="rounded-sm mt-1 h-9"
               testId="ds-medicine"
