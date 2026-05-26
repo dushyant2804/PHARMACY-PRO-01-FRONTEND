@@ -161,7 +161,7 @@ export default function Inventory() {
     }
 
     return "normal";
-  };
+   };
 
   return (
 
