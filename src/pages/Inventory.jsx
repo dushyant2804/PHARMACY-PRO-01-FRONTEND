@@ -135,35 +135,7 @@ export default function Inventory() {
      return "normal";
     };
 
-    const diff =
-      Math.ceil(
-        (
-          exp - today
-        ) /
-        (
-          1000 *
-          60 *
-          60 *
-          24
-        )
-      );
-
-    if (diff < 0) {
-      return "expired";
-    }
-
-    if (diff <= 30) {
-      return "critical";
-    }
-
-    if (diff <= 90) {
-      return "warning";
-    }
-
-    return "normal";
-   };
-
-    return (
+  return (
 
     <div className="space-y-6">
 
