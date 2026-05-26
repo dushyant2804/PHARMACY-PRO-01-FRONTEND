@@ -23,6 +23,7 @@ import {
 import {
   Trash2,
   Eye,
+  AlertTriangle,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -50,35 +51,11 @@ export default function Inventory() {
           },
         });
 
-     const grouped = {};
-
-     (Array.isArray(data) ? data : []).forEach((m) => {
-
-       const key = m.name?.toLowerCase();
-
-       const qty =
-         Number(m.purchased_units || 0)
-         -
-         Number(m.sold_units || 0);
-
-       if (!grouped[key]) {
-
-         grouped[key] = {
-           ...m,
-           total_stock: 0,
-           batches: [],
-         };
-       }
-
-       grouped[key].total_stock += qty;
-
-       grouped[key].batches.push({
-         ...m,
-         quantity: qty,
-       });
-     });
-
-     setMeds(Object.values(grouped));
+      setMeds(
+        Array.isArray(data)
+          ? data
+          : []
+      );
 
     } catch (e) {
 
@@ -132,6 +109,48 @@ export default function Inventory() {
       }
     };
 
+  const getExpiryStatus = (
+    expiryDate
+  ) => {
+
+    if (!expiryDate) {
+      return "normal";
+    }
+
+    const today = new Date();
+
+    const exp = new Date(
+      expiryDate
+    );
+
+    const diff =
+      Math.ceil(
+        (
+          exp - today
+        ) /
+        (
+          1000 *
+          60 *
+          60 *
+          24
+        )
+      );
+
+    if (diff < 0) {
+      return "expired";
+    }
+
+    if (diff <= 30) {
+      return "critical";
+    }
+
+    if (diff <= 90) {
+      return "warning";
+    }
+
+    return "normal";
+  };
+
   return (
 
     <div className="space-y-6">
@@ -184,6 +203,10 @@ export default function Inventory() {
                 Total Batches
               </th>
 
+              <th className="text-center p-3">
+                Expiry
+              </th>
+
               <th className="text-right p-3">
                 Purchase
               </th>
@@ -211,17 +234,53 @@ export default function Inventory() {
                   m.low_stock_threshold || 10
                 );
 
+              const expiryStatus =
+                m.batches?.some(
+                  (b) =>
+                    getExpiryStatus(
+                      b.expiry_date
+                    ) === "expired"
+                )
+                  ? "expired"
+                  : m.batches?.some(
+                      (b) =>
+                        getExpiryStatus(
+                          b.expiry_date
+                        ) === "critical"
+                    )
+                  ? "critical"
+                  : m.batches?.some(
+                      (b) =>
+                        getExpiryStatus(
+                          b.expiry_date
+                        ) === "warning"
+                    )
+                  ? "warning"
+                  : "normal";
+
               return (
 
                 <tr
                   key={m.id}
-                  className="border-b"
+                  className={`border-b ${
+                    expiryStatus === "expired"
+                      ? "bg-red-50"
+                      : expiryStatus === "critical"
+                      ? "bg-orange-50"
+                      : expiryStatus === "warning"
+                      ? "bg-yellow-50"
+                      : ""
+                  }`}
                 >
 
                   <td className="p-3 max-w-[250px]">
 
                     <div className="truncate font-medium">
                       {m.name}
+                    </div>
+
+                    <div className="text-xs text-slate-500">
+                      {m.manufacturer}
                     </div>
 
                   </td>
@@ -239,7 +298,32 @@ export default function Inventory() {
                   <td className="p-3 text-center">
                     {m.batches?.length || 0}
                   </td>
-                  
+
+                  <td className="p-3 text-center">
+
+                    {expiryStatus === "expired" && (
+                      <span className="text-red-600 font-semibold text-xs flex items-center justify-center gap-1">
+                        <AlertTriangle className="w-4 h-4" />
+                        Expired
+                      </span>
+                    )}
+
+                    {expiryStatus === "critical" && (
+                      <span className="text-orange-600 font-semibold text-xs flex items-center justify-center gap-1">
+                        <AlertTriangle className="w-4 h-4" />
+                        30 Days
+                      </span>
+                    )}
+
+                    {expiryStatus === "warning" && (
+                      <span className="text-yellow-700 font-semibold text-xs flex items-center justify-center gap-1">
+                        <AlertTriangle className="w-4 h-4" />
+                        90 Days
+                      </span>
+                    )}
+
+                  </td>
+
                   <td className="p-3 text-right">
 
                     {fmtINR(
@@ -305,55 +389,90 @@ export default function Inventory() {
           {selected && (
 
             <div className="space-y-3 text-sm">
+
               <div className="border rounded p-3">
 
-  <div className="font-semibold mb-3">
-    Batch Details
-  </div>
+                <div className="font-semibold mb-3">
+                  Batch Details
+                </div>
 
-  <div className="space-y-2">
+                <div className="space-y-2">
 
-   {(selected.batches || []).map(
-      (b, idx) => (
+                  {(selected.batches || []).map(
+                    (b, idx) => {
 
-        <div
-          key={idx}
-          className="border rounded p-2 text-sm"
-        >
+                      const expiry =
+                        getExpiryStatus(
+                          b.expiry_date
+                        );
 
-          <div>
-            <b>Batch:</b>
-            {" "}
-            {b.batch_no}
-          </div>
+                      return (
 
-          <div>
-            <b>Expiry:</b>
-            {" "}
-            {fmtDate(
-              b.expiry_date
-            )}
-          </div>
+                        <div
+                          key={idx}
+                          className={`border rounded p-2 text-sm ${
+                            expiry === "expired"
+                              ? "bg-red-50 border-red-200"
+                              : expiry === "critical"
+                              ? "bg-orange-50 border-orange-200"
+                              : expiry === "warning"
+                              ? "bg-yellow-50 border-yellow-200"
+                              : ""
+                          }`}
+                        >
 
-         <div
-           className={
-             b.quantity_units <= 0
-               ? "text-red-600 font-semibold"
-               : "text-green-700"
-           }
-         >
-           <b>Stock:</b>
-           {" "}
-           {b.quantity_units}
-         </div>
+                          <div>
+                            <b>Batch:</b>
+                            {" "}
+                            {b.batch_no}
+                          </div>
 
-        </div>
-      )
-    )}
+                          <div>
+                            <b>Expiry:</b>
+                            {" "}
+                            {fmtDate(
+                              b.expiry_date
+                            )}
+                          </div>
 
-  </div>
+                          <div
+                            className={
+                              b.quantity_units <= 0
+                                ? "text-red-600 font-semibold"
+                                : "text-green-700"
+                            }
+                          >
+                            <b>Stock:</b>
+                            {" "}
+                            {b.quantity_units}
+                          </div>
 
-</div>
+                          {expiry === "expired" && (
+                            <div className="text-red-600 text-xs font-semibold mt-1">
+                              EXPIRED
+                            </div>
+                          )}
+
+                          {expiry === "critical" && (
+                            <div className="text-orange-600 text-xs font-semibold mt-1">
+                              Expiring within 30 days
+                            </div>
+                          )}
+
+                          {expiry === "warning" && (
+                            <div className="text-yellow-700 text-xs font-semibold mt-1">
+                              Expiring within 90 days
+                            </div>
+                          )}
+
+                        </div>
+                      );
+                    }
+                  )}
+
+                </div>
+
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
 
@@ -366,23 +485,7 @@ export default function Inventory() {
                     {selected.name}
                   </div>
                 </div>
-                
-                <div>
-                  <div className="font-medium">
-                    {selected.batch_no}
-                  </div>
-                </div>
 
-                <div>
-                  <div className="text-slate-500">
-                    Distributor
-                  </div>
-
-                  <div className="font-medium">
-                    {selected.distributor_name || "-"}
-                  </div>
-                </div>
-                
                 <div>
                   <div className="text-slate-500">
                     Manufacturer
@@ -395,11 +498,11 @@ export default function Inventory() {
 
                 <div>
                   <div className="text-slate-500">
-                    Pack Size
+                    Distributor
                   </div>
 
                   <div className="font-medium">
-                    {selected.pack_size || "-"}
+                    {selected.distributor_name || "-"}
                   </div>
                 </div>
 
@@ -415,49 +518,21 @@ export default function Inventory() {
 
                 <div>
                   <div className="text-slate-500">
-                    Purchased
+                    Total Stock
                   </div>
 
                   <div className="font-medium">
-                    {selected.purchased_units || 0}
+                    {selected.total_stock || 0}
                   </div>
                 </div>
 
                 <div>
                   <div className="text-slate-500">
-                    Sold
+                    Total Batches
                   </div>
 
                   <div className="font-medium">
-                    {selected.sold_units || 0}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="font-medium">
-                    {
-                      Number(
-                        selected.purchased_units || 0
-                      )
-
-                      -
-
-                      Number(
-                        selected.sold_units || 0
-                      )
-                    }
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-slate-500">
-                    Low Stock Alert
-                  </div>
-
-                  <div className="font-medium">
-                    {
-                      selected.low_stock_threshold
-                    }
+                    {selected.batches?.length || 0}
                   </div>
                 </div>
 
