@@ -269,7 +269,7 @@ function App() {
               }
             />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </AuthProvider>
     </div>
   );
