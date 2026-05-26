@@ -56,7 +56,7 @@ export default function Patients() {
     if (editingPatient) {
 
       await api.put(
-        `/patients/${editingPatient.id}`,
+        `/patients/${editingPatient.phone}`,
         payload
       );
 
@@ -92,11 +92,11 @@ export default function Patients() {
 };
 
   // ---------- DELETE ----------
-  const deletePatient = async (id) => {
+  const deletePatient = async (phone) => {
     if (!window.confirm("Delete patient?")) return;
 
     try {
-      await api.delete(`/patients/${id}`);
+      await api.delete(`/patients/${phone}`);
 
       setPatients((prev) => prev.filter((p) => p.phone !== phone));
       setAlerts((prev) => prev.filter((a) => a.phone !== phone));
@@ -177,7 +177,7 @@ export default function Patients() {
 </button>
 
                 <button
-                  onClick={() => deletePatient(p.id)}
+                  onClick={() => deletePatient(p.phone)}
                   className="text-red-600 text-xs"
                 >
                   Delete
@@ -331,7 +331,7 @@ export default function Patients() {
           </button>
 
           <button
-            onClick={() => deletePatient(p.id)}
+            onClick={() => deletePatient(p.phone)}
             className="text-red-600 text-xs"
           >
             Delete
