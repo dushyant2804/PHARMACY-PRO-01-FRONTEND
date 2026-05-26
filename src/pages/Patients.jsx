@@ -92,11 +92,11 @@ export default function Patients() {
 };
 
   // ---------- DELETE ----------
-  const deletePatient = async (phone) => {
+  const deletePatient = async (id) => {
     if (!window.confirm("Delete patient?")) return;
 
     try {
-      await api.delete(`/patients/${phone}`);
+      await api.delete(`/patients/${id}`);
 
       setPatients((prev) => prev.filter((p) => p.phone !== phone));
       setAlerts((prev) => prev.filter((a) => a.phone !== phone));
@@ -177,7 +177,7 @@ export default function Patients() {
 </button>
 
                 <button
-                  onClick={() => deletePatient(p.phone)}
+                  onClick={() => deletePatient(p.id)}
                   className="text-red-600 text-xs"
                 >
                   Delete
@@ -331,7 +331,7 @@ export default function Patients() {
           </button>
 
           <button
-            onClick={() => deletePatient(p.phone)}
+            onClick={() => deletePatient(p.id)}
             className="text-red-600 text-xs"
           >
             Delete
