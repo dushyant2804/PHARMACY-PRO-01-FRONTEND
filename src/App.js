@@ -1,7 +1,7 @@
 import "@/App.css";
 
 import {
-  BrowserRouter,
+  HashRouter,
   Routes,
   Route,
   Navigate,
@@ -128,7 +128,7 @@ function App() {
   return (
     <div className="App">
       <AuthProvider>
-        <BrowserRouter>
+        <HashRouter>
           <Toaster position="top-right" richColors />
 
           <Routes>
