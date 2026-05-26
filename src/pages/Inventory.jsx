@@ -163,7 +163,7 @@ export default function Inventory() {
     return "normal";
    };
 
-  return (
+    return (
 
     <div className="space-y-6">
 
