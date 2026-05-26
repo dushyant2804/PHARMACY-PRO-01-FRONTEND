@@ -50,11 +50,35 @@ export default function Inventory() {
           },
         });
 
-      setMeds(
-        Array.isArray(data)
-          ? data
-          : []
-      );
+     const grouped = {};
+
+     (Array.isArray(data) ? data : []).forEach((m) => {
+
+       const key = m.name?.toLowerCase();
+
+       const qty =
+         Number(m.purchased_units || 0)
+         -
+         Number(m.sold_units || 0);
+
+       if (!grouped[key]) {
+
+         grouped[key] = {
+           ...m,
+           total_stock: 0,
+           batches: [],
+         };
+       }
+
+       grouped[key].total_stock += qty;
+
+       grouped[key].batches.push({
+         ...m,
+         quantity: qty,
+       });
+     });
+
+     setMeds(Object.values(grouped));
 
     } catch (e) {
 
@@ -180,14 +204,9 @@ export default function Inventory() {
 
             {meds.map((m) => {
 
-              const qty =
-                Number(
-                  m.total_stock || 0
-                );
-
               const low =
 
-                qty <=
+                m.total_stock <=
                 Number(
                   m.low_stock_threshold || 10
                 );
@@ -294,7 +313,7 @@ export default function Inventory() {
 
   <div className="space-y-2">
 
-    {selected.batches?.map(
+   {(selected.batches || []).map(
       (b, idx) => (
 
         <div
