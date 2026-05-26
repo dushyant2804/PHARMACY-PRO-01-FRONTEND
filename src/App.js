@@ -35,6 +35,8 @@ import Patients from "@/pages/Patients";
 
 import Layout from "@/components/Layout";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import RouteLoader from "@/components/RouteLoader";
+import { useLocation } from "react-router-dom";
 
 function NotFound() {
   return (
@@ -62,20 +64,39 @@ function NotFound() {
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
-  /* 🌅 NEW */
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showRouteLoader, setShowRouteLoader] = useState(false);
 
+  // LOGIN WELCOME (5 sec only once per session)
   useEffect(() => {
     if (user) {
-      const alreadyShown = sessionStorage.getItem("welcome-shown");
+      const seen = sessionStorage.getItem("welcome-shown");
 
-      if (!alreadyShown) {
+      if (!seen) {
         setShowWelcome(true);
-        sessionStorage.setItem("welcome-shown", "true");
+
+        setTimeout(() => {
+          setShowWelcome(false);
+          sessionStorage.setItem("welcome-shown", "true");
+        }, 5000);
       }
     }
   }, [user]);
+
+  // ROUTE CHANGE LOADER (2–3 sec every navigation)
+  useEffect(() => {
+    if (!user) return;
+
+    setShowRouteLoader(true);
+
+    const t = setTimeout(() => {
+      setShowRouteLoader(false);
+    }, 2500);
+
+    return () => clearTimeout(t);
+  }, [location.pathname]);
 
   if (loading) {
     return (
@@ -89,22 +110,22 @@ function Protected({ children }) {
     return <Navigate to="/login" replace />;
   }
 
-  /* 🌅 SHOW WELCOME SCREEN */
   if (showWelcome) {
-    return (
-      <WelcomeScreen
-        onFinish={() => setShowWelcome(false)}
-      />
-    );
+    return <WelcomeScreen onFinish={() => setShowWelcome(false)} />;
   }
 
   return (
-    <Layout>
-      <ErrorBoundary>{children}</ErrorBoundary>
-    </Layout>
+    <>
+      {showRouteLoader && (
+        <RouteLoader onDone={() => setShowRouteLoader(false)} />
+      )}
+
+      <Layout>
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </Layout>
+    </>
   );
 }
-
 function App() {
   return (
     <div className="App">
