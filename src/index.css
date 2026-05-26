@@ -13,11 +13,14 @@
 
 body {
   margin: 0;
-  font-family: var(--font-body);
+  font-family: var(--app-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: #f8fafc;
   color: #0f172a;
+
+  /* smooth transition for font change */
+  transition: font-family 0.35s ease, color 0.35s ease;
 }
 
 .font-heading {
