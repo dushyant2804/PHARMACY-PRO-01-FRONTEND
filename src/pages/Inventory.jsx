@@ -119,9 +119,31 @@ export default function Inventory() {
 
     const today = new Date();
 
-    const exp = new Date(
-      expiryDate
-    );
+    const getExpiryStatus = (expiryDate) => {
+     if (!expiryDate) return "normal";
+
+     // MM/YY format expected
+     const [mm, yy] = expiryDate.split("/");
+
+     if (!mm || !yy) return "normal";
+
+     const exp = new Date(
+      Number(`20${yy}`),
+      Number(mm) - 1,
+      1
+     );
+
+     const today = new Date();
+
+     const diffMonths =
+      (exp.getFullYear() - today.getFullYear()) * 12 +
+      (exp.getMonth() - today.getMonth());
+
+     if (diffMonths < 0) return "expired";
+     if (diffMonths <= 3) return "warning";
+
+     return "normal";
+    };
 
     const diff =
       Math.ceil(
