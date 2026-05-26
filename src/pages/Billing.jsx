@@ -134,7 +134,7 @@ export default function Billing() {
       return toast.error("Out of stock");
     }
 
-    const exists = cart.find((c) => c.medicine_id === m.id);
+    const exists = cart.find((c) => c.name === m.name);
 
     if (exists) {
       const needed =
@@ -156,9 +156,7 @@ export default function Billing() {
       setCart([
         ...cart,
         {
-          medicine_id: m.id,
-          name: m.name,
-          batch_no: m.batch_no,
+          medicine_name: m.name,
           expiry_date: m.expiry_date,
           quantity: 1,
           mrp: m.mrp,
