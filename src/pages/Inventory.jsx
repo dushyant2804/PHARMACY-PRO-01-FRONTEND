@@ -366,7 +366,8 @@ export default function Inventory() {
                     {selected.name}
                   </div>
                 </div>
-
+                
+                <div>
                   <div className="font-medium">
                     {selected.batch_no}
                   </div>
@@ -432,7 +433,7 @@ export default function Inventory() {
                   </div>
                 </div>
 
-
+                <div>
                   <div className="font-medium">
                     {
                       Number(
