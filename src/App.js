@@ -37,6 +37,7 @@ import Layout from "@/components/Layout";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import RouteLoader from "@/components/RouteLoader";
 import { useLocation } from "react-router-dom";
+import PageTransition from "@/components/PageTransition";
 
 function NotFound() {
   return (
@@ -114,18 +115,15 @@ function Protected({ children }) {
     return <WelcomeScreen onFinish={() => setShowWelcome(false)} />;
   }
 
-  return (
-    <>
-      {showRouteLoader && (
-        <RouteLoader onDone={() => setShowRouteLoader(false)} />
-      )}
-
-      <Layout>
-        <ErrorBoundary>{children}</ErrorBoundary>
-      </Layout>
-    </>
-  );
+return (
+  <PageTransition>
+    <Layout>
+      <ErrorBoundary>{children}</ErrorBoundary>
+    </Layout>
+  </PageTransition>
+);
 }
+
 function App() {
   return (
     <div className="App">
