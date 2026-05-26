@@ -109,16 +109,6 @@ export default function Inventory() {
       }
     };
 
-  const getExpiryStatus = (
-    expiryDate
-  ) => {
-
-    if (!expiryDate) {
-      return "normal";
-    }
-
-    const today = new Date();
-
     const getExpiryStatus = (expiryDate) => {
      if (!expiryDate) return "normal";
 
@@ -524,7 +514,9 @@ export default function Inventory() {
                   </div>
 
                   <div className="font-medium">
-                    {selected.distributor_name || "-"}
+                    {selected.distributor_name ||
+                     selected.batches?.[0]?.distributor_name ||
+                     "-"}
                   </div>
                 </div>
 
