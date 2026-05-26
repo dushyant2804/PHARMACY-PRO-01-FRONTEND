@@ -152,16 +152,12 @@ export default function Inventory() {
                 Name
               </th>
 
-              <th className="text-left p-3">
-                Batch
-              </th>
-
-              <th className="text-left p-3">
-                Expiry
-              </th>
-
               <th className="text-right p-3">
-                Qty
+                Total Stock
+              </th>
+
+              <th className="text-center p-3">
+                Total Batches
               </th>
 
               <th className="text-right p-3">
@@ -185,15 +181,8 @@ export default function Inventory() {
             {meds.map((m) => {
 
               const qty =
-
                 Number(
-                  m.purchased_units || 0
-                )
-
-                -
-
-                Number(
-                  m.sold_units || 0
+                  m.total_stock || 0
                 );
 
               const low =
@@ -218,18 +207,6 @@ export default function Inventory() {
 
                   </td>
 
-                  <td className="p-3">
-                    {m.batch_no}
-                  </td>
-
-                  <td className="p-3">
-
-                    {fmtDate(
-                      m.expiry_date
-                    )}
-
-                  </td>
-
                   <td
                     className={`p-3 text-right font-semibold ${
                       low
@@ -237,9 +214,13 @@ export default function Inventory() {
                         : ""
                     }`}
                   >
-                    {qty}
+                    {m.total_stock}
                   </td>
 
+                  <td className="p-3 text-center">
+                    {m.batches?.length || 0}
+                  </td>
+                  
                   <td className="p-3 text-right">
 
                     {fmtINR(
@@ -305,6 +286,55 @@ export default function Inventory() {
           {selected && (
 
             <div className="space-y-3 text-sm">
+              <div className="border rounded p-3">
+
+  <div className="font-semibold mb-3">
+    Batch Details
+  </div>
+
+  <div className="space-y-2">
+
+    {selected.batches?.map(
+      (b, idx) => (
+
+        <div
+          key={idx}
+          className="border rounded p-2 text-sm"
+        >
+
+          <div>
+            <b>Batch:</b>
+            {" "}
+            {b.batch_no}
+          </div>
+
+          <div>
+            <b>Expiry:</b>
+            {" "}
+            {fmtDate(
+              b.expiry_date
+            )}
+          </div>
+
+         <div
+           className={
+             b.quantity_units <= 0
+               ? "text-red-600 font-semibold"
+               : "text-green-700"
+           }
+         >
+           <b>Stock:</b>
+           {" "}
+           {b.quantity_units}
+         </div>
+
+        </div>
+      )
+    )}
+
+  </div>
+
+</div>
 
               <div className="grid grid-cols-2 gap-3">
 
@@ -317,11 +347,6 @@ export default function Inventory() {
                     {selected.name}
                   </div>
                 </div>
-
-                <div>
-                  <div className="text-slate-500">
-                    Batch
-                  </div>
 
                   <div className="font-medium">
                     {selected.batch_no}
@@ -388,10 +413,6 @@ export default function Inventory() {
                   </div>
                 </div>
 
-                <div>
-                  <div className="text-slate-500">
-                    Current Stock
-                  </div>
 
                   <div className="font-medium">
                     {
