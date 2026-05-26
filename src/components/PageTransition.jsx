@@ -1,38 +1,68 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
+const routeNames = {
+  "/": "Dashboard",
+  "/inventory": "Inventory",
+  "/billing": "Billing",
+  "/invoices": "Invoices",
+  "/distributors": "Distributors",
+  "/customers": "Customers",
+  "/purchase-orders": "Purchase Orders",
+  "/daily-sales": "Daily Sales",
+  "/patients": "Patients",
+  "/reports": "Reports",
+  "/settings": "Settings",
+};
+
 export default function PageTransition({ children }) {
   const location = useLocation();
-  const [display, setDisplay] = useState(children);
-  const [animating, setAnimating] = useState(false);
+  const [show, setShow] = useState(true);
+
+  const currentTab = routeNames[location.pathname] || "Loading";
 
   useEffect(() => {
-    setAnimating(true);
+    setShow(false);
 
-    const timeout1 = setTimeout(() => {
-      setDisplay(children);
-    }, 150);
+    const t = setTimeout(() => {
+      setShow(true);
+    }, 180);
 
-    const timeout2 = setTimeout(() => {
-      setAnimating(false);
-    }, 350);
-
-    return () => {
-      clearTimeout(timeout1);
-      clearTimeout(timeout2);
-    };
+    return () => clearTimeout(t);
   }, [location.pathname]);
 
   return (
-    <div
-      className={`transition-all duration-300 ${
-        animating
-          ? "opacity-0 scale-[0.98] blur-sm"
-          : "opacity-100 scale-100 blur-0"
-      }`}
-      style={{ minHeight: "100vh" }}
-    >
-      {display}
+    <div className="relative">
+      {/* CLASSIC TRANSITION LAYER */}
+      <div
+        className={`fixed inset-0 z-[9999] flex items-center justify-center bg-white transition-opacity duration-500 ${
+          show ? "opacity-0 pointer-events-none" : "opacity-100"
+        }`}
+      >
+        <div className="text-center space-y-2">
+          
+          {/* Classic subtle spinner (not modern flashy) */}
+          <div className="w-6 h-6 border border-slate-400 border-t-transparent rounded-full animate-spin mx-auto" />
+
+          {/* Tab name instead of loading text */}
+          <div className="text-sm text-slate-600 tracking-wider uppercase">
+            {currentTab}
+          </div>
+
+          <div className="text-[11px] text-slate-400">
+            opening…
+          </div>
+        </div>
+      </div>
+
+      {/* PAGE CONTENT */}
+      <div
+        className={`transition-opacity duration-500 ${
+          show ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        {children}
+      </div>
     </div>
   );
 }
