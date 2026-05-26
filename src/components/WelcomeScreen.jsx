@@ -4,7 +4,7 @@ export default function WelcomeScreen({ onFinish }) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const duration = 30000; // 30 seconds
+    const duration = 5000; // 5 seconds
     const intervalTime = 100;
 
     const interval = setInterval(() => {
