@@ -125,12 +125,12 @@ export default function PurchaseOrders() {
     setPoDate(po.po_date || new Date().toISOString().split("T")[0]);
 
     setItems(
-      (po.items || []).map((i) => ({
-        ...emptyItem,
-        ...i,
-      }))
-    );
-
+     (po.items || []).map((i) => ({
+      ...emptyItem,
+      ...i,
+      expiry_date: i.expiry_date || "",
+    }))
+   );
     setOpen(true);
   };
 
@@ -374,12 +374,29 @@ export default function PurchaseOrders() {
                       </td>
 
                       <td>
-                        <Input className={expandInputClass}
-                          type="date"
-                          value={it.expiry_date}
-                          onChange={(e) => updateItem(i, "expiry_date", e.target.value)}
-                        />
-                      </td>
+                       <Input
+                        className={expandInputClass}
+                        type="text"
+                        placeholder="MM/YY"
+                        value={it.expiry_date}
+                        onChange={(e) => {
+                         let val = e.target.value;
+
+                         // keep only numbers and slash
+                         val = val.replace(/[^0-9/]/g, "");
+
+                         // auto add slash after MM
+                         if (val.length === 2 && !val.includes("/")) {
+                           val = val + "/";
+                         }
+ 
+                         // limit length to MM/YY
+                         if (val.length > 5) return;
+
+                         updateItem(i, "expiry_date", val);
+                       }}
+                      />
+                     </td>
 
                       <td>
                         <Input className={expandInputClass}
