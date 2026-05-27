@@ -82,35 +82,33 @@ export default function WelcomeScreen({
         </div>
 
         {/* TITLE */}
-        <div
-          className={`
-            transition-all duration-300 will-change-transform
-            text-white
-            text-3xl
-            md:text-6xl
-            font-bold
-            uppercase
-            tracking-[0.12em]
-            leading-tight
-            max-w-5xl
+<div
+  className={
+    `
+    transition-all duration-300 will-change-transform
+    text-white
+    text-3xl
+    md:text-6xl
+    font-bold
+    uppercase
+    tracking-[0.12em]
+    leading-tight
+    max-w-5xl
+    ` +
 
-            ${
-              effect === "glow"
-                ? "drop-shadow-[0_0_20px_rgba(59,130,246,0.9)]"
-                : ""
-            }
+    (effect === "glow"
+      ? " drop-shadow-[0_0_20px_rgba(59,130,246,0.9)]"
+      : "") +
 
-            ${
-              effect === "terminal"
-                ? "font-mono text-green-400"
-                : ""
-            }
-          `}
-        >
+    (effect === "terminal"
+      ? " font-mono text-green-400"
+      : "")
+  }
+>
 
-          {typedText}
+  {typedText}
 
-        </div>
+</div>
 
         {/* SUBTEXT */}
         <div className="mt-6 text-slate-500 tracking-[0.35em] uppercase text-xs md:text-sm">
