@@ -38,11 +38,27 @@ export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [loadingScreen, setLoadingScreen] = useState(false);
+  const [loadingText, setLoadingText] = useState("");
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         setOpen(false);
+  useEffect(() => {
+   const currentPage =
+    nav.find((n) => n.to === location.pathname)?.label ||
+    "Module";
+
+   setLoadingText(currentPage);
+   setLoadingScreen(true);
+
+   const timer = setTimeout(() => {
+    setLoadingScreen(false);
+   }, 1800);
+
+   return () => clearTimeout(timer);
+  }, [location.pathname]); 
 
         const closeBtn = document.querySelector(
           '[data-radix-dialog-content] button[aria-label="Close"]'
@@ -141,6 +157,29 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
+      {loadingScreen && (
+    <div className="fixed inset-0 z-[999] bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
+
+    <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-950 to-black opacity-100" />
+
+    <div className="relative z-10 flex flex-col items-center">
+
+      <div className="mb-8 relative">
+        <div className="w-16 h-16 rounded-full border border-blue-500/30" />
+
+        <div className="absolute inset-0 rounded-full border-t-2 border-blue-400 animate-spin" />
+      </div>
+
+      <div className="text-blue-100 text-xl tracking-wide font-light">
+        Loading {loadingText}
+      </div>
+
+      <div className="mt-3 text-slate-500 text-sm tracking-[0.3em] uppercase">
+        Please Wait
+      </div>
+    </div>
+  </div>
+)}
       {/* DESKTOP SIDEBAR */}
       <aside className="hidden md:flex w-60 bg-slate-900 flex-col fixed inset-y-0 left-0">
         {SidebarContent}
