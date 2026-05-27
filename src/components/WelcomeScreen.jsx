@@ -44,7 +44,7 @@ export default function WelcomeScreen({
         clearInterval(typing);
       }
 
-    }, 55);
+    }, 25);
 
     return () => clearInterval(typing);
 
@@ -52,7 +52,7 @@ export default function WelcomeScreen({
 
   useEffect(() => {
 
-    const duration = 3500;
+    const duration = 1400;
 
     const intervalTime = 80;
 
@@ -76,7 +76,7 @@ export default function WelcomeScreen({
               onFinish();
             }
 
-          }, 300);
+          }, 80);
 
           return 100;
         }
