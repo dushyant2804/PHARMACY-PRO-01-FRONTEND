@@ -254,7 +254,8 @@ export default function Reports() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-
+         </>
+       )}
         </TabsContent>
 
       </Tabs>
