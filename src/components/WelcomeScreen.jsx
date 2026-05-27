@@ -1,3 +1,4 @@
+```jsx
 import React, {
   useEffect,
   useState,
@@ -6,9 +7,6 @@ import React, {
 export default function WelcomeScreen({
   onFinish,
 }) {
-
-  const [progress, setProgress] =
-    useState(0);
 
   const [typedText, setTypedText] =
     useState("");
@@ -28,66 +26,38 @@ export default function WelcomeScreen({
     localStorage.getItem("welcomeEffect") ||
     "typing";
 
- useEffect(() => {
-
-  let index = 0;
-
-  const typing = setInterval(() => {
-
-    index++;
-
-    setTypedText(
-      fullText.slice(0, index)
-    );
-
-    if (index >= fullText.length) {
-      clearInterval(typing);
-    }
-
-  }, 18);
-
-  return () => clearInterval(typing);
-
-}, [fullText]);
   useEffect(() => {
 
-    const duration = 1400;
+    let index = 0;
 
-    const intervalTime = 25;
+    const typing = setInterval(() => {
 
-    const interval = setInterval(() => {
+      index++;
 
-      setProgress((prev) => {
+      setTypedText(
+        fullText.slice(0, index)
+      );
 
-        const next =
-          prev +
-          (intervalTime / duration) * 100;
+      if (index >= fullText.length) {
 
-        if (next >= 100) {
+        clearInterval(typing);
 
-          clearInterval(interval);
+        setTimeout(() => {
 
-          setTimeout(() => {
+          setVisible(false);
 
-            setVisible(false);
+          if (onFinish) {
+            onFinish();
+          }
 
-            if (onFinish) {
-              onFinish();
-            }
+        }, 700);
+      }
 
-          }, 80);
+    }, 16);
 
-          return 100;
-        }
+    return () => clearInterval(typing);
 
-        return next;
-      });
-
-    }, intervalTime);
-
-    return () => clearInterval(interval);
-
-  }, [onFinish]);
+  }, []);
 
   if (!visible) return null;
 
@@ -98,12 +68,12 @@ export default function WelcomeScreen({
       {/* BACKGROUND */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-black to-slate-900" />
 
-      {/* GLOW */}
+      {/* GLOW EFFECTS */}
       <div className="absolute w-[500px] h-[500px] rounded-full bg-blue-500/10 blur-3xl -top-40 -left-40 animate-pulse" />
 
       <div className="absolute w-[400px] h-[400px] rounded-full bg-cyan-500/10 blur-3xl bottom-0 right-0 animate-pulse" />
 
-      {/* CONTENT */}
+      {/* MAIN CONTENT */}
       <div className="relative h-full w-full px-8 py-10 md:px-16 md:py-16 flex flex-col justify-start items-start">
 
         {/* LOGO */}
@@ -114,6 +84,7 @@ export default function WelcomeScreen({
         {/* TITLE */}
         <div
           className={`
+            transition-all duration-300 will-change-transform
             text-white
             text-3xl
             md:text-6xl
@@ -139,18 +110,16 @@ export default function WelcomeScreen({
 
           {typedText}
 
-          <span className="animate-pulse">
-            |
-          </span>
-
         </div>
 
         {/* SUBTEXT */}
         <div className="mt-6 text-slate-500 tracking-[0.35em] uppercase text-xs md:text-sm">
+
           MedStock Pharmacy Operating System
+
         </div>
 
-        {/* SYSTEM TEXT */}
+        {/* SYSTEM STATUS */}
         <div className="mt-10 space-y-2 text-slate-600 text-xs md:text-sm font-mono">
 
           <div>
@@ -175,36 +144,7 @@ export default function WelcomeScreen({
 
         </div>
 
-        {/* PROGRESS BAR */}
-        <div className="mt-10 w-full max-w-md">
-
-          <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-
-            <div
-              className="h-full bg-blue-400 transition-all duration-150"
-              style={{
-                width: `${progress}%`,
-                transition: "width 0.08s linear",
-              }}
-            />
-
-          </div>
-
-          <div className="flex justify-between text-[10px] text-slate-500 mt-2 tracking-widest uppercase">
-
-            <span>
-              Loading
-            </span>
-
-            <span>
-              {Math.floor(progress)}%
-            </span>
-
-          </div>
-
-        </div>
-
-        {/* SKIP */}
+        {/* SKIP BUTTON */}
         <button
           onClick={() => {
 
@@ -217,7 +157,9 @@ export default function WelcomeScreen({
           }}
           className="absolute bottom-6 right-6 text-xs text-slate-400 hover:text-white transition-all underline"
         >
+
           Skip Intro
+
         </button>
 
       </div>
@@ -225,3 +167,4 @@ export default function WelcomeScreen({
     </div>
   );
 }
+```
