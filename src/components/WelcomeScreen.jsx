@@ -28,33 +28,32 @@ export default function WelcomeScreen({
     localStorage.getItem("welcomeEffect") ||
     "typing";
 
-  useEffect(() => {
+ useEffect(() => {
 
-    let index = 0;
+  let index = 0;
 
-    const typing = setInterval(() => {
+  const typing = setInterval(() => {
 
-      setTypedText(
-        fullText.slice(0, index)
-      );
+    index++;
 
-      index++;
+    setTypedText(
+      fullText.slice(0, index)
+    );
 
-      if (index > fullText.length) {
-        clearInterval(typing);
-      }
+    if (index >= fullText.length) {
+      clearInterval(typing);
+    }
 
-    }, 25);
+  }, 18);
 
-    return () => clearInterval(typing);
+  return () => clearInterval(typing);
 
-  }, [fullText]);
-
+}, [fullText]);
   useEffect(() => {
 
     const duration = 1400;
 
-    const intervalTime = 80;
+    const intervalTime = 25;
 
     const interval = setInterval(() => {
 
@@ -185,6 +184,7 @@ export default function WelcomeScreen({
               className="h-full bg-blue-400 transition-all duration-150"
               style={{
                 width: `${progress}%`,
+                transition: "width 0.08s linear",
               }}
             />
 
