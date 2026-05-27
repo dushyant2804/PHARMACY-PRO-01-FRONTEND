@@ -45,7 +45,20 @@ export default function Layout({ children }) {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         setOpen(false);
-  useEffect(() => {
+  
+        const closeBtn = document.querySelector(
+          '[data-radix-dialog-content] button[aria-label="Close"]'
+        );
+
+        if (closeBtn) closeBtn.click();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+  
+ useEffect(() => {
    const currentPage =
     nav.find((n) => n.to === location.pathname)?.label ||
     "Module";
@@ -59,18 +72,6 @@ export default function Layout({ children }) {
 
    return () => clearTimeout(timer);
   }, [location.pathname]); 
-
-        const closeBtn = document.querySelector(
-          '[data-radix-dialog-content] button[aria-label="Close"]'
-        );
-
-        if (closeBtn) closeBtn.click();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   const role = user?.role || "cashier";
   const visibleNav = nav.filter((n) => n.roles.includes(role));
