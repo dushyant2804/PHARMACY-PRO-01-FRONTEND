@@ -66,7 +66,7 @@ function Protected({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
   const [showRouteLoader, setShowRouteLoader] = useState(false);
 
   // LOGIN WELCOME (5 sec only once per session)
@@ -114,12 +114,25 @@ function Protected({ children }) {
     return <WelcomeScreen onFinish={() => setShowWelcome(false)} />;
   }
 
+if (showWelcome) {
+  return (
+    <WelcomeScreen
+      onFinish={() =>
+        setShowWelcome(false)
+      }
+    />
+  );
+}
+
 return (
-    <Layout>
-      <ErrorBoundary>{children}</ErrorBoundary>
-    </Layout>
+  <Layout>
+    <ErrorBoundary>
+      {children}
+    </ErrorBoundary>
+  </Layout>
 );
 }
+
 
 function App() {
   return (
