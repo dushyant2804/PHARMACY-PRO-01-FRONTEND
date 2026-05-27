@@ -337,19 +337,19 @@ export default function PurchaseOrders() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Batch</th>
-                    <th>Expiry</th>
+                    <th>Name*</th>
+                    <th>Batch*</th>
+                    <th>Expiry*</th>
                     <th>Mfr</th>
-                    <th>Category</th>
-                    <th>Qty</th>
-                    <th>Free</th>
+                    <th>Category*</th>
+                    <th>Qty*</th>
+                    <th>Free*</th>
                     <th>Pack</th>
-                    <th>Sold</th>
-                    <th>Purchase</th>
-                    <th>MRP</th>
+                    <th>Sold*</th>
+                    <th>Purchase*</th>
+                    <th>MRP*</th>
                     <th>GST</th>
-                    <th>Low</th>
+                    <th>Low*</th>
                     <th></th>
                   </tr>
                 </thead>
