@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 
-import api, { fmtINR, fmtDate, formatApiError } from "@/lib/api";
+import api, { fmtINR, formatApiError } from "@/lib/api";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { Trash2, Eye, AlertTriangle } from "lucide-react";
+import { Eye, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Inventory() {
@@ -40,20 +39,6 @@ export default function Inventory() {
     setDetailsOpen(true);
   };
 
-  const removeMedicine = async (m) => {
-    if (!window.confirm(`Delete ${m.name}?`)) return;
-
-    try {
-      await api.delete(`/medicines/${m.id}`);
-      toast.success("Medicine deleted");
-      setDetailsOpen(false);
-      load();
-    } catch (e) {
-      toast.error(formatApiError(e));
-    }
-  };
-
-  // ✅ FIXED: MM/YY safe expiry logic
   const getExpiryStatus = (expiry) => {
     if (!expiry) return "normal";
 
@@ -92,7 +77,7 @@ export default function Inventory() {
           <thead className="bg-slate-50">
             <tr>
               <th className="text-left p-3">Name</th>
-              <th className="text-right p-3">Total Stock</th>
+              <th className="text-right p-3">Stock</th>
               <th className="text-center p-3">Batches</th>
               <th className="text-center p-3">Expiry</th>
               <th className="text-right p-3">Purchase</th>
@@ -106,18 +91,16 @@ export default function Inventory() {
               const low =
                 m.total_stock <= Number(m.low_stock_threshold || 10);
 
+              const batchStatus = (m.batches || []).map((b) =>
+                getExpiryStatus(b.expiry_date)
+              );
+
               const expiryStatus =
-                m.batches?.some(
-                  (b) => getExpiryStatus(b.expiry_date) === "expired"
-                )
+                batchStatus.includes("expired")
                   ? "expired"
-                  : m.batches?.some(
-                      (b) => getExpiryStatus(b.expiry_date) === "critical"
-                    )
+                  : batchStatus.includes("critical")
                   ? "critical"
-                  : m.batches?.some(
-                      (b) => getExpiryStatus(b.expiry_date) === "warning"
-                    )
+                  : batchStatus.includes("warning")
                   ? "warning"
                   : "normal";
 
@@ -168,7 +151,7 @@ export default function Inventory() {
 
                     {expiryStatus === "warning" && (
                       <span className="text-yellow-600 flex items-center gap-1 justify-center">
-                        <AlertTriangle className="w-4 h-4" /> 90 Days
+                        <AlertTriangle className="w-4 h-4" /> Warning
                       </span>
                     )}
                   </td>
@@ -196,6 +179,7 @@ export default function Inventory() {
         </table>
       </div>
 
+      {/* DETAILS POPUP */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -204,23 +188,63 @@ export default function Inventory() {
 
           {selected && (
             <div className="space-y-4 text-sm">
+
+              {/* TOP INFO */}
+              <div className="border p-3 rounded bg-slate-50">
+                <div className="font-semibold text-lg">
+                  {selected.name}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {selected.manufacturer}
+                </div>
+
+                <div className="mt-2 text-sm">
+                  <div><b>Total Stock:</b> {selected.total_stock}</div>
+                  <div><b>Purchase:</b> {fmtINR(selected.purchase_price)}</div>
+                  <div><b>MRP:</b> {fmtINR(selected.mrp)}</div>
+                </div>
+              </div>
+
+              {/* BATCHES */}
               <div className="border p-3 rounded">
-                <div className="font-semibold mb-2">Batch Details</div>
+                <div className="font-semibold mb-2">
+                  Batch Details
+                </div>
 
                 {(selected.batches || []).map((b, i) => {
                   const status = getExpiryStatus(b.expiry_date);
 
                   return (
-                    <div key={i} className="border p-2 rounded mb-2">
+                    <div
+                      key={i}
+                      className={`border p-2 rounded mb-2 ${
+                        status === "expired"
+                          ? "bg-red-50"
+                          : status === "critical"
+                          ? "bg-orange-50"
+                          : ""
+                      }`}
+                    >
                       <div><b>Batch:</b> {b.batch_no}</div>
-                      <div><b>Expiry:</b> {fmtDate(b.expiry_date)}</div>
-                      <div><b>Stock:</b> {b.quantity_units}</div>
+
+                      <div>
+                        <b>Expiry:</b> {b.expiry_date}
+                      </div>
+
+                      <div>
+                        <b>Available:</b> {b.quantity_units}
+                      </div>
 
                       {status === "expired" && (
-                        <div className="text-red-600">EXPIRED</div>
+                        <div className="text-red-600 font-semibold">
+                          EXPIRED
+                        </div>
                       )}
+
                       {status === "critical" && (
-                        <div className="text-orange-600">Expiring Soon</div>
+                        <div className="text-orange-600">
+                          Expiring Soon
+                        </div>
                       )}
                     </div>
                   );
