@@ -121,3 +121,10 @@ body {
 .page-transition {
   animation: cinematicFade 0.45s ease-out;
 }
+html {
+  overflow-y: scroll;
+}
+
+body {
+  overflow-x: hidden;
+}
