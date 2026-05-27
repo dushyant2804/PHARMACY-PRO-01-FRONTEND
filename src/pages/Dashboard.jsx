@@ -66,6 +66,56 @@ export default function Dashboard() {
       {/* KPI GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
 
+        {data.low_stock_items?.length > 0 && (
+  <div className="bg-white border rounded-sm p-4">
+    <h2 className="font-semibold mb-3 text-orange-600">
+      Low Stock Medicines
+    </h2>
+
+    <div className="space-y-2 max-h-[250px] overflow-auto">
+      {data.low_stock_items.map((item) => (
+        <div
+          key={item.id}
+          className="flex justify-between border-b py-2 text-sm"
+        >
+          <span>{item.name}</span>
+          <span className="text-red-600 font-bold">
+            {item.qty}
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
+        {data.expiring_soon?.length > 0 && (
+  <div className="bg-white border rounded-sm p-4">
+    <h2 className="font-semibold mb-3 text-yellow-600">
+      Expiring Soon Medicines
+    </h2>
+
+    <div className="space-y-2 max-h-[250px] overflow-auto">
+      {data.expiring_soon.map((item, i) => (
+        <div
+          key={i}
+          className="flex justify-between border-b py-2 text-sm"
+        >
+          <span>
+            {item.name}
+            <span className="text-xs text-slate-500 ml-2">
+              ({item.batch_no})
+            </span>
+          </span>
+
+          <span className="text-orange-600 font-bold">
+            {item.days_left} days
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
         <StatCard
           label="Total Sales"
           value={fmtINR(data.sales || 0)}
