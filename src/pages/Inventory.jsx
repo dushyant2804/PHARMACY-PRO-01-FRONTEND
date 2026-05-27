@@ -194,8 +194,14 @@ export default function Inventory() {
                 <div className="font-semibold text-lg">
                   {selected.name}
                 </div>
+
                 <div className="text-xs text-slate-500">
                   {selected.manufacturer}
+                </div>
+
+                <div className="text-xs text-slate-600 mt-1">
+                  <div><b>Category:</b> {selected.category || "-"}</div>
+                  <div><b>Distributor:</b> {selected.distributor_name || "-"}</div>
                 </div>
 
                 <div className="mt-2 text-sm">
@@ -213,43 +219,65 @@ export default function Inventory() {
 
                 {(selected.batches || []).map((b, i) => {
                   const status = getExpiryStatus(b.expiry_date);
+                  const isExpired = status === "expired";
+                  const isNearExpiry = status === "critical" || status === "warning";
+                  const isEmptyBatch = Number(b.quantity_units || 0) === 0;
 
                   return (
                     <div
                       key={i}
                       className={`border p-2 rounded mb-2 ${
-                        status === "expired"
-                          ? "bg-red-50"
-                          : status === "critical"
-                          ? "bg-orange-50"
-                          : ""
+                        isExpired
+                          ? "bg-red-100 border-red-300"
+                          : isNearExpiry
+                          ? "bg-orange-100 border-orange-300"
+                          : "bg-white"
                       }`}
                     >
-                      <div><b>Batch:</b> {b.batch_no}</div>
+                      <div>
+                        <b>Batch:</b>{" "}
+                        <span className={isEmptyBatch ? "text-red-600 font-bold" : ""}>
+                          {b.batch_no}
+                        </span>
+                      </div>
 
                       <div>
                         <b>Expiry:</b> {b.expiry_date}
                       </div>
 
                       <div>
-                        <b>Available:</b> {b.quantity_units}
+                        <b>Pack Size:</b> {b.pack_size || "-"}
                       </div>
 
-                      {status === "expired" && (
-                        <div className="text-red-600 font-semibold">
+                      <div>
+                        <b>Available:</b>{" "}
+                        <span className={isEmptyBatch ? "text-red-600 font-bold" : ""}>
+                          {b.quantity_units}
+                        </span>
+                      </div>
+
+                      {isExpired && (
+                        <div className="text-red-700 font-semibold">
                           EXPIRED
                         </div>
                       )}
 
-                      {status === "critical" && (
-                        <div className="text-orange-600">
+                      {!isExpired && isNearExpiry && (
+                        <div className="text-orange-700 font-semibold">
                           Expiring Soon
+                        </div>
+                      )}
+
+                      {isEmptyBatch && (
+                        <div className="text-red-600 font-semibold">
+                          EMPTY STOCK
                         </div>
                       )}
                     </div>
                   );
                 })}
               </div>
+
             </div>
           )}
         </DialogContent>
