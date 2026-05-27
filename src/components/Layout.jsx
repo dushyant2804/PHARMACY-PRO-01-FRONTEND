@@ -39,7 +39,7 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [loadingScreen, setLoadingScreen] = useState(false);
-  const [loadingText, setLoadingText] = useState("");
+  const [loadingText, setLoadingText] = useState("Dashboard");
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -68,7 +68,7 @@ export default function Layout({ children }) {
 
    const timer = setTimeout(() => {
     setLoadingScreen(false);
-   }, 1800);
+   }, 600);
 
    return () => clearTimeout(timer);
   }, [location.pathname]); 
