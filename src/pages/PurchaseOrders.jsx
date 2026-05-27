@@ -108,11 +108,8 @@ export default function PurchaseOrders() {
     setItems(items.filter((_, idx) => idx !== i));
   };
 
-  // ✅ FIXED: safe numeric calculation
   const total = items.reduce((sum, i) => {
-    const qty = Number(i.quantity || 0);
-    const price = Number(i.purchase_price || 0);
-    return sum + qty * price;
+    return sum + Number(i.quantity || 0) * Number(i.purchase_price || 0);
   }, 0);
 
   const openEditPO = (po) => {
@@ -126,10 +123,6 @@ export default function PurchaseOrders() {
       (po.items || []).map((i) => ({
         ...emptyItem,
         ...i,
-        quantity: Number(i.quantity || 0),
-        free_quantity: Number(i.free_quantity || 0),
-        purchase_price: Number(i.purchase_price || 0),
-        expiry_date: i.expiry_date || "",
       }))
     );
 
@@ -167,17 +160,11 @@ export default function PurchaseOrders() {
       invoice_ref: invoiceRef || "",
       notes: notes || "",
       po_date: poDate,
-
-      // ✅ IMPORTANT: normalized numeric values sent
       items: validItems.map((i) => ({
         ...i,
         quantity: Number(i.quantity || 0),
         free_quantity: Number(i.free_quantity || 0),
         purchase_price: Number(i.purchase_price || 0),
-        mrp: Number(i.mrp || 0),
-        gst_rate: Number(i.gst_rate || 0),
-        sold_units: Number(i.sold_units || 0),
-        low_stock_threshold: Number(i.low_stock_threshold || 10),
       })),
     };
 
@@ -187,15 +174,10 @@ export default function PurchaseOrders() {
       let res;
 
       if (editingPO) {
-        res = await api.put(
-          `/purchase-orders/${editingPO.id}`,
-          payload
-        );
+        res = await api.put(`/purchase-orders/${editingPO.id}`, payload);
 
         setPos((prev) =>
-          prev.map((p) =>
-            p.id === editingPO.id ? res.data : p
-          )
+          prev.map((p) => (p.id === editingPO.id ? res.data : p))
         );
 
         toast.success("PO updated");
@@ -222,4 +204,103 @@ export default function PurchaseOrders() {
 
   return (
     <div className="space-y-6">
-      {/* unchanged UI below */}
+
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => navigate("/")}>
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Dashboard
+          </Button>
+
+          <h1 className="text-2xl font-bold">
+            Purchase Orders
+          </h1>
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={load}>
+            <RefreshCw className="w-4 h-4 mr-1" />
+            Refresh
+          </Button>
+
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="w-4 h-4 mr-1" />
+            New PO
+          </Button>
+        </div>
+      </div>
+
+      {/* TABLE */}
+      <div className="bg-white border rounded overflow-x-auto">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>PO #</th>
+              <th>Date</th>
+              <th>Distributor</th>
+              <th>Total</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {pos.map((p) => (
+              <tr key={p.id}>
+                <td>{p.po_no}</td>
+                <td>{fmtDate(p.po_date || p.created_at)}</td>
+                <td>{p.distributor_name}</td>
+                <td>{fmtINR(p.total)}</td>
+                <td>
+                  <div className="flex gap-3">
+                    <button
+                      className="text-blue-600"
+                      onClick={() => openEditPO(p)}
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      className="text-red-600"
+                      onClick={() => deletePO(p)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* MODAL */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+
+          <DialogHeader>
+            <DialogTitle>
+              {editingPO ? "Edit Purchase Order" : "New Purchase Order"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={submit} className="space-y-4">
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+
+          </form>
+
+        </DialogContent>
+      </Dialog>
+
+    </div>
+  );
+}
