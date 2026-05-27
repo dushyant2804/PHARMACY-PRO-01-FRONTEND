@@ -68,7 +68,7 @@ export default function Layout({ children }) {
 
    const timer = setTimeout(() => {
     setLoadingScreen(false);
-   }, 600);
+   }, 250);
 
    return () => clearTimeout(timer);
   }, [location.pathname]); 
