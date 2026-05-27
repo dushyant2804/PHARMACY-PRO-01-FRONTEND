@@ -177,7 +177,12 @@ export default function Layout({ children }) {
           <div className="w-7" />
         </header>
 
-        <div className="p-4 md:p-8">{children}</div>
+        <div
+         key={location.pathname}
+         className="p-4 md:p-8 page-transition"
+        >
+         {children}
+        </div>
       </main>
     </div>
   );
