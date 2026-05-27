@@ -92,30 +92,28 @@ export default function Layout({ children }) {
 
           return (
             <Link
-              key={n.to}
-              to={n.to}
-              onClick={() => setOpen(false)}
-              data-testid={`nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
-              className={`
-                relative flex items-center gap-3 px-3 py-2 rounded-sm
-                transition-all duration-300 ease-out
-                text-sm
+             key={n.to}
+             to={n.to}
+             onClick={() => setOpen(false)}
+             data-testid={`nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
+             className={`
+              relative flex items-center gap-3 px-3 py-2 rounded-sm
+              transition-all duration-300 ease-out
+              text-sm
 
-                ${
-                  active
-                    ? "bg-slate-800 text-white font-medium"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800/40"
-                }
-              `}
+              ${
+               active
+                ? "bg-slate-800 text-white font-medium shadow-[0_0_12px_rgba(59,130,246,0.15)] border-l-2 border-blue-500"
+                : "text-slate-400 hover:text-white hover:bg-slate-800/40"
+              }
+            `}
             >
-              <Icon className="w-4 h-4" strokeWidth={1.75} />
+             <Icon className="w-4 h-4" strokeWidth={1.75} />
+             <span>{n.label}</span>
 
-              <span>{n.label}</span>
-
-              {/* 🌿 CLASSIC ACTIVE INDICATOR */}
-              {active && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-blue-500 rounded-full shadow-sm" />
-              )}
+             {active && (
+              <span className="absolute right-3 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+             )}
             </Link>
           );
         })}
