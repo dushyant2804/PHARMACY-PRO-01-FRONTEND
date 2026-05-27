@@ -31,8 +31,16 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { CATEGORIES } from "@/lib/categories";
 
+/* ---------------- UI helpers ---------------- */
+
+const requiredLabel = (text) => (
+  <span>
+    {text} <span className="text-red-600">*</span>
+  </span>
+);
+
 const expandInputClass =
-  "transition-all duration-150 focus:min-w-[250px] focus:z-20 focus:relative";
+  "transition-all duration-150 focus:w-[260px] w-[140px]";
 
 const emptyItem = {
   name: "",
@@ -119,12 +127,7 @@ export default function PurchaseOrders() {
     setNotes(po.notes || "");
     setPoDate(po.po_date || new Date().toISOString().split("T")[0]);
 
-    setItems(
-      (po.items || []).map((i) => ({
-        ...emptyItem,
-        ...i,
-      }))
-    );
+    setItems((po.items || []).map((i) => ({ ...emptyItem, ...i })));
 
     setOpen(true);
   };
@@ -175,17 +178,13 @@ export default function PurchaseOrders() {
 
       if (editingPO) {
         res = await api.put(`/purchase-orders/${editingPO.id}`, payload);
-
         setPos((prev) =>
           prev.map((p) => (p.id === editingPO.id ? res.data : p))
         );
-
         toast.success("PO updated");
       } else {
         res = await api.post("/purchase-orders", payload);
-
         setPos((prev) => [res.data, ...prev]);
-
         toast.success("PO created");
       }
 
@@ -213,9 +212,7 @@ export default function PurchaseOrders() {
             Dashboard
           </Button>
 
-          <h1 className="text-2xl font-bold">
-            Purchase Orders
-          </h1>
+          <h1 className="text-2xl font-bold">Purchase Orders</h1>
         </div>
 
         <div className="flex gap-2">
@@ -253,17 +250,10 @@ export default function PurchaseOrders() {
                 <td>{fmtINR(p.total)}</td>
                 <td>
                   <div className="flex gap-3">
-                    <button
-                      className="text-blue-600"
-                      onClick={() => openEditPO(p)}
-                    >
+                    <button className="text-blue-600" onClick={() => openEditPO(p)}>
                       Edit
                     </button>
-
-                    <button
-                      className="text-red-600"
-                      onClick={() => deletePO(p)}
-                    >
+                    <button className="text-red-600" onClick={() => deletePO(p)}>
                       Delete
                     </button>
                   </div>
@@ -277,7 +267,6 @@ export default function PurchaseOrders() {
       {/* MODAL */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-
           <DialogHeader>
             <DialogTitle>
               {editingPO ? "Edit Purchase Order" : "New Purchase Order"}
@@ -286,18 +275,140 @@ export default function PurchaseOrders() {
 
           <form onSubmit={submit} className="space-y-4">
 
+            {/* BASIC FIELDS */}
+            <div className="grid grid-cols-4 gap-3">
+
+              <div>
+                <Label>{requiredLabel("Distributor")}</Label>
+                <select
+                  className="border p-2 w-full"
+                  value={distId}
+                  onChange={(e) => setDistId(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {dists.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <Label>Invoice Ref</Label>
+                <Input
+                  className={expandInputClass}
+                  value={invoiceRef}
+                  onChange={(e) => setInvoiceRef(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label>{requiredLabel("PO Date")}</Label>
+                <Input
+                  type="date"
+                  value={poDate}
+                  onChange={(e) => setPoDate(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label>Notes</Label>
+                <Input
+                  className={expandInputClass}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* ITEMS GRID */}
+            <div className="border rounded p-3 space-y-2">
+
+              <div className="font-semibold">Items</div>
+
+              {items.map((it, i) => (
+                <div key={i} className="grid grid-cols-8 gap-2 items-center">
+
+                  <Input
+                    placeholder="Name*"
+                    value={it.name}
+                    onChange={(e) => updateItem(i, "name", e.target.value)}
+                    className={expandInputClass}
+                  />
+
+                  <Input
+                    placeholder="Batch*"
+                    value={it.batch_no}
+                    onChange={(e) => updateItem(i, "batch_no", e.target.value)}
+                  />
+
+                  <Input
+                    type="date"
+                    value={it.expiry_date}
+                    onChange={(e) => updateItem(i, "expiry_date", e.target.value)}
+                  />
+
+                  <Input
+                    placeholder="Qty"
+                    type="number"
+                    value={it.quantity}
+                    onChange={(e) => updateItem(i, "quantity", e.target.value)}
+                  />
+
+                  <Input
+                    placeholder="Free"
+                    type="number"
+                    value={it.free_quantity}
+                    onChange={(e) => updateItem(i, "free_quantity", e.target.value)}
+                  />
+
+                  <Input
+                    placeholder="Purchase*"
+                    type="number"
+                    value={it.purchase_price}
+                    onChange={(e) => updateItem(i, "purchase_price", e.target.value)}
+                  />
+
+                  <Input
+                    placeholder="MRP"
+                    type="number"
+                    value={it.mrp}
+                    onChange={(e) => updateItem(i, "mrp", e.target.value)}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => removeRow(i)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+
+              <Button type="button" onClick={addRow}>
+                <Plus className="w-4 h-4 mr-1" />
+                Add Row
+              </Button>
+
+              <div className="text-right font-bold">
+                Total: {fmtINR(total)}
+              </div>
+            </div>
+
+            {/* ACTIONS */}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
 
               <Button type="submit" disabled={saving}>
-                {saving ? "Saving..." : "Save"}
+                {saving ? "Saving..." : "Save PO"}
               </Button>
             </div>
 
           </form>
-
         </DialogContent>
       </Dialog>
 
