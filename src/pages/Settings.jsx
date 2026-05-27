@@ -50,6 +50,19 @@ export default function Settings() {
     signature_b64: "",
   });
 
+  const [welcomeText, setWelcomeText] = useState(
+    localStorage.getItem("welcomeText") || 
+    "WELCOME TO YOUR PHARMACY" 
+  );
+
+  const [welcomeLogo, setWelcomeLogo] = useState(
+    localStorage.getItem("welcomeLogo") || "💊"
+  );
+
+  const [welcomeEffect, setWelcomeEffect] = useState(
+    localStorage.getItem("welcomeEffect") || "typing"
+  );
+
   const loadUsers = () => {
     api
       .get("/auth/users")
@@ -117,6 +130,25 @@ export default function Settings() {
     } catch (e) {
       toast.error(formatApiError(e));
     }
+  };
+
+  const saveWelcomeSettings = () => {
+    localStorage.setItem(
+      "welcomeText",
+      welcomeText
+    );
+
+    localStorage.setItem(
+      "welcomeLogo",
+      welcomeLogo
+    );
+
+    localStorage.setItem(
+      "welcomeEffect",
+      welcomeEffect
+    );
+
+    toast.success("Welcome screen updated");
   };
 
   return (
@@ -446,6 +478,75 @@ export default function Settings() {
           </table>
         </div>
       )}
+      <div className="bg-white border rounded-xl p-5 space-y-5">
+
+        <div className="text-xl font-semibold">
+          Welcome Screen Customization
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">
+            Welcome Text
+          </label>
+
+        <Input
+          value={welcomeText}
+          onChange={(e) =>
+            setWelcomeText(e.target.value)
+          }
+          placeholder="WELCOME TO YOUR PHARMACY"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">
+          Logo / Emoji
+        </label>
+
+        <Input
+          value={welcomeLogo}
+          onChange={(e) =>
+            setWelcomeLogo(e.target.value)
+          }
+          placeholder="💊"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">
+          Welcome Effect
+        </label>
+
+        <select
+          value={welcomeEffect}
+          onChange={(e) =>
+            setWelcomeEffect(e.target.value)
+          }
+          className="w-full border rounded-md h-10 px-3"
+        >
+          <option value="typing">
+            Typing Effect
+          </option>
+
+          <option value="fade">
+            Fade Effect
+          </option>
+
+          <option value="glow">
+            Glow Effect
+          </option>
+
+          <option value="terminal">
+            Terminal Effect
+          </option>
+        </select>
+      </div>
+
+      <Button onClick={saveWelcomeSettings}>
+        Save Welcome Screen
+      </Button>
+
+    </div>
     </div>
   );
 }
