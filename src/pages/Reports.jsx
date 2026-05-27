@@ -78,8 +78,8 @@ export default function Reports() {
     const map = {};
 
     medicines.forEach((m) => {
-      const qty = Number(m.quantity || 0);
-      const price = Number(m.mrp || 0);
+      const qty = Number(m.total_stock || 0);
+      const price = Number(m.purchase_price || 0);
 
       const value = qty * price;
 
@@ -148,7 +148,7 @@ export default function Reports() {
             <Button onClick={loadSales}>Run</Button>
           </div>
 
-          {sales && (
+          {sales?.daily?.length > 0 && (
             <div className="space-y-6">
 
               {/* KPI GRID */}
@@ -226,6 +226,9 @@ export default function Reports() {
 
         {/* ANALYTICS (VERTICAL CHART FIX AREA) */}
         <TabsContent value="analytics" className="space-y-6 mt-4">
+
+          {categoryData.length > 0 && (
+           <>
 
           <div className="bg-white border rounded-sm p-4 h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
