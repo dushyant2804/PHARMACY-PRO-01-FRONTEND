@@ -1,4 +1,3 @@
-```jsx
 import React, {
   useEffect,
   useState,
@@ -84,12 +83,24 @@ export default function WelcomeScreen({
         {/* TITLE */}
 <div
   className={
-    "transition-all duration-300 will-change-transform text-white text-3xl md:text-6xl font-bold uppercase tracking-[0.12em] leading-tight max-w-5xl " +
+    `
+    transition-all duration-300 will-change-transform
+    text-white
+    text-3xl
+    md:text-6xl
+    font-bold
+    uppercase
+    tracking-[0.12em]
+    leading-tight
+    max-w-5xl
+    ` +
+
     (effect === "glow"
-      ? "drop-shadow-[0_0_20px_rgba(59,130,246,0.9)] "
+      ? " drop-shadow-[0_0_20px_rgba(59,130,246,0.9)]"
       : "") +
+
     (effect === "terminal"
-      ? "font-mono text-green-400"
+      ? " font-mono text-green-400"
       : "")
   }
 >
@@ -153,4 +164,3 @@ export default function WelcomeScreen({
     </div>
   );
 }
-```
