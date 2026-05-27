@@ -1,4 +1,3 @@
-```jsx
 import React, {
   useEffect,
   useState,
@@ -226,4 +225,3 @@ export default function WelcomeScreen({
     </div>
   );
 }
-```
