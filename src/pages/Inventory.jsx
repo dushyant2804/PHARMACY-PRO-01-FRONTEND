@@ -38,7 +38,7 @@ export default function Inventory() {
 
   const openDetails = (m) => {
   setSelected(m);
-  setThresholdValue(m.low_stock_threshold || 10);
+  setThresholdValue(m.low_stock_threshold);
   setDetailsOpen(true);
 };
 
