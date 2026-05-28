@@ -380,12 +380,69 @@ export default function PurchaseOrders() {
           </td>
 
           <td className="p-2">
-            <Input
-              type="date"
-              value={it.expiry_date}
-              onChange={(e) => updateItem(i, "expiry_date", e.target.value)}
-            />
-          </td>
+  <Input
+    placeholder="MM/YY"
+    value={it.expiry_date}
+    maxLength={5}
+
+    className={`w-[90px]
+      ${
+        (() => {
+          const [mm, yy] = (it.expiry_date || "").split("/");
+
+          const month = Number(mm);
+          const year = Number(`20${yy}`);
+
+          if (!mm || !yy) return "";
+
+          if (month < 1 || month > 12)
+            return "border-red-500";
+
+          const now = new Date();
+
+          const expiry = new Date(year, month);
+
+          const diffMonths =
+            (expiry.getFullYear() - now.getFullYear()) * 12 +
+            (expiry.getMonth() - now.getMonth());
+
+          if (diffMonths <= 3)
+            return "border-yellow-500";
+
+          return "border-green-500";
+        })()
+      }
+    `}
+
+    onChange={(e) => {
+      let v = e.target.value.replace(/\D/g, "");
+
+      if (v.length > 4)
+        v = v.slice(0, 4);
+
+      if (v.length >= 3) {
+        v = v.slice(0, 2) + "/" + v.slice(2);
+      }
+
+      const month = Number(v.slice(0, 2));
+
+      if (month > 12) return;
+
+      updateItem(i, "expiry_date", v);
+
+      // AUTO TAB AFTER MMYY
+      if (v.length === 5) {
+        const next =
+          e.target
+            .closest("td")
+            ?.nextElementSibling
+            ?.querySelector("input");
+
+        next?.focus();
+      }
+    }}
+  />
+</td>
 
           <td className="p-2">
             <Input
