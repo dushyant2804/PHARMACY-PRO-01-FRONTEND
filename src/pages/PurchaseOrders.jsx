@@ -506,7 +506,6 @@ export default function PurchaseOrders() {
   </div>
 
 </div>
-    ))}
 
                   <button
                     type="button"
