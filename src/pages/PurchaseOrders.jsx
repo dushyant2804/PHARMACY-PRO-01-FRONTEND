@@ -288,7 +288,7 @@ const grandTotal =
                 <td>{p.po_no}</td>
                 <td>{fmtDate(p.po_date || p.created_at)}</td>
                 <td>{p.distributor_name}</td>
-                <td>{fmtINR(p.total)}</td>
+                <td>{fmtINR(p.grand_total || p.total || 0)}</td>
                 <td>
                   <div className="flex gap-3">
                     <button className="text-blue-600" onClick={() => openEditPO(p)}>
@@ -665,7 +665,7 @@ const grandTotal =
     </div>
 
     <div className="text-2xl font-bold text-blue-700">
-      {fmtINR(total)}
+      {fmtINR(grandTotal)}
     </div>
   </div>
 
