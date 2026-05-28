@@ -332,32 +332,180 @@ export default function PurchaseOrders() {
               </div>
             </div>
 
-            {/* ITEMS GRID */}
-            <div className="border rounded p-3 space-y-2">
+            {/* ITEMS TABLE */}
+<div className="border rounded overflow-x-auto">
 
-              <div className="font-semibold">Items</div>
+  <table className="w-full text-sm min-w-[1800px]">
 
-              {items.map((it, i) => (
-  <div key={i} className="grid grid-cols-8 gap-2 items-center border-b py-2">
+    <thead className="bg-slate-100">
+      <tr className="text-left">
 
-    {itemFields.map((f) => (
-      <div key={f.key} className="relative">
+        <th className="p-2">Name*</th>
+        <th className="p-2">Batch No*</th>
+        <th className="p-2">Expiry*</th>
+        <th className="p-2">Manufacturer*</th>
+        <th className="p-2">Category*</th>
+        <th className="p-2">Qty*</th>
+        <th className="p-2">Free Qty</th>
+        <th className="p-2">Purchase*</th>
+        <th className="p-2">MRP*</th>
+        <th className="p-2">GST %*</th>
+        <th className="p-2">Pack Size</th>
+        <th className="p-2">Sold Units</th>
+        <th className="p-2">Low Stock*</th>
+        <th className="p-2">Action</th>
 
-        <Input
-          type={f.type || "text"}
-          placeholder={f.required ? `${f.label} *` : f.label}
-          value={it[f.key]}
-          onChange={(e) => updateItem(i, f.key, e.target.value)}
-          className="transition-all focus:scale-[1.03]"
-        />
+      </tr>
+    </thead>
 
-        {f.required && !it[f.key] && (
-          <span className="absolute right-2 top-1 text-red-500 text-xs">
-            *
-          </span>
-        )}
+    <tbody>
 
-      </div>
+      {items.map((it, i) => (
+
+        <tr key={i} className="border-t hover:bg-slate-50">
+
+          <td className="p-2">
+            <Input
+              value={it.name}
+              onChange={(e) => updateItem(i, "name", e.target.value)}
+              className={expandInputClass}
+            />
+          </td>
+
+          <td className="p-2">
+            <Input
+              value={it.batch_no}
+              onChange={(e) => updateItem(i, "batch_no", e.target.value)}
+            />
+          </td>
+
+          <td className="p-2">
+            <Input
+              type="date"
+              value={it.expiry_date}
+              onChange={(e) => updateItem(i, "expiry_date", e.target.value)}
+            />
+          </td>
+
+          <td className="p-2">
+            <Input
+              value={it.manufacturer}
+              onChange={(e) => updateItem(i, "manufacturer", e.target.value)}
+            />
+          </td>
+
+          <td className="p-2">
+            <select
+              className="border p-2 rounded w-full"
+              value={it.category}
+              onChange={(e) => updateItem(i, "category", e.target.value)}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </td>
+
+          <td className="p-2">
+            <Input
+              type="number"
+              value={it.quantity}
+              onChange={(e) => updateItem(i, "quantity", e.target.value)}
+            />
+          </td>
+
+          <td className="p-2">
+            <Input
+              type="number"
+              value={it.free_quantity}
+              onChange={(e) => updateItem(i, "free_quantity", e.target.value)}
+            />
+          </td>
+
+          <td className="p-2">
+            <Input
+              type="number"
+              value={it.purchase_price}
+              onChange={(e) => updateItem(i, "purchase_price", e.target.value)}
+            />
+          </td>
+
+          <td className="p-2">
+            <Input
+              type="number"
+              value={it.mrp}
+              onChange={(e) => updateItem(i, "mrp", e.target.value)}
+            />
+          </td>
+
+          <td className="p-2">
+            <Input
+              type="number"
+              value={it.gst_rate}
+              onChange={(e) => updateItem(i, "gst_rate", e.target.value)}
+            />
+          </td>
+
+          <td className="p-2">
+            <Input
+              value={it.pack_size}
+              onChange={(e) => updateItem(i, "pack_size", e.target.value)}
+            />
+          </td>
+
+          <td className="p-2">
+            <Input
+              type="number"
+              value={it.sold_units}
+              onChange={(e) => updateItem(i, "sold_units", e.target.value)}
+            />
+          </td>
+
+          <td className="p-2">
+            <Input
+              type="number"
+              value={it.low_stock_threshold}
+              onChange={(e) =>
+                updateItem(i, "low_stock_threshold", e.target.value)
+              }
+            />
+          </td>
+
+          <td className="p-2">
+            <button
+              type="button"
+              onClick={() => removeRow(i)}
+              className="text-red-600 font-bold"
+            >
+              ✕
+            </button>
+          </td>
+
+        </tr>
+
+      ))}
+
+    </tbody>
+
+  </table>
+
+  {/* FOOTER */}
+  <div className="flex justify-between items-center p-3 border-t bg-slate-50">
+
+    <Button type="button" onClick={addRow}>
+      <Plus className="w-4 h-4 mr-1" />
+      Add Row
+    </Button>
+
+    <div className="text-lg font-bold">
+      Total: {fmtINR(total)}
+    </div>
+
+  </div>
+
+</div>
     ))}
 
                   <button
