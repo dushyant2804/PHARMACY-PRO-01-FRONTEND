@@ -58,6 +58,16 @@ const emptyItem = {
   low_stock_threshold: 10,
 };
 
+const itemFields = [
+  { key: "name", label: "Name", required: true },
+  { key: "batch_no", label: "Batch", required: true },
+  { key: "expiry_date", label: "Expiry", type: "date", required: true },
+  { key: "quantity", label: "Qty", type: "number" },
+  { key: "free_quantity", label: "Free", type: "number" },
+  { key: "purchase_price", label: "Purchase", type: "number", required: true },
+  { key: "mrp", label: "MRP", type: "number" },
+];
+
 export default function PurchaseOrders() {
   const navigate = useNavigate();
 
@@ -328,54 +338,38 @@ export default function PurchaseOrders() {
               <div className="font-semibold">Items</div>
 
               {items.map((it, i) => (
-                <div key={i} className="grid grid-cols-8 gap-2 items-center">
+  <div key={i} className="grid grid-cols-8 gap-2 items-center border-b py-2">
 
-                  <Input
-                    placeholder="Name*"
-                    value={it.name}
-                    onChange={(e) => updateItem(i, "name", e.target.value)}
-                    className={expandInputClass}
-                  />
+    {itemFields.map((f) => (
+      <div key={f.key} className="relative">
 
-                  <Input
-                    placeholder="Batch*"
-                    value={it.batch_no}
-                    onChange={(e) => updateItem(i, "batch_no", e.target.value)}
-                  />
+        <Input
+          type={f.type || "text"}
+          placeholder={f.required ? `${f.label} *` : f.label}
+          value={it[f.key]}
+          onChange={(e) => updateItem(i, f.key, e.target.value)}
+          className="transition-all focus:scale-[1.03]"
+        />
 
-                  <Input
-                    type="date"
-                    value={it.expiry_date}
-                    onChange={(e) => updateItem(i, "expiry_date", e.target.value)}
-                  />
+        {f.required && !it[f.key] && (
+          <span className="absolute right-2 top-1 text-red-500 text-xs">
+            *
+          </span>
+        )}
 
-                  <Input
-                    placeholder="Qty"
-                    type="number"
-                    value={it.quantity}
-                    onChange={(e) => updateItem(i, "quantity", e.target.value)}
-                  />
+      </div>
+    ))}
 
-                  <Input
-                    placeholder="Free"
-                    type="number"
-                    value={it.free_quantity}
-                    onChange={(e) => updateItem(i, "free_quantity", e.target.value)}
-                  />
+    <button
+      type="button"
+      onClick={() => removeRow(i)}
+      className="text-red-600"
+    >
+      <Trash2 className="w-4 h-4" />
+    </button>
 
-                  <Input
-                    placeholder="Purchase*"
-                    type="number"
-                    value={it.purchase_price}
-                    onChange={(e) => updateItem(i, "purchase_price", e.target.value)}
-                  />
-
-                  <Input
-                    placeholder="MRP"
-                    type="number"
-                    value={it.mrp}
-                    onChange={(e) => updateItem(i, "mrp", e.target.value)}
-                  />
+  </div>
+))}
 
                   <button
                     type="button"
