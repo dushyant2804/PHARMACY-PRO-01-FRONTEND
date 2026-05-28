@@ -615,9 +615,10 @@ const grandTotal =
       <Label>Round Off</Label>
       <Input
         type="number"
+        step="0.01"
         value={roundOff}
         onChange={(e) =>
-          setRoundOff(e.target.value)
+          setRoundOff(parseFloat(e.target.value || 0))
         }
       />
     </div>
