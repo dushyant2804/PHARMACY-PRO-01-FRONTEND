@@ -277,6 +277,32 @@ export default function Inventory() {
                   );
                 })}
               </div>
+              <div className="flex justify-end">
+  <button
+    onClick={async () => {
+      if (!window.confirm(`Delete ${selected.name}?`))
+        return;
+
+      try {
+        await api.delete(`/medicines/${selected.id}`);
+
+        setMeds((prev) =>
+          prev.filter((x) => x.id !== selected.id)
+        );
+
+        setDetailsOpen(false);
+
+        toast.success("Medicine deleted");
+
+      } catch (e) {
+        toast.error(formatApiError(e));
+      }
+    }}
+    className="bg-red-600 text-white px-4 py-2 rounded"
+  >
+    Delete Medicine
+  </button>
+</div>
 
             </div>
           )}
