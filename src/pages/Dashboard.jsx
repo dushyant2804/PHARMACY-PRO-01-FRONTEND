@@ -88,14 +88,15 @@ export default function Dashboard() {
   </div>
 )}
 
-        {data.expiring_soon?.length > 0 && (
-  <div className="bg-white border rounded-sm p-4">
-    <h2 className="font-semibold mb-3 text-yellow-600">
-      Expiring Soon Medicines
-    </h2>
+        <div className="bg-white border rounded-sm p-4">
+  <h2 className="font-semibold mb-3 text-yellow-600">
+    Expiring Soon Medicines
+  </h2>
 
-    <div className="space-y-2 max-h-[250px] overflow-auto">
-      {data.expiring_soon.map((item, i) => (
+  <div className="space-y-2 max-h-[250px] overflow-auto">
+
+    {data.expiring_soon?.length ? (
+      data.expiring_soon.map((item, i) => (
         <div
           key={i}
           className="flex justify-between border-b py-2 text-sm"
@@ -111,11 +112,16 @@ export default function Dashboard() {
             {item.days_left} days
           </span>
         </div>
-      ))}
-    </div>
-  </div>
-)}
+      ))
+    ) : (
+      <div className="text-sm text-slate-400 py-2">
+        No expiring medicines 🎉
+      </div>
+    )}
 
+  </div>
+</div>
+        
         <StatCard
           label="Total Sales"
           value={fmtINR(data.sales || 0)}
