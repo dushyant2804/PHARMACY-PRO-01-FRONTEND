@@ -91,8 +91,8 @@ export default function Inventory() {
           <tbody>
             {meds.map((m) => {
               const low =
-                m.total_stock <= Number(m.low_stock_threshold || 10);
-
+               m.total_stock <= m.low_stock_threshold;
+      
               const batchStatus = (m.batches || []).map((b) =>
                 getExpiryStatus(b.expiry_date)
               );
