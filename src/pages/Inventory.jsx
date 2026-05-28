@@ -263,8 +263,10 @@ export default function Inventory() {
                         </div>
                       )}
                     </div>
-                   
-                    {/* LOW STOCK THRESHOLD CONTROL */}
+                  );
+                })}
+
+                {/* LOW STOCK THRESHOLD CONTROL */}
 <div className="border p-3 rounded bg-slate-50 mt-4">
   <div className="font-semibold mb-2">
     Low Stock Threshold
@@ -298,8 +300,6 @@ export default function Inventory() {
     Save Threshold
   </Button>
 </div>
-                  );
-                })}
               </div>
               <div className="flex justify-end gap-2">
 
