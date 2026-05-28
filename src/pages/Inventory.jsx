@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 export default function Inventory() {
   const [meds, setMeds] = useState([]);
+  const [thresholdValue, setThresholdValue] = useState("");
   const [search, setSearch] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -35,9 +36,10 @@ export default function Inventory() {
   }, [search]);
 
   const openDetails = (m) => {
-    setSelected(m);
-    setDetailsOpen(true);
-  };
+  setSelected(m);
+  setThresholdValue(m.low_stock_threshold || 10);
+  setDetailsOpen(true);
+};
 
   const getExpiryStatus = (expiry) => {
     if (!expiry) return "normal";
@@ -261,6 +263,41 @@ export default function Inventory() {
                         </div>
                       )}
                     </div>
+                   
+                    {/* LOW STOCK THRESHOLD CONTROL */}
+<div className="border p-3 rounded bg-slate-50 mt-4">
+  <div className="font-semibold mb-2">
+    Low Stock Threshold
+  </div>
+
+  <Input
+    type="number"
+    value={thresholdValue}
+    onChange={(e) => setThresholdValue(e.target.value)}
+  />
+
+  <Button
+    className="mt-2"
+    onClick={async () => {
+      try {
+        await api.put(
+          `/medicines/${selected.id}/threshold`,
+          {
+            low_stock_threshold: thresholdValue,
+          }
+        );
+
+        toast.success("Threshold updated");
+        setDetailsOpen(false);
+        load();
+      } catch (e) {
+        toast.error(formatApiError(e));
+      }
+    }}
+  >
+    Save Threshold
+  </Button>
+</div>
                   );
                 })}
               </div>
