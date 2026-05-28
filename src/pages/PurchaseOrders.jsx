@@ -383,7 +383,7 @@ const grandTotal =
         <th className="p-2">GST %*</th>
         <th className="p-2">Pack Size</th>
         <th className="p-2">Sold Units</th>
-        <th className="p-2">Low Stock*</th>
+     // <th className="p-2">Low Stock*</th>
         <th className="p-2">Action</th>
 
       </tr>
@@ -548,16 +548,6 @@ const grandTotal =
               type="number"
               value={it.sold_units}
               onChange={(e) => updateItem(i, "sold_units", e.target.value)}
-            />
-          </td>
-
-          <td className="p-2">
-            <Input
-              type="number"
-              value={it.low_stock_threshold}
-              onChange={(e) =>
-                updateItem(i, "low_stock_threshold", e.target.value)
-              }
             />
           </td>
 
