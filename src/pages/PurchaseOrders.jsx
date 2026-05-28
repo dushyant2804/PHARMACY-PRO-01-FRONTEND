@@ -79,6 +79,9 @@ export default function PurchaseOrders() {
   const [distId, setDistId] = useState("");
   const [invoiceRef, setInvoiceRef] = useState("");
   const [notes, setNotes] = useState("");
+  const [schemeDiscount, setSchemeDiscount] = useState(0);
+  const [cashDiscount, setCashDiscount] = useState(0);
+  const [roundOff, setRoundOff] = useState(0);
   const [editingPO, setEditingPO] = useState(null);
 
   const [poDate, setPoDate] = useState(
@@ -129,6 +132,26 @@ export default function PurchaseOrders() {
   const total = items.reduce((sum, i) => {
     return sum + Number(i.quantity || 0) * Number(i.purchase_price || 0);
   }, 0);
+
+  const subTotal = total;
+
+const totalGST = items.reduce((sum, i) => {
+  const qty = Number(i.quantity || 0);
+  const price = Number(i.purchase_price || 0);
+  const gst = Number(i.gst_rate || 0);
+
+  return sum + ((qty * price) * gst) / 100;
+}, 0);
+
+const totalCGST = totalGST / 2;
+const totalSGST = totalGST / 2;
+
+const grandTotal =
+  subTotal -
+  Number(schemeDiscount || 0) -
+  Number(cashDiscount || 0) +
+  totalGST +
+  Number(roundOff || 0);
 
   const openEditPO = (po) => {
     setEditingPO(po);
@@ -548,19 +571,121 @@ export default function PurchaseOrders() {
 
   </table>
 
-  {/* FOOTER */}
-  <div className="flex justify-between items-center p-3 border-t bg-slate-50">
+  {/* BILL SUMMARY */}
+<div className="border-t bg-slate-50 p-4">
 
-    <Button type="button" onClick={addRow}>
-      <Plus className="w-4 h-4 mr-1" />
-      Add Row
-    </Button>
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
-    <div className="text-lg font-bold">
-      Total: {fmtINR(total)}
+    <div>
+      <Label>Sub Total</Label>
+      <Input value={subTotal.toFixed(2)} readOnly />
+    </div>
+
+    <div>
+      <Label>Scheme Discount</Label>
+      <Input
+        type="number"
+        value={schemeDiscount}
+        onChange={(e) =>
+          setSchemeDiscount(e.target.value)
+        }
+      />
+    </div>
+
+    <div>
+      <Label>Cash Discount</Label>
+      <Input
+        type="number"
+        value={cashDiscount}
+        onChange={(e) =>
+          setCashDiscount(e.target.value)
+        }
+      />
+    </div>
+
+    <div>
+      <Label>Round Off</Label>
+      <Input
+        type="number"
+        value={roundOff}
+        onChange={(e) =>
+          setRoundOff(e.target.value)
+        }
+      />
+    </div>
+
+    <div>
+      <Label>Total CGST</Label>
+      <Input value={totalCGST.toFixed(2)} readOnly />
+    </div>
+
+    <div>
+      <Label>Total SGST</Label>
+      <Input value={totalSGST.toFixed(2)} readOnly />
+    </div>
+
+    <div className="md:col-span-2">
+      <Label>Grand Total</Label>
+
+      <Input
+        value={grandTotal.toFixed(2)}
+        readOnly
+        className="text-xl font-bold text-blue-700"
+      />
     </div>
 
   </div>
+
+</div>
+
+  {/* TABLE CONTROLS */}
+<div className="flex justify-start p-3 border-t bg-slate-50">
+
+  <Button type="button" onClick={addRow}>
+    <Plus className="w-4 h-4 mr-1" />
+    Add Row
+  </Button>
+
+</div>
+
+{/* ACTIONS */}
+<div className="sticky bottom-0 z-10 bg-white border-t p-4 flex justify-between items-center">
+
+  <div className="space-y-1">
+    <div className="text-xs text-slate-500 uppercase tracking-wide">
+      Grand Total
+    </div>
+
+    <div className="text-2xl font-bold text-blue-700">
+      {fmtINR(total)}
+    </div>
+  </div>
+
+  <div className="flex gap-2">
+
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => setOpen(false)}
+    >
+      Cancel
+    </Button>
+
+    <Button
+      type="submit"
+      disabled={saving}
+      className="bg-blue-600 hover:bg-blue-700 text-white"
+    >
+      {saving
+        ? "Saving..."
+        : editingPO
+        ? "Update PO"
+        : "Save PO"}
+    </Button>
+
+  </div>
+
+</div>
 
 </div>
 
