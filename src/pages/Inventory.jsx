@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 
 import api, { fmtINR, formatApiError } from "@/lib/api";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
