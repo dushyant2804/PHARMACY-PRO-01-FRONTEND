@@ -76,12 +76,11 @@ export default function Inventory() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
             <tr>
-              <th className="text-left p-3">Name</th>
-              <th className="text-right p-3">Stock</th>
+              <th className="text-left p-3">Medicine</th>
+              <th className="text-left p-3">Manufacturer</th>
+              <th className="text-right p-3">Total Stock</th>
               <th className="text-center p-3">Batches</th>
-              <th className="text-center p-3">Expiry</th>
-              <th className="text-right p-3">Purchase</th>
-              <th className="text-right p-3">MRP</th>
+              <th className="text-center p-3">Category</th>
               <th className="text-center p-3">Actions</th>
             </tr>
           </thead>
@@ -117,11 +116,12 @@ export default function Inventory() {
                       : ""
                   }
                 >
-                  <td className="p-3">
-                    <div className="font-medium">{m.name}</div>
-                    <div className="text-xs text-slate-500">
-                      {m.manufacturer}
-                    </div>
+                  <td className="p-3 font-medium">
+                    {m.name}
+                  </td>
+
+                  <td className="p-3 text-slate-600">
+                    {m.manufacturer || "-"}
                   </td>
 
                   <td
@@ -137,31 +137,7 @@ export default function Inventory() {
                   </td>
 
                   <td className="p-3 text-center">
-                    {expiryStatus === "expired" && (
-                      <span className="text-red-600 flex items-center gap-1 justify-center">
-                        <AlertTriangle className="w-4 h-4" /> Expired
-                      </span>
-                    )}
-
-                    {expiryStatus === "critical" && (
-                      <span className="text-orange-600 flex items-center gap-1 justify-center">
-                        <AlertTriangle className="w-4 h-4" /> Soon
-                      </span>
-                    )}
-
-                    {expiryStatus === "warning" && (
-                      <span className="text-yellow-600 flex items-center gap-1 justify-center">
-                        <AlertTriangle className="w-4 h-4" /> Warning
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="p-3 text-right">
-                    {fmtINR(m.purchase_price || 0)}
-                  </td>
-
-                  <td className="p-3 text-right">
-                    {fmtINR(m.mrp || 0)}
+                    {m.category || "-"}
                   </td>
 
                   <td className="p-3 text-center">
@@ -205,8 +181,6 @@ export default function Inventory() {
 
                 <div className="mt-2 text-sm">
                   <div><b>Total Stock:</b> {selected.total_stock}</div>
-                  <div><b>Purchase:</b> {fmtINR(selected.purchase_price)}</div>
-                  <div><b>MRP:</b> {fmtINR(selected.mrp)}</div>
                 </div>
               </div>
 
@@ -253,6 +227,16 @@ export default function Inventory() {
                       </div>
 
                       <div>
+                        <b>Purchase Rate:</b>{" "}
+                        {fmtINR(b.purchase_price || 0)}
+                      </div>
+
+                      <div>
+                        <b>MRP:</b>{" "}
+                        {fmtINR(b.mrp || 0)}
+                      </div>
+
+                      <div>
                         <b>Available:</b>{" "}
                         <span className={isEmptyBatch ? "text-red-600 font-bold" : ""}>
                           {b.quantity_units}
@@ -280,31 +264,55 @@ export default function Inventory() {
                   );
                 })}
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+
+  <button
+    onClick={() => {
+      toast.info(
+        "Inventory edit panel coming next 😄"
+      );
+    }}
+    className="bg-blue-600 text-white px-4 py-2 rounded"
+  >
+    Edit Medicine
+  </button>
+
   <button
     onClick={async () => {
       if (!window.confirm(`Delete ${selected.name}?`))
         return;
 
       try {
-        await api.delete(`/medicines/${selected.id}`);
+
+        await api.delete(
+          `/medicines/${selected.id}`
+        );
 
         setMeds((prev) =>
-          prev.filter((x) => x.id !== selected.id)
+          prev.filter(
+            (x) => x.id !== selected.id
+          )
         );
 
         setDetailsOpen(false);
 
-        toast.success("Medicine deleted");
+        toast.success(
+          "Medicine deleted"
+        );
 
       } catch (e) {
-        toast.error(formatApiError(e));
+
+        toast.error(
+          formatApiError(e)
+        );
+
       }
     }}
     className="bg-red-600 text-white px-4 py-2 rounded"
   >
     Delete Medicine
   </button>
+
 </div>
 
             </div>
