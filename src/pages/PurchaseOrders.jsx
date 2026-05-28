@@ -507,37 +507,6 @@ export default function PurchaseOrders() {
 
 </div>
 
-                  <button
-                    type="button"
-                    onClick={() => removeRow(i)}
-                    className="text-red-600"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-
-              <Button type="button" onClick={addRow}>
-                <Plus className="w-4 h-4 mr-1" />
-                Add Row
-              </Button>
-
-              <div className="text-right font-bold">
-                Total: {fmtINR(total)}
-              </div>
-            </div>
-
-            {/* ACTIONS */}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-
-              <Button type="submit" disabled={saving}>
-                {saving ? "Saving..." : "Save PO"}
-              </Button>
-            </div>
-
           </form>
         </DialogContent>
       </Dialog>
