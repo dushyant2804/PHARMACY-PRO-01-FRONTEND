@@ -196,6 +196,14 @@ const grandTotal =
       invoice_ref: invoiceRef || "",
       notes: notes || "",
       po_date: poDate,
+      scheme_discount: Number(schemeDiscount || 0),
+      cash_discount: Number(cashDiscount || 0),
+      round_off: Number(roundOff || 0),
+
+      sub_total: subTotal,
+      cgst: totalCGST,
+      sgst: totalSGST,
+      grand_total: grandTotal,
       items: validItems.map((i) => ({
         ...i,
         quantity: Number(i.quantity || 0),
