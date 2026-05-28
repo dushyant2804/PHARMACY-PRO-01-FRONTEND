@@ -360,17 +360,6 @@ export default function PurchaseOrders() {
       </div>
     ))}
 
-    <button
-      type="button"
-      onClick={() => removeRow(i)}
-      className="text-red-600"
-    >
-      <Trash2 className="w-4 h-4" />
-    </button>
-
-  </div>
-))}
-
                   <button
                     type="button"
                     onClick={() => removeRow(i)}
