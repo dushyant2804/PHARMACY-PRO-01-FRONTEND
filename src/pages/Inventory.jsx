@@ -201,7 +201,6 @@ export default function Inventory() {
 
                 <div className="text-xs text-slate-600 mt-1">
                   <div><b>Category:</b> {selected.category || "-"}</div>
-                  <div><b>Distributor:</b> {selected.distributor_name || "-"}</div>
                 </div>
 
                 <div className="mt-2 text-sm">
@@ -247,6 +246,10 @@ export default function Inventory() {
 
                       <div>
                         <b>Pack Size:</b> {b.pack_size || "-"}
+                      </div>
+
+                      <div>
+                        <b>Distributor:</b> {b.distributor_name || "-"}
                       </div>
 
                       <div>
