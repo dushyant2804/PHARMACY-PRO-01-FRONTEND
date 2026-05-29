@@ -54,8 +54,6 @@ const emptyItem = {
   mrp: 0,
   gst_rate: 5,
   pack_size: "",
-  sold_units: 0,
-  low_stock_threshold: 10,
 };
 
 const itemFields = [
@@ -382,8 +380,6 @@ const grandTotal =
         <th className="p-2">MRP*</th>
         <th className="p-2">GST %*</th>
         <th className="p-2">Pack Size</th>
-        <th className="p-2">Sold Units</th>
-     // <th className="p-2">Low Stock*</th>
         <th className="p-2">Action</th>
 
       </tr>
@@ -540,14 +536,6 @@ const grandTotal =
             <Input
               value={it.pack_size}
               onChange={(e) => updateItem(i, "pack_size", e.target.value)}
-            />
-          </td>
-
-          <td className="p-2">
-            <Input
-              type="number"
-              value={it.sold_units}
-              onChange={(e) => updateItem(i, "sold_units", e.target.value)}
             />
           </td>
 
