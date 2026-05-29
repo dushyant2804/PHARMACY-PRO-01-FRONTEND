@@ -16,6 +16,7 @@ import { toast } from "sonner";
 export default function Inventory() {
   const [meds, setMeds] = useState([]);
   const [thresholdValue, setThresholdValue] = useState("");
+  const [soldUnitsValue, setSoldUnitsValue] = useState("");
   const [search, setSearch] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -37,11 +38,20 @@ export default function Inventory() {
   }, [search]);
 
   const openDetails = (m) => {
+
   setSelected(m);
-  setThresholdValue(m.low_stock_threshold ?? "");
+
+  setThresholdValue(
+    m.low_stock_threshold ?? ""
+  );
+
+  setSoldUnitsValue(
+    m.sold_units ?? ""
+  );
+
   setDetailsOpen(true);
 };
-
+  
   const getExpiryStatus = (expiry) => {
     if (!expiry) return "normal";
 
@@ -301,6 +311,54 @@ export default function Inventory() {
   >
     Save Threshold
   </Button>
+</div>
+
+                {/* SOLD QTY CONTROL */}
+
+<div className="border p-3 rounded bg-slate-50 mt-4">
+
+  <div className="font-semibold mb-2">
+    Sold Quantity
+  </div>
+
+  <Input
+    type="number"
+    value={soldUnitsValue}
+    onChange={(e) =>
+      setSoldUnitsValue(e.target.value)
+    }
+  />
+
+  <Button
+    className="mt-2"
+    onClick={async () => {
+
+      try {
+
+        await api.put(
+          `/medicines/${selected.id}/sold`,
+          {
+            sold_units: Number(soldUnitsValue)
+          }
+        );
+
+        toast.success("Sold quantity updated");
+
+        setDetailsOpen(false);
+
+        load();
+
+      } catch (e) {
+
+        toast.error(formatApiError(e));
+
+      }
+
+    }}
+  >
+    Save Sold Quantity
+  </Button>
+
 </div>
               </div>
               <div className="flex justify-end gap-2">
