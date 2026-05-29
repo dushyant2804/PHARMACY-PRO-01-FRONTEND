@@ -98,30 +98,6 @@ const handleDelete = async (txnId) => {
     </div>
 
   </div>
-
-  {type === "distributor" && (
-
-    <div className="text-xs space-y-1 border rounded p-2 bg-slate-50">
-
-      <div className="flex justify-between gap-4">
-        <span>Total Purchases</span>
-        <span className="font-semibold text-red-600">
-          {fmtINR(data.total_purchases || 0)}
-        </span>
-      </div>
-
-      <div className="flex justify-between gap-4">
-        <span>Total Paid</span>
-        <span className="font-semibold text-emerald-600">
-          {fmtINR(data.total_paid || 0)}
-        </span>
-      </div>
-
-    </div>
-
-  )}
-
-</div>
       </div>
 
       <Button onClick={() => setOpen(true)} className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="add-txn">
