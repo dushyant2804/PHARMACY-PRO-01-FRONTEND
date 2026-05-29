@@ -38,7 +38,7 @@ export default function Inventory() {
 
   const openDetails = (m) => {
   setSelected(m);
-  setThresholdValue(m.low_stock_threshold);
+  setThresholdValue(m.low_stock_threshold ?? "");
   setDetailsOpen(true);
 };
 
@@ -91,8 +91,9 @@ export default function Inventory() {
           <tbody>
             {meds.map((m) => {
               const low =
-               m.total_stock <= m.low_stock_threshold;
-      
+               m.low_stock_threshold !== null &&
+               m.low_stock_threshold !== undefined &&
+               m.total_stock <= m.low_stock_threshold;      
               const batchStatus = (m.batches || []).map((b) =>
                 getExpiryStatus(b.expiry_date)
               );
