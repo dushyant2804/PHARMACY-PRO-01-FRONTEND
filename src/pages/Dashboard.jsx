@@ -6,13 +6,13 @@ import { useNavigate } from "react-router-dom";
 
 function StatCard({ label, value, tone, sub }) {
   return (
-    <Card className="rounded-sm border-slate-200 hover:shadow-sm transition">
+    <Card className="w-full min-h-[120px] overflow-hidden rounded-sm border-slate-200 hover:shadow-sm transition">
       <CardContent className="p-4 space-y-1">
         <div className="text-[11px] uppercase tracking-widest text-slate-500">
           {label}
         </div>
 
-        <div className={`text-2xl font-bold ${tone || "text-slate-900"}`}>
+        <div className={`text-lg md:text-2xl break-words font-bold ${tone || "text-slate-900"}`}>
           {value}
         </div>
 
@@ -64,7 +64,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
 
         {data.low_stock_items?.length > 0 && (
   <div className="bg-white border rounded-sm p-4">
@@ -148,6 +148,13 @@ export default function Dashboard() {
           value={fmtINR(data.stock_value || 0)}
           tone="text-purple-600"
           sub="At purchase cost"
+        />
+
+        <StatCard
+          label="Total Purchase Amount"
+          value={fmtINR(data.total_purchase_amount || 0)}
+          tone="text-indigo-600"
+          sub="All PO grand totals"
         />
 
         <StatCard
