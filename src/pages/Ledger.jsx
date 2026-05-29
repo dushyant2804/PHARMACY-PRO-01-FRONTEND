@@ -96,6 +96,32 @@ const handleDelete = async (txnId) => {
         ? "Payable"
         : "Receivable"}
     </div>
+ 
+    {type === "distributor" && (
+  <div className="mt-3 space-y-1 text-sm">
+
+    <div className="flex justify-between gap-6">
+      <span className="text-slate-500">
+        Total Purchases
+      </span>
+
+      <span className="font-semibold text-red-600">
+        {fmtINR(data.total_purchases || 0)}
+      </span>
+    </div>
+
+    <div className="flex justify-between gap-6">
+      <span className="text-slate-500">
+        Total Paid
+      </span>
+
+      <span className="font-semibold text-emerald-600">
+        {fmtINR(data.total_paid || 0)}
+      </span>
+    </div>
+
+  </div>
+)}
 
   </div>
       </div>
