@@ -73,15 +73,55 @@ const handleDelete = async (txnId) => {
           <h1 className="font-heading text-3xl md:text-4xl font-bold">{entity.name}</h1>
           {entity.phone && <div className="text-sm text-slate-500 mt-1">{entity.phone}</div>}
         </div>
-        <div className="text-right">
-          <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Balance</div>
-          <div className={`font-heading text-3xl font-bold font-mono-nums ${data.balance > 0 ? "text-red-600" : "text-emerald-600"}`}>
-            {fmtINR(data.balance)}
-          </div>
-          <div className="text-xs text-slate-500">
-            {type === "distributor" ? "Payable" : "Receivable"}
-          </div>
-        </div>
+        <div className="text-right space-y-2">
+
+  <div>
+
+    <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
+      Balance
+    </div>
+
+    <div
+      className={`font-heading text-3xl font-bold font-mono-nums ${
+        data.balance > 0
+          ? "text-red-600"
+          : "text-emerald-600"
+      }`}
+    >
+      {fmtINR(data.balance)}
+    </div>
+
+    <div className="text-xs text-slate-500">
+      {type === "distributor"
+        ? "Payable"
+        : "Receivable"}
+    </div>
+
+  </div>
+
+  {type === "distributor" && (
+
+    <div className="text-xs space-y-1 border rounded p-2 bg-slate-50">
+
+      <div className="flex justify-between gap-4">
+        <span>Total Purchases</span>
+        <span className="font-semibold text-red-600">
+          {fmtINR(data.total_purchases || 0)}
+        </span>
+      </div>
+
+      <div className="flex justify-between gap-4">
+        <span>Total Paid</span>
+        <span className="font-semibold text-emerald-600">
+          {fmtINR(data.total_paid || 0)}
+        </span>
+      </div>
+
+    </div>
+
+  )}
+
+</div>
       </div>
 
       <Button onClick={() => setOpen(true)} className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="add-txn">
