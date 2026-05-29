@@ -99,6 +99,7 @@ const handleDelete = async (txnId) => {
 
   </div>
       </div>
+      </div>
 
       <Button onClick={() => setOpen(true)} className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="add-txn">
         <Plus className="w-4 h-4 mr-2" />Add Transaction
