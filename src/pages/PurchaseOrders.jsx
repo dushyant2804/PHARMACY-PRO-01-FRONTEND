@@ -393,35 +393,57 @@ const grandTotal =
 
         <tr key={i} className="border-t hover:bg-slate-50">
 
-          <td className="p-2">
-            <Input
-              ref={(el) => (itemRefs.current[i] = el)}
-              value={it.name}
-              onChange={async (e) => {
+         <td className="p-2 relative">
 
-                const value = e.target.value;
+  <Input
+    ref={(el) => (itemRefs.current[i] = el)}
+    value={it.name}
+    onChange={async (e) => {
 
-                updateItem(i, "name", value);
+      const value = e.target.value;
 
-                setActiveRow(i);
+      updateItem(i, "name", value);
 
-                if (value.length >= 2) {
+      setActiveRow(i);
 
-                  const { data } = await api.get(
-                    `/medicines?search=${value}`
-                  );
+      if (value.length >= 2) {
 
-                  setMedicineSuggestions(data);
+        const { data } = await api.get(
+          `/medicines?search=${value}`
+        );
 
-                } else {
+        setMedicineSuggestions(data);
 
-                  setMedicineSuggestions([]);
+      } else {
 
-                }
-              }}
-              className={expandInputClass}
-            />
-          </td>
+        setMedicineSuggestions([]);
+
+      }
+    }}
+    className={expandInputClass}
+  />
+
+  {activeRow === i &&
+    medicineSuggestions.length > 0 && (
+
+      <div className="absolute z-50 bg-white border rounded shadow w-full max-h-56 overflow-y-auto">
+
+        {medicineSuggestions.map((m) => (
+
+          <div
+            key={m.id}
+            className="p-2 cursor-pointer hover:bg-slate-100"
+          >
+            {m.name}
+          </div>
+
+        ))}
+
+      </div>
+
+  )}
+
+</td>
 
           <td className="p-2">
             <Input
