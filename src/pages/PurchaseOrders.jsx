@@ -393,6 +393,7 @@ const grandTotal =
 
           <td className="p-2">
             <Input
+              ref={(el) => (itemRefs.current[i] = el)}
               value={it.name}
               onChange={(e) => updateItem(i, "name", e.target.value)}
               className={expandInputClass}
@@ -557,6 +558,16 @@ const grandTotal =
 
   </table>
 
+   {/* TABLE CONTROLS */}
+<div className="flex justify-start p-3 border-t bg-slate-50">
+
+  <Button type="button" onClick={addRow}>
+    <Plus className="w-4 h-4 mr-1" />
+    Add Row
+  </Button>
+
+</div>
+
   {/* BILL SUMMARY */}
 <div className="border-t bg-slate-50 p-4">
 
@@ -625,16 +636,7 @@ const grandTotal =
 
 </div>
 
-  {/* TABLE CONTROLS */}
-<div className="flex justify-start p-3 border-t bg-slate-50">
-
-  <Button type="button" onClick={addRow}>
-    <Plus className="w-4 h-4 mr-1" />
-    Add Row
-  </Button>
-
-</div>
-
+ 
 {/* ACTIONS */}
 <div className="sticky bottom-0 z-10 bg-white border-t p-4 flex justify-between items-center">
 
