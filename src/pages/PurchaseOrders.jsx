@@ -81,6 +81,8 @@ export default function PurchaseOrders() {
   const [cashDiscount, setCashDiscount] = useState(0);
   const [roundOff, setRoundOff] = useState(0);
   const [editingPO, setEditingPO] = useState(null);
+  const [medicineSuggestions, setMedicineSuggestions] = useState([]);
+  const [activeRow, setActiveRow] = useState(null);
 
   const [poDate, setPoDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -395,7 +397,28 @@ const grandTotal =
             <Input
               ref={(el) => (itemRefs.current[i] = el)}
               value={it.name}
-              onChange={(e) => updateItem(i, "name", e.target.value)}
+              onChange={async (e) => {
+
+                const value = e.target.value;
+
+                updateItem(i, "name", value);
+
+                setActiveRow(i);
+
+                if (value.length >= 2) {
+
+                  const { data } = await api.get(
+                    `/medicines?search=${value}`
+                  );
+
+                  setMedicineSuggestions(data);
+
+                } else {
+
+                  setMedicineSuggestions([]);
+
+                }
+              }}
               className={expandInputClass}
             />
           </td>
