@@ -56,6 +56,57 @@ const emptyItem = {
   pack_size: "",
 };
 
+
+const normalizeExpiryStatus = (status) => {
+  const value = String(status || "").toLowerCase().replace(/[ -]/g, "_");
+
+  if (["expired", "expiry_expired"].includes(value)) return "expired";
+  if (["expiring_soon", "critical", "warning", "near_expiry"].includes(value)) {
+    return "expiring_soon";
+  }
+  if (["valid", "safe", "normal"].includes(value)) return "valid";
+
+  return "";
+};
+
+const getExpiryStatus = (expiry, backendStatus) => {
+  const normalizedBackendStatus = normalizeExpiryStatus(backendStatus);
+  if (normalizedBackendStatus) return normalizedBackendStatus;
+  if (!expiry) return "";
+
+  const [mm, yy] = expiry.split("/");
+  if (!mm || !yy) return "";
+
+  const month = Number(mm);
+  const year = Number(`20${yy}`);
+
+  if (!Number.isFinite(month) || !Number.isFinite(year) || month < 1 || month > 12) {
+    return "invalid";
+  }
+
+  const expiryMonthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const daysToExpiry = Math.ceil(
+    (expiryMonthEnd.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (daysToExpiry < 0) return "expired";
+  if (daysToExpiry <= 90) return "expiring_soon";
+
+  return "valid";
+};
+
+const getExpiryInputClass = (item) => {
+  const status = getExpiryStatus(item.expiry_date, item.expiry_status);
+
+  if (status === "expired" || status === "invalid") return "border-red-500";
+  if (status === "expiring_soon") return "border-orange-500";
+  if (status === "valid") return "border-green-500";
+
+  return "";
+};
+
 const itemFields = [
   { key: "name", label: "Name", required: true },
   { key: "batch_no", label: "Batch", required: true },
@@ -486,34 +537,7 @@ const grandTotal =
     value={it.expiry_date}
     maxLength={5}
 
-    className={`w-[90px]
-      ${
-        (() => {
-          const [mm, yy] = (it.expiry_date || "").split("/");
-
-          const month = Number(mm);
-          const year = Number(`20${yy}`);
-
-          if (!mm || !yy) return "";
-
-          if (month < 1 || month > 12)
-            return "border-red-500";
-
-          const now = new Date();
-
-          const expiry = new Date(year, month);
-
-          const diffMonths =
-            (expiry.getFullYear() - now.getFullYear()) * 12 +
-            (expiry.getMonth() - now.getMonth());
-
-          if (diffMonths <= 3)
-            return "border-yellow-500";
-
-          return "border-green-500";
-        })()
-      }
-    `}
+    className={`w-[90px] ${getExpiryInputClass(it)}`}
 
     onChange={(e) => {
       let v = e.target.value.replace(/\D/g, "");

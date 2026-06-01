@@ -52,22 +52,46 @@ export default function Inventory() {
   setDetailsOpen(true);
 };
   
-  const getExpiryStatus = (expiry) => {
+  const normalizeExpiryStatus = (status) => {
+    const value = String(status || "").toLowerCase().replace(/[ -]/g, "_");
+
+    if (["expired", "expiry_expired"].includes(value)) return "expired";
+    if (["expiring_soon", "critical", "warning", "near_expiry"].includes(value)) {
+      return "expiring_soon";
+    }
+
+    return "normal";
+  };
+
+  const getExpiryStatus = (expiry, backendStatus) => {
+    const normalizedBackendStatus = normalizeExpiryStatus(backendStatus);
+    if (normalizedBackendStatus !== "normal") return normalizedBackendStatus;
     if (!expiry) return "normal";
 
     const [mm, yy] = expiry.split("/");
     if (!mm || !yy) return "normal";
 
-    const exp = new Date(Number(`20${yy}`), Number(mm) - 1, 1);
+    const month = Number(mm);
+    const year = Number(`20${yy}`);
+
+    if (!Number.isFinite(month) || !Number.isFinite(year) || month < 1 || month > 12) {
+      return "normal";
+    }
+
+    const expiryMonthEnd = new Date(year, month, 0, 23, 59, 59, 999);
     const today = new Date();
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
 
-    const diffMonths =
-      (exp.getFullYear() - today.getFullYear()) * 12 +
-      (exp.getMonth() - today.getMonth());
+    const daysToExpiry = Math.ceil(
+      (expiryMonthEnd.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24)
+    );
 
-    if (diffMonths < 0) return "expired";
-    if (diffMonths <= 1) return "critical";
-    if (diffMonths <= 3) return "warning";
+    if (daysToExpiry < 0) return "expired";
+    if (daysToExpiry <= 90) return "expiring_soon";
 
     return "normal";
   };
@@ -113,16 +137,14 @@ export default function Inventory() {
                m.low_stock_threshold !== undefined &&
                m.total_stock <= m.low_stock_threshold;      
               const batchStatus = (m.batches || []).map((b) =>
-                getExpiryStatus(b.expiry_date)
+                getExpiryStatus(b.expiry_date, b.expiry_status)
               );
 
               const expiryStatus =
                 batchStatus.includes("expired")
                   ? "expired"
-                  : batchStatus.includes("critical")
-                  ? "critical"
-                  : batchStatus.includes("warning")
-                  ? "warning"
+                  : batchStatus.includes("expiring_soon")
+                  ? "expiring_soon"
                   : "normal";
 
               return (
@@ -131,10 +153,8 @@ export default function Inventory() {
                   className={
                     expiryStatus === "expired"
                       ? "bg-red-50"
-                      : expiryStatus === "critical"
+                      : expiryStatus === "expiring_soon"
                       ? "bg-orange-50"
-                      : expiryStatus === "warning"
-                      ? "bg-yellow-50"
                       : ""
                   }
                 >
@@ -213,9 +233,9 @@ export default function Inventory() {
                 </div>
 
                 {(selected.batches || []).map((b, i) => {
-                  const status = getExpiryStatus(b.expiry_date);
+                  const status = getExpiryStatus(b.expiry_date, b.expiry_status);
                   const isExpired = status === "expired";
-                  const isNearExpiry = status === "critical" || status === "warning";
+                  const isNearExpiry = status === "expiring_soon";
                   const isEmptyBatch = Number(b.quantity_units || 0) === 0;
 
                   return (
