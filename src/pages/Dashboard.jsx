@@ -31,11 +31,62 @@ function StatCard({ label, value, tone, sub, onClick }) {
   );
 }
 
+function ExpiryTable({ title, tone, columns, items, emptyText, renderRow }) {
+  return (
+    <div className="bg-white border rounded-sm p-4">
+      <h2 className={`font-semibold mb-3 ${tone}`}>
+        {title}
+      </h2>
+
+      <div className="max-h-[260px] overflow-auto">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+            <tr>
+              {columns.map((column) => (
+                <th key={column} className="text-left p-2 border-b">
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.length ? (
+              items.map(renderRow)
+            ) : (
+              <tr>
+                <td className="p-3 text-slate-400" colSpan={columns.length}>
+                  {emptyText}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 const getOutstandingTotal = (outstanding, listKey) => {
   return (outstanding?.[listKey] || []).reduce(
     (sum, item) => sum + Number(item.balance || 0),
     0
   );
+};
+
+const firstDefined = (...values) => {
+  return values.find((value) => value !== undefined && value !== null);
+};
+
+const getExpiryDate = (item) => {
+  return firstDefined(item.expiry_date, item.expiry, item.expiryDate, "-");
+};
+
+const getBatchNo = (item) => {
+  return firstDefined(item.batch_no, item.batch, item.batchNo, "-");
+};
+
+const getMedicineName = (item) => {
+  return firstDefined(item.name, item.medicine_name, item.medicine, "-");
 };
 
 export default function Dashboard() {
@@ -74,6 +125,17 @@ export default function Dashboard() {
 
   const customerOutstanding = getOutstandingTotal(outstanding, "customers");
   const distributorOutstanding = getOutstandingTotal(outstanding, "distributors");
+  const expiringSoonItems = firstDefined(data.expiring_soon_items, data.expiring_soon, []);
+  const expiredItems = firstDefined(data.expired_items, data.expired, []);
+  const expiringSoonCount = firstDefined(data.expiring_soon_count, expiringSoonItems.length, 0);
+  const expiredCount = firstDefined(data.expired_count, expiredItems.length, 0);
+
+  const totalSales = firstDefined(data.total_sales, data.sales, 0);
+  const salesThisMonth = firstDefined(data.sales_this_month, data.monthly_sales, 0);
+  const totalExpenses = firstDefined(data.total_expenses, data.expenses, 0);
+  const expensesThisMonth = firstDefined(data.expenses_this_month, data.monthly_expenses, 0);
+  const totalProfit = firstDefined(data.total_profit, data.profit, 0);
+  const profitThisMonth = firstDefined(data.profit_this_month, data.monthly_profit, 0);
 
   return (
     <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
@@ -90,82 +152,25 @@ export default function Dashboard() {
 
       {/* KPI GRID */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-
-        {data.low_stock_items?.length > 0 && (
-  <div className="bg-white border rounded-sm p-4">
-    <h2 className="font-semibold mb-3 text-orange-600">
-      Low Stock Medicines
-    </h2>
-
-    <div className="space-y-2 max-h-[250px] overflow-auto">
-      {data.low_stock_items.map((item) => (
-        <div
-          key={item.id}
-          className="flex justify-between border-b py-2 text-sm"
-        >
-          <span>{item.name}</span>
-          <span className="text-red-600 font-bold">
-            {item.qty}
-          </span>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-
-        <div className="bg-white border rounded-sm p-4">
-  <h2 className="font-semibold mb-3 text-yellow-600">
-    Expiring Soon Medicines
-  </h2>
-
-  <div className="space-y-2 max-h-[250px] overflow-auto">
-
-    {data.expiring_soon?.length ? (
-      data.expiring_soon.map((item, i) => (
-        <div
-          key={i}
-          className="flex justify-between border-b py-2 text-sm"
-        >
-          <span>
-            {item.name}
-            <span className="text-xs text-slate-500 ml-2">
-              ({item.batch_no})
-            </span>
-          </span>
-
-          <span className="text-orange-600 font-bold">
-            {item.days_left} days
-          </span>
-        </div>
-      ))
-    ) : (
-      <div className="text-sm text-slate-400 py-2">
-        No expiring medicines 🎉
-      </div>
-    )}
-
-  </div>
-</div>
-        
         <StatCard
           label="Total Sales"
-          value={fmtINR(data.sales || 0)}
+          value={fmtINR(totalSales || 0)}
           tone="text-emerald-600"
-          sub="Gross revenue"
+          sub={`Sales This Month: ${fmtINR(salesThisMonth || 0)}`}
         />
 
         <StatCard
-          label="Expenses"
-          value={fmtINR(data.expenses || 0)}
+          label="Total Expenses"
+          value={fmtINR(totalExpenses || 0)}
           tone="text-red-600"
-          sub="Operational cost"
+          sub={`Expenses This Month: ${fmtINR(expensesThisMonth || 0)}`}
         />
 
         <StatCard
-          label="Profit"
-          value={fmtINR(data.profit || 0)}
+          label="Total Profit"
+          value={fmtINR(totalProfit || 0)}
           tone="text-blue-600"
-          sub="Net earnings"
+          sub={`Profit This Month: ${fmtINR(profitThisMonth || 0)}`}
         />
 
         <StatCard
@@ -206,10 +211,82 @@ export default function Dashboard() {
         />
 
         <StatCard
-          label="Expiring Soon"
-          value={data.expiring_soon_count || 0}
-          tone={data.expiring_soon_count ? "text-yellow-600" : "text-slate-700"}
-          sub="≤ 60 days"
+          label="Expiring Soon Count"
+          value={expiringSoonCount || 0}
+          tone={expiringSoonCount ? "text-orange-600" : "text-slate-700"}
+          sub="Near expiry"
+        />
+
+        <StatCard
+          label="Expired Count"
+          value={expiredCount || 0}
+          tone={expiredCount ? "text-red-600" : "text-slate-700"}
+          sub="Past expiry"
+        />
+      </div>
+
+      {data.low_stock_items?.length > 0 && (
+        <div className="bg-white border rounded-sm p-4">
+          <h2 className="font-semibold mb-3 text-orange-600">
+            Low Stock Medicines
+          </h2>
+
+          <div className="space-y-2 max-h-[250px] overflow-auto">
+            {data.low_stock_items.map((item) => (
+              <div
+                key={item.id}
+                className="flex justify-between border-b py-2 text-sm"
+              >
+                <span>{item.name}</span>
+                <span className="text-red-600 font-bold">
+                  {item.qty}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* EXPIRY SECTIONS */}
+      <div className="grid xl:grid-cols-2 gap-4">
+        <ExpiryTable
+          title="Expiring Soon Medicines"
+          tone="text-orange-600"
+          columns={["Medicine", "Batch", "Expiry Date", "Days Remaining"]}
+          items={expiringSoonItems}
+          emptyText="No expiring soon medicines 🎉"
+          renderRow={(item, i) => (
+            <tr key={item.id || `${getMedicineName(item)}-${getBatchNo(item)}-${i}`} className="border-b">
+              <td className="p-2 font-medium">{getMedicineName(item)}</td>
+              <td className="p-2 text-slate-600">{getBatchNo(item)}</td>
+              <td className="p-2 text-slate-600">{getExpiryDate(item)}</td>
+              <td className="p-2 text-orange-600 font-bold">
+                {firstDefined(item.days_to_expiry, item.days_left, item.days_remaining, 0)} days
+              </td>
+            </tr>
+          )}
+        />
+
+        <ExpiryTable
+          title="Expired Medicines"
+          tone="text-red-600"
+          columns={["Medicine", "Batch", "Expiry Date", "Status"]}
+          items={expiredItems}
+          emptyText="No expired medicines 🎉"
+          renderRow={(item, i) => {
+            const expiredDaysAgo = firstDefined(item.expired_days_ago, item.days_expired, 0);
+
+            return (
+              <tr key={item.id || `${getMedicineName(item)}-${getBatchNo(item)}-${i}`} className="border-b">
+                <td className="p-2 font-medium">{getMedicineName(item)}</td>
+                <td className="p-2 text-slate-600">{getBatchNo(item)}</td>
+                <td className="p-2 text-slate-600">{getExpiryDate(item)}</td>
+                <td className="p-2 text-red-600 font-bold">
+                  Expired {expiredDaysAgo} days ago
+                </td>
+              </tr>
+            );
+          }}
         />
       </div>
 
@@ -227,13 +304,13 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-yellow-200 bg-yellow-50">
+        <Card className="border-red-200 bg-red-50">
           <CardContent className="p-4">
-            <div className="text-xs uppercase tracking-widest text-yellow-700">
+            <div className="text-xs uppercase tracking-widest text-red-700">
               Expiry Alert
             </div>
-            <div className="text-sm mt-1 text-yellow-900">
-              Review near-expiry medicines and prioritize clearance.
+            <div className="text-sm mt-1 text-red-900">
+              Review near-expiry and expired medicines for timely action.
             </div>
           </CardContent>
         </Card>
