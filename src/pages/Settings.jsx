@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 /* 👉 NEW: FONT SYSTEM */
 import { useFont } from "@/contexts/FontContext";
 import { fonts } from "@/lib/fonts";
+import WelcomeScreen from "@/components/WelcomeScreen";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -61,6 +62,38 @@ export default function Settings() {
 
   const [welcomeEffect, setWelcomeEffect] = useState(
     localStorage.getItem("welcomeEffect") || "typing"
+  );
+
+  const [welcomeTextColor, setWelcomeTextColor] = useState(
+    localStorage.getItem("welcomeTextColor") || "#ffffff"
+  );
+
+  const [welcomeTextSize, setWelcomeTextSize] = useState(
+    localStorage.getItem("welcomeTextSize") || "48"
+  );
+
+  const [welcomeLogoSize, setWelcomeLogoSize] = useState(
+    localStorage.getItem("welcomeLogoSize") || "72"
+  );
+
+  const [welcomeBgColor, setWelcomeBgColor] = useState(
+    localStorage.getItem("welcomeBgColor") || "#020617"
+  );
+
+  const [welcomeBgImage, setWelcomeBgImage] = useState(
+    localStorage.getItem("welcomeBgImage") || ""
+  );
+
+  const [welcomeShowLogo, setWelcomeShowLogo] = useState(
+    localStorage.getItem("welcomeShowLogo") !== "false"
+  );
+
+  const [welcomeShowText, setWelcomeShowText] = useState(
+    localStorage.getItem("welcomeShowText") !== "false"
+  );
+
+  const [welcomeEnabled, setWelcomeEnabled] = useState(
+    localStorage.getItem("welcomeEnabled") !== "false"
   );
 
   const loadUsers = () => {
@@ -123,7 +156,7 @@ export default function Settings() {
   const addUser = async (e) => {
     e.preventDefault();
     try {
-      await api.post("/auth/register", form);
+      await api.post("/auth/users", form);
       toast.success("User created");
       setForm({ email: "", name: "", password: "", role: "cashier" });
       loadUsers();
@@ -147,6 +180,21 @@ export default function Settings() {
       "welcomeEffect",
       welcomeEffect
     );
+
+    localStorage.setItem("welcomeTextColor", welcomeTextColor);
+    localStorage.setItem("welcomeTextSize", welcomeTextSize);
+    localStorage.setItem("welcomeLogoSize", welcomeLogoSize);
+    localStorage.setItem("welcomeBgColor", welcomeBgColor);
+    localStorage.setItem("welcomeBgImage", welcomeBgImage);
+    localStorage.setItem("welcomeShowLogo", String(welcomeShowLogo));
+    localStorage.setItem("welcomeShowText", String(welcomeShowText));
+    localStorage.setItem("welcomeEnabled", String(welcomeEnabled));
+
+    if (!welcomeEnabled) {
+      sessionStorage.setItem("welcome-shown", "true");
+    } else {
+      sessionStorage.removeItem("welcome-shown");
+    }
 
     toast.success("Welcome screen updated");
   };
@@ -480,73 +528,190 @@ export default function Settings() {
       )}
       <div className="bg-white border rounded-xl p-5 space-y-5">
 
-        <div className="text-xl font-semibold">
-          Welcome Screen Customization
+        <div>
+          <div className="text-xl font-semibold">
+            Welcome Screen Customization
+          </div>
+          <p className="text-sm text-slate-600 mt-1">
+            Preview and customize the intro screen shown after login. Existing saved text, logo, and effect settings are preserved.
+          </p>
         </div>
 
-        <div>
-          <label className="text-sm font-medium">
-            Welcome Text
+        <WelcomeScreen
+          preview
+          settings={{
+            text: welcomeText,
+            logo: welcomeLogo,
+            effect: welcomeEffect,
+            textColor: welcomeTextColor,
+            textSize: welcomeTextSize,
+            logoSize: welcomeLogoSize,
+            backgroundColor: welcomeBgColor,
+            backgroundImage: welcomeBgImage,
+            showLogo: welcomeShowLogo,
+            showText: welcomeShowText,
+            enabled: true,
+          }}
+        />
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={welcomeEnabled}
+              onChange={(e) => setWelcomeEnabled(e.target.checked)}
+            />
+            Enable welcome screen
           </label>
 
-        <Input
-          value={welcomeText}
-          onChange={(e) =>
-            setWelcomeText(e.target.value)
-          }
-          placeholder="WELCOME TO YOUR PHARMACY"
-        />
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={welcomeShowLogo}
+              onChange={(e) => setWelcomeShowLogo(e.target.checked)}
+            />
+            Show logo
+          </label>
+
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={welcomeShowText}
+              onChange={(e) => setWelcomeShowText(e.target.checked)}
+            />
+            Show welcome text
+          </label>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-sm font-medium">
+              Welcome Text
+            </Label>
+
+            <Input
+              value={welcomeText}
+              onChange={(e) =>
+                setWelcomeText(e.target.value)
+              }
+              placeholder="WELCOME TO YOUR PHARMACY"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">
+              Logo / Emoji
+            </Label>
+
+            <Input
+              value={welcomeLogo}
+              onChange={(e) =>
+                setWelcomeLogo(e.target.value)
+              }
+              placeholder="💊"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">
+              Welcome Text Color
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                type="color"
+                value={welcomeTextColor}
+                onChange={(e) => setWelcomeTextColor(e.target.value)}
+                className="w-16 p-1"
+              />
+              <Input
+                value={welcomeTextColor}
+                onChange={(e) => setWelcomeTextColor(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">
+              Welcome Background Color
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                type="color"
+                value={welcomeBgColor}
+                onChange={(e) => setWelcomeBgColor(e.target.value)}
+                className="w-16 p-1"
+              />
+              <Input
+                value={welcomeBgColor}
+                onChange={(e) => setWelcomeBgColor(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">
+              Welcome Text Size (px)
+            </Label>
+            <Input
+              type="number"
+              min="18"
+              max="96"
+              value={welcomeTextSize}
+              onChange={(e) => setWelcomeTextSize(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">
+              Welcome Logo Size (px)
+            </Label>
+            <Input
+              type="number"
+              min="24"
+              max="160"
+              value={welcomeLogoSize}
+              onChange={(e) => setWelcomeLogoSize(e.target.value)}
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <Label className="text-sm font-medium">
+              Optional Background Image URL
+            </Label>
+            <Input
+              value={welcomeBgImage}
+              onChange={(e) => setWelcomeBgImage(e.target.value)}
+              placeholder="https://example.com/pharmacy-background.jpg"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">
+              Welcome Effect
+            </Label>
+
+            <select
+              value={welcomeEffect}
+              onChange={(e) =>
+                setWelcomeEffect(e.target.value)
+              }
+              className="w-full border rounded-md h-10 px-3"
+            >
+              <option value="typing">Typing Effect</option>
+              <option value="fade">Fade Effect</option>
+              <option value="glow">Glow Effect</option>
+              <option value="terminal">Terminal Effect</option>
+              <option value="pulse">Pulse Logo</option>
+              <option value="slide">Slide Text</option>
+            </select>
+          </div>
+        </div>
+
+        <Button onClick={saveWelcomeSettings}>
+          Save Welcome Screen
+        </Button>
+
       </div>
-
-      <div>
-        <label className="text-sm font-medium">
-          Logo / Emoji
-        </label>
-
-        <Input
-          value={welcomeLogo}
-          onChange={(e) =>
-            setWelcomeLogo(e.target.value)
-          }
-          placeholder="💊"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">
-          Welcome Effect
-        </label>
-
-        <select
-          value={welcomeEffect}
-          onChange={(e) =>
-            setWelcomeEffect(e.target.value)
-          }
-          className="w-full border rounded-md h-10 px-3"
-        >
-          <option value="typing">
-            Typing Effect
-          </option>
-
-          <option value="fade">
-            Fade Effect
-          </option>
-
-          <option value="glow">
-            Glow Effect
-          </option>
-
-          <option value="terminal">
-            Terminal Effect
-          </option>
-        </select>
-      </div>
-
-      <Button onClick={saveWelcomeSettings}>
-        Save Welcome Screen
-      </Button>
-
-    </div>
     </div>
   );
 }

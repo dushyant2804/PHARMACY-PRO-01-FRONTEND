@@ -4,9 +4,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
-function StatCard({ label, value, tone, sub }) {
+function StatCard({ label, value, tone, sub, onClick }) {
   return (
-    <Card className="w-full min-h-[120px] overflow-hidden rounded-sm border-slate-200 hover:shadow-sm transition">
+    <Card
+      onClick={onClick}
+      className={`w-full min-h-[120px] overflow-hidden rounded-sm border-slate-200 hover:shadow-sm transition ${
+        onClick ? "cursor-pointer" : ""
+      }`}
+    >
       <CardContent className="p-4 space-y-1">
         <div className="text-[11px] uppercase tracking-widest text-slate-500">
           {label}
@@ -26,16 +31,33 @@ function StatCard({ label, value, tone, sub }) {
   );
 }
 
+const getOutstandingTotal = (outstanding, listKey) => {
+  return (outstanding?.[listKey] || []).reduce(
+    (sum, item) => sum + Number(item.balance || 0),
+    0
+  );
+};
+
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [outstanding, setOutstanding] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   const load = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/dashboard/summary");
-      setData(res.data);
+      const summaryRes = await api.get("/dashboard/summary");
+      setData(summaryRes.data || {});
+
+      try {
+        const outstandingRes = await api.get("/reports/outstanding");
+        setOutstanding(outstandingRes.data);
+      } catch (e) {
+        console.warn("Failed to load outstanding totals", e);
+        toast.warning("Outstanding totals unavailable");
+        setOutstanding(null);
+      }
     } catch (e) {
       toast.error("Failed to load dashboard");
     } finally {
@@ -49,6 +71,9 @@ export default function Dashboard() {
 
   if (loading) return <div className="p-6 text-slate-500">Loading system data...</div>;
   if (!data) return null;
+
+  const customerOutstanding = getOutstandingTotal(outstanding, "customers");
+  const distributorOutstanding = getOutstandingTotal(outstanding, "distributors");
 
   return (
     <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
@@ -155,6 +180,22 @@ export default function Dashboard() {
           value={fmtINR(data.total_purchase_amount || 0)}
           tone="text-indigo-600"
           sub="All PO grand totals"
+        />
+
+        <StatCard
+          label="Total Customer Outstanding"
+          value={fmtINR(customerOutstanding)}
+          tone={customerOutstanding ? "text-red-600" : "text-slate-700"}
+          sub="Customer balances"
+          onClick={() => navigate("/customers")}
+        />
+
+        <StatCard
+          label="Total Distributor Outstanding"
+          value={fmtINR(distributorOutstanding)}
+          tone={distributorOutstanding ? "text-amber-600" : "text-slate-700"}
+          sub="Distributor balances"
+          onClick={() => navigate("/distributors")}
         />
 
         <StatCard

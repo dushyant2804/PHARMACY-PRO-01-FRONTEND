@@ -66,22 +66,28 @@ function Protected({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(() => localStorage.getItem("welcomeEnabled") !== "false" && !sessionStorage.getItem("welcome-shown"));
   const [showRouteLoader, setShowRouteLoader] = useState(false);
 
   // LOGIN WELCOME (5 sec only once per session)
   useEffect(() => {
     if (user) {
+      const enabled = localStorage.getItem("welcomeEnabled") !== "false";
       const seen = sessionStorage.getItem("welcome-shown");
 
-      if (!seen) {
-        setShowWelcome(true);
-
-        setTimeout(() => {
-          setShowWelcome(false);
-          sessionStorage.setItem("welcome-shown", "true");
-        }, 5000);
+      if (!enabled || seen) {
+        setShowWelcome(false);
+        return;
       }
+
+      setShowWelcome(true);
+
+      const t = setTimeout(() => {
+        setShowWelcome(false);
+        sessionStorage.setItem("welcome-shown", "true");
+      }, 5000);
+
+      return () => clearTimeout(t);
     }
   }, [user]);
 
@@ -113,16 +119,6 @@ function Protected({ children }) {
   if (showWelcome) {
     return <WelcomeScreen onFinish={() => setShowWelcome(false)} />;
   }
-
-if (showWelcome) {
-  return (
-    <WelcomeScreen
-      onFinish={() =>
-        setShowWelcome(false)
-      }
-    />
-  );
-}
 
 return (
   <Layout>
