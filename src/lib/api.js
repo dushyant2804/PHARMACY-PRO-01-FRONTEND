@@ -14,6 +14,17 @@ instance.interceptors.request.use((config) => {
   return config;
 });
 
+instance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      localStorage.removeItem("token");
+      window.location.hash = "#/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default instance;
 
 export function formatApiError(err) {
