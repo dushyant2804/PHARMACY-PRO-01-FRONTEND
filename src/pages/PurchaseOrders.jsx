@@ -42,6 +42,8 @@ const requiredLabel = (text) => (
 const expandInputClass =
   "transition-all duration-150 focus:w-[260px] w-[140px]";
 
+const roundCurrency = (value) => Math.round((Number(value) || 0) * 100) / 100;
+
 const emptyItem = {
   name: "",
   batch_no: "",
@@ -131,9 +133,11 @@ export default function PurchaseOrders() {
   const [schemeDiscount, setSchemeDiscount] = useState(0);
   const [cashDiscount, setCashDiscount] = useState(0);
   const [roundOff, setRoundOff] = useState(0);
+  const [isRoundOffManual, setIsRoundOffManual] = useState(false);
   const [editingPO, setEditingPO] = useState(null);
   const [medicineSuggestions, setMedicineSuggestions] = useState([]);
   const [activeRow, setActiveRow] = useState(null);
+  const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0);
 
   const [poDate, setPoDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -190,6 +194,33 @@ export default function PurchaseOrders() {
 
     setMedicineSuggestions([]);
     setActiveRow(null);
+    setHighlightedSuggestionIndex(0);
+  };
+
+  const handleMedicineKeyDown = (event, rowIndex) => {
+    if (activeRow !== rowIndex || !medicineSuggestions.length) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlightedSuggestionIndex((current) =>
+        Math.min(current + 1, medicineSuggestions.length - 1)
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlightedSuggestionIndex((current) => Math.max(current - 1, 0));
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === "Tab") {
+      const selectedMedicine = medicineSuggestions[highlightedSuggestionIndex];
+      if (!selectedMedicine) return;
+
+      event.preventDefault();
+      applyMedicineSuggestion(rowIndex, selectedMedicine);
+    }
   };
 
   const addRow = () => {
@@ -223,12 +254,35 @@ const totalGST = items.reduce((sum, i) => {
 const totalCGST = totalGST / 2;
 const totalSGST = totalGST / 2;
 
-const grandTotal =
+const rawGrandTotal =
   subTotal -
   Number(schemeDiscount || 0) -
   Number(cashDiscount || 0) +
-  totalGST +
-  Number(roundOff || 0);
+  totalGST;
+
+const grandTotal = rawGrandTotal + Number(roundOff || 0);
+
+  useEffect(() => {
+    if (isRoundOffManual) return;
+
+    setRoundOff(roundCurrency(Math.round(rawGrandTotal) - rawGrandTotal));
+  }, [rawGrandTotal, isRoundOffManual]);
+
+  const openNewPO = () => {
+    setEditingPO(null);
+    setDistId("");
+    setInvoiceRef("");
+    setNotes("");
+    setPoDate(new Date().toISOString().split("T")[0]);
+    setSchemeDiscount(0);
+    setCashDiscount(0);
+    setRoundOff(0);
+    setIsRoundOffManual(false);
+    setItems([{ ...emptyItem }]);
+    setMedicineSuggestions([]);
+    setActiveRow(null);
+    setOpen(true);
+  };
 
   const openEditPO = (po) => {
     setEditingPO(po);
@@ -236,6 +290,10 @@ const grandTotal =
     setInvoiceRef(po.invoice_ref || "");
     setNotes(po.notes || "");
     setPoDate(po.po_date || new Date().toISOString().split("T")[0]);
+    setSchemeDiscount(po.scheme_discount || 0);
+    setCashDiscount(po.cash_discount || 0);
+    setRoundOff(po.round_off || 0);
+    setIsRoundOffManual(true);
 
     setItems((po.items || []).map((i) => ({ ...emptyItem, ...i })));
 
@@ -275,12 +333,12 @@ const grandTotal =
       po_date: poDate,
       scheme_discount: Number(schemeDiscount || 0),
       cash_discount: Number(cashDiscount || 0),
-      round_off: Number(roundOff || 0),
+      round_off: roundCurrency(roundOff),
 
       sub_total: subTotal,
       cgst: totalCGST,
       sgst: totalSGST,
-      grand_total: grandTotal,
+      grand_total: roundCurrency(grandTotal),
       items: validItems.map((i) => ({
         ...i,
         quantity: Number(i.quantity || 0),
@@ -312,6 +370,10 @@ const grandTotal =
       setDistId("");
       setInvoiceRef("");
       setNotes("");
+      setSchemeDiscount(0);
+      setCashDiscount(0);
+      setRoundOff(0);
+      setIsRoundOffManual(false);
     } catch (e) {
       toast.error(formatApiError(e));
     } finally {
@@ -339,7 +401,7 @@ const grandTotal =
             Refresh
           </Button>
 
-          <Button onClick={() => setOpen(true)}>
+          <Button onClick={openNewPO}>
             <Plus className="w-4 h-4 mr-1" />
             New PO
           </Button>
@@ -486,17 +548,20 @@ const grandTotal =
       if (value.length >= 2) {
 
         const { data } = await api.get(
-          `/medicines?search=${value}`
+          `/medicines?search=${encodeURIComponent(value)}`
         );
 
-        setMedicineSuggestions(data);
+        setMedicineSuggestions(data || []);
+        setHighlightedSuggestionIndex(0);
 
       } else {
 
         setMedicineSuggestions([]);
+        setHighlightedSuggestionIndex(0);
 
       }
     }}
+    onKeyDown={(e) => handleMedicineKeyDown(e, i)}
     className={expandInputClass}
   />
 
@@ -505,11 +570,13 @@ const grandTotal =
 
       <div className="absolute z-50 bg-white border rounded shadow w-full max-h-56 overflow-y-auto">
 
-        {medicineSuggestions.map((m) => (
+        {medicineSuggestions.map((m, suggestionIndex) => (
 
           <div
             key={m.id}
-            className="p-2 cursor-pointer hover:bg-slate-100"
+            className={`p-2 cursor-pointer hover:bg-slate-100 ${
+              suggestionIndex === highlightedSuggestionIndex ? "bg-blue-50 text-blue-700" : ""
+            }`}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => applyMedicineSuggestion(i, m)}
           >
@@ -703,9 +770,10 @@ const grandTotal =
         type="number"
         step="0.01"
         value={roundOff}
-        onChange={(e) =>
-          setRoundOff(parseFloat(e.target.value || 0))
-        }
+        onChange={(e) => {
+          setIsRoundOffManual(true);
+          setRoundOff(e.target.value);
+        }}
       />
     </div>
 

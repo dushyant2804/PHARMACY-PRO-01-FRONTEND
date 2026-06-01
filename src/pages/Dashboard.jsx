@@ -89,6 +89,33 @@ const getMedicineName = (item) => {
   return firstDefined(item.name, item.medicine_name, item.medicine, "-");
 };
 
+const getPatientAlerts = (data) => {
+  const alerts = firstDefined(
+    data.patient_alerts,
+    data.patient_due_alerts,
+    data.patient_refill_alerts,
+    data.patients_due,
+    data.due_patients,
+    []
+  );
+
+  if (Array.isArray(alerts)) return alerts;
+  return firstDefined(alerts.items, alerts.alerts, alerts.data, []);
+};
+
+const getPatientAlertStatus = (alert) => {
+  const status = firstDefined(alert.status, alert.due_status, alert.refill_status);
+  if (status) return status;
+
+  const daysOverdue = firstDefined(alert.days_overdue, alert.overdue_days);
+  if (Number(daysOverdue) > 0) return `Overdue by ${daysOverdue} day${Number(daysOverdue) === 1 ? "" : "s"}`;
+
+  const daysRemaining = firstDefined(alert.days_remaining, alert.days_to_refill, alert.days_left);
+  if (Number(daysRemaining) > 0) return `Due in ${daysRemaining} day${Number(daysRemaining) === 1 ? "" : "s"}`;
+
+  return alert.is_due ? "Due now" : "Due";
+};
+
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [outstanding, setOutstanding] = useState(null);
@@ -129,6 +156,7 @@ export default function Dashboard() {
   const expiredItems = firstDefined(data.expired_items, data.expired, []);
   const expiringSoonCount = firstDefined(data.expiring_soon_count, expiringSoonItems.length, 0);
   const expiredCount = firstDefined(data.expired_count, expiredItems.length, 0);
+  const patientAlerts = getPatientAlerts(data);
 
   const totalSales = firstDefined(data.total_sales, data.sales, 0);
   const salesThisMonth = firstDefined(data.sales_this_month, data.monthly_sales, 0);
@@ -247,6 +275,61 @@ export default function Dashboard() {
         </div>
       )}
 
+
+      {/* PATIENT REFILL ALERTS */}
+      <div className="bg-white border rounded-sm p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h2 className="font-semibold text-blue-700">
+              Patient Medicine Due Alerts
+            </h2>
+            <p className="text-xs text-slate-500">
+              Refill follow-ups from dashboard summary
+            </p>
+          </div>
+          <div className="text-xs font-semibold px-2 py-1 rounded-full bg-blue-50 text-blue-700">
+            {patientAlerts.length} due
+          </div>
+        </div>
+
+        <div className="max-h-[260px] overflow-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+              <tr>
+                <th className="text-left p-2 border-b">Patient</th>
+                <th className="text-left p-2 border-b">Phone</th>
+                <th className="text-left p-2 border-b">Medicine</th>
+                <th className="text-left p-2 border-b">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {patientAlerts.length ? (
+                patientAlerts.map((alert, index) => {
+                  const status = getPatientAlertStatus(alert);
+                  const isOverdue = String(status).toLowerCase().includes("overdue");
+
+                  return (
+                    <tr key={alert.id || alert.phone || `${alert.name}-${index}`} className="border-b">
+                      <td className="p-2 font-medium">{firstDefined(alert.name, alert.patient_name, "-")}</td>
+                      <td className="p-2 text-slate-600 font-mono-nums">{firstDefined(alert.phone, alert.patient_phone, "-")}</td>
+                      <td className="p-2 text-slate-600">{getMedicineName(alert)}</td>
+                      <td className={`p-2 font-semibold ${isOverdue ? "text-red-600" : "text-orange-600"}`}>
+                        {status}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td className="p-3 text-slate-400" colSpan={4}>
+                    No patient refill alerts 🎉
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
       {/* EXPIRY SECTIONS */}
       <div className="grid xl:grid-cols-2 gap-4">
         <ExpiryTable
