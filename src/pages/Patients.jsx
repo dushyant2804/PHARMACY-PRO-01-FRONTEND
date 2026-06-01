@@ -1,17 +1,31 @@
 import React, { useEffect, useState } from "react";
-import api from "@/lib/api";
+import api, { formatApiError } from "@/lib/api";
+import { toast } from "sonner";
+
+const emptyForm = {
+  name: "",
+  age: "",
+  phone: "",
+  address: "",
+  medicine_name: "",
+  duration_days: "",
+  last_refill_date: "",
+  condition: "",
+};
+
+const trimPatientForm = (patient) => ({
+  name: String(patient.name || "").trim(),
+  age: String(patient.age || "").trim(),
+  phone: String(patient.phone || "").trim(),
+  address: String(patient.address || "").trim(),
+  medicine_name: String(patient.medicine_name || "").trim(),
+  duration_days: String(patient.duration_days || "").trim(),
+  last_refill_date: String(patient.last_refill_date || "").trim(),
+  condition: String(patient.condition || "").trim(),
+});
 
 export default function Patients() {
-  const [form, setForm] = useState({
-    name: "",
-    age: "",
-    phone: "",
-    address: "",
-    medicine_name: "",
-    duration_days: "",
-    last_refill_date: "",
-    condition: "",
-  });
+  const [form, setForm] = useState(emptyForm);
 
   const [patients, setPatients] = useState([]);
   const [alerts, setAlerts] = useState([]);
@@ -44,64 +58,69 @@ export default function Patients() {
 
   // ---------- SAVE PATIENT ----------
   const savePatient = async () => {
+    const trimmedForm = trimPatientForm(form);
 
-  try {
-
-    const payload = {
-      ...form,
-      age: Number(form.age),
-      duration_days: Number(form.duration_days),
-    };
-
-    if (editingPatient) {
-
-      await api.put(
-        `/patients/${editingPatient.phone}`,
-        payload
-      );
-
-    } else {
-
-      await api.post(
-        "/patients",
-        payload
-      );
+    if (!trimmedForm.name || !trimmedForm.phone) {
+      toast.error("Patient name and phone are required");
+      return;
     }
 
-    setForm({
-      name: "",
-      age: "",
-      phone: "",
-      address: "",
-      medicine_name: "",
-      duration_days: "",
-      last_refill_date: "",
-      condition: "",
-    });
+    try {
+      const payload = {
+        ...trimmedForm,
+        age: Number(trimmedForm.age),
+        duration_days: Number(trimmedForm.duration_days),
+      };
 
-    setEditingPatient(null);
+      if (editingPatient) {
+        const originalPhone = String(editingPatient.phone || "").trim();
 
-    loadPatients();
+        if (!originalPhone) {
+          toast.error("Cannot update a patient without an original phone. Delete the blank row and create a new patient.");
+          return;
+        }
 
-    loadAlerts();
+        await api.put(
+          `/patients/${encodeURIComponent(originalPhone)}`,
+          payload
+        );
+        toast.success("Patient updated");
+      } else {
+        await api.post(
+          "/patients",
+          payload
+        );
+        toast.success("Patient saved");
+      }
 
-  } catch (err) {
-
-    console.log(err);
-  }
-};
+      setForm(emptyForm);
+      setEditingPatient(null);
+      loadPatients();
+      loadAlerts();
+    } catch (err) {
+      toast.error(formatApiError(err));
+    }
+  };
 
   // ---------- DELETE ----------
   const deletePatient = async (phone) => {
-    if (!window.confirm("Delete patient?")) return;
+    const trimmedPhone = String(phone || "").trim();
+    const isCleanup = !trimmedPhone;
+
+    if (!window.confirm(isCleanup ? "Delete blank patient rows?" : "Delete patient?")) return;
 
     try {
-      await api.delete(`/patients/${phone}`);
+      if (isCleanup) {
+        await api.delete("/patients");
+      } else {
+        await api.delete(`/patients/${encodeURIComponent(trimmedPhone)}`);
+      }
 
-      setPatients((prev) => prev.filter((p) => p.phone !== phone));
-      setAlerts((prev) => prev.filter((a) => a.phone !== phone));
+      setPatients((prev) => prev.filter((p) => String(p.phone || "").trim() !== trimmedPhone));
+      setAlerts((prev) => prev.filter((a) => String(a.phone || "").trim() !== trimmedPhone));
+      toast.success(isCleanup ? "Blank patient rows deleted" : "Patient deleted");
     } catch (err) {
-      console.log(err);
+      toast.error(formatApiError(err));
     }
   };
 
@@ -138,9 +157,9 @@ export default function Patients() {
             🔴 Due Medicine Alerts
           </div>
 
-          {alerts.map((p) => (
+          {alerts.map((p, index) => (
             <div
-              key={p.phone}
+              key={p.phone || `blank-alert-${index}`}
               className="flex justify-between text-sm py-1"
             >
               <span>
@@ -280,9 +299,9 @@ export default function Patients() {
       No patients yet
     </div>
   ) : (
-    patients.map((p) => (
+    patients.map((p, index) => (
       <div
-        key={p.phone}
+        key={p.phone || `blank-patient-${index}`}
         className="border p-3 rounded-sm flex justify-between"
       >
         <div>
