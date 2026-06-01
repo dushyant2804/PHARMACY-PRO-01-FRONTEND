@@ -115,6 +115,32 @@ export default function PurchaseOrders() {
     setItems(copy);
   };
 
+  const applyMedicineSuggestion = (rowIndex, medicine) => {
+    const fields = [
+      "name",
+      "manufacturer",
+      "category",
+      "pack_size",
+    ];
+
+    setItems((prev) => {
+      const next = [...prev];
+      const row = { ...next[rowIndex] };
+
+      fields.forEach((field) => {
+        if (medicine[field] !== undefined && medicine[field] !== null) {
+          row[field] = medicine[field];
+        }
+      });
+
+      next[rowIndex] = row;
+      return next;
+    });
+
+    setMedicineSuggestions([]);
+    setActiveRow(null);
+  };
+
   const addRow = () => {
     const next = [...items, { ...emptyItem }];
     setItems(next);
@@ -433,6 +459,8 @@ const grandTotal =
           <div
             key={m.id}
             className="p-2 cursor-pointer hover:bg-slate-100"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyMedicineSuggestion(i, m)}
           >
             {m.name}
           </div>

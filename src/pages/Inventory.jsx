@@ -72,6 +72,14 @@ export default function Inventory() {
     return "normal";
   };
 
+  const query = search.trim().toLowerCase();
+  const visibleMeds = query
+    ? meds.filter((m) =>
+        [m.name, m.manufacturer, m.category]
+          .some((value) => String(value || "").toLowerCase().includes(query))
+      )
+    : meds;
+
   return (
     <div className="space-y-6">
 
@@ -99,7 +107,7 @@ export default function Inventory() {
           </thead>
 
           <tbody>
-            {meds.map((m) => {
+            {visibleMeds.map((m) => {
               const low =
                m.low_stock_threshold !== null &&
                m.low_stock_threshold !== undefined &&
