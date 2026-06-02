@@ -105,30 +105,39 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(numberValue) ? numberValue : fallback;
 };
 
-const getAvailableStock = (item) => {
-  const purchasedMinusSold = firstDefined(item.purchased_units, item.purchased_quantity) !== undefined
-    || firstDefined(item.sold_units, item.sold_quantity) !== undefined
-    ? toNumber(firstDefined(item.purchased_units, item.purchased_quantity, 0))
-      - toNumber(firstDefined(item.sold_units, item.sold_quantity, 0))
-    : undefined;
-  const totalMinusSold = firstDefined(item.total_units, item.total_quantity) !== undefined
-    || firstDefined(item.sold_units, item.sold_quantity) !== undefined
-    ? toNumber(firstDefined(item.total_units, item.total_quantity, 0))
-      - toNumber(firstDefined(item.sold_units, item.sold_quantity, 0))
-    : undefined;
+const toOptionalNumber = (value) => {
+  if (value === undefined || value === null || value === "") return undefined;
 
-  return toNumber(firstDefined(
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : undefined;
+};
+
+const getAvailableStock = (item) => {
+  const directStock = [
     item.available_stock,
-    item.stock,
     item.available_quantity,
     item.remaining_quantity,
+    item.stock,
     item.quantity,
     item.qty,
     item.quantity_units,
-    purchasedMinusSold,
-    totalMinusSold,
-    0
-  ));
+  ].map(toOptionalNumber).find((value) => value !== undefined);
+
+  if (directStock !== undefined) return directStock;
+
+  const purchasedUnits = toOptionalNumber(firstDefined(item.purchased_units, item.purchased_quantity));
+  const totalUnits = toOptionalNumber(firstDefined(item.total_units, item.total_quantity));
+  const soldUnits = toOptionalNumber(firstDefined(item.sold_units, item.sold_quantity));
+
+  if (purchasedUnits !== undefined && soldUnits !== undefined) {
+    return purchasedUnits - soldUnits;
+  }
+
+  if (totalUnits !== undefined && soldUnits !== undefined) {
+    return totalUnits - soldUnits;
+  }
+
+  return undefined;
 };
 
 const getOriginalBatchQuantity = (item) => toNumber(firstDefined(
