@@ -62,6 +62,7 @@ const emptyReport = {
   distributorBreakdown: [],
   medicineBreakdown: [],
   reasonBreakdown: [],
+  ledgerBreakdown: [],
 };
 
 const firstDefined = (...values) =>
@@ -112,46 +113,145 @@ const normalizeCollection = (responseData) => {
   };
 };
 
-const normalizeBreakdown = (items, nameKeys = ["name"]) => {
-  if (!Array.isArray(items)) return [];
+const normalizeBreakdownSource = (source) => {
+  if (Array.isArray(source)) return source;
+  if (!source || typeof source !== "object") return [];
 
-  return items.map((item, index) => ({
-    id: firstDefined(item.id, item.distributor_id, item.medicine_id, item.reason, index),
-    name: firstDefined(...nameKeys.map((key) => item[key]), item.name, item.label, "—"),
-    quantity: Number(firstDefined(item.quantity, item.return_quantity, item.total_quantity, item.qty, 0) || 0),
-    value: Number(firstDefined(item.value, item.return_amount, item.total_value, item.amount, 0) || 0),
-    count: Number(firstDefined(item.count, item.total_count, item.records, 0) || 0),
-  }));
+  return Object.entries(source).map(([key, value]) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return { name: key, ...value };
+    }
+
+    return { name: key, quantity: value };
+  });
+};
+
+const getFirstBreakdownSource = (data, keys) => {
+  const containers = [data, data?.breakdowns, data?.breakdown, data?.summary];
+
+  for (const container of containers) {
+    if (!container || typeof container !== "object") continue;
+
+    for (const key of keys) {
+      if (container[key] !== undefined && container[key] !== null) {
+        return container[key];
+      }
+    }
+  }
+
+  return [];
+};
+
+const formatBreakdownName = (value) => {
+  if (typeof value === "boolean") return value ? "Ledger Adjusted" : "Not Adjusted";
+
+  const normalized = String(value ?? "").trim();
+  const lowered = normalized.toLowerCase();
+  if (["true", "yes", "adjusted", "ledger_adjusted"].includes(lowered)) return "Ledger Adjusted";
+  if (["false", "no", "not_adjusted", "non_adjusted", "unadjusted"].includes(lowered)) return "Not Adjusted";
+
+  return normalized || "—";
+};
+
+const normalizeBreakdown = (items, nameKeys = ["name"]) => {
+  const normalizedItems = normalizeBreakdownSource(items);
+
+  return normalizedItems.map((item, index) => {
+    const rawName = firstDefined(
+      ...nameKeys.map((key) => item[key]),
+      item.name,
+      item.label,
+      item.status,
+      item.type,
+      "—"
+    );
+
+    return {
+      id: firstDefined(item.id, item.distributor_id, item.medicine_id, item.reason, item.status, rawName, index),
+      name: formatBreakdownName(rawName),
+      quantity: Number(firstDefined(
+        item.total_returned_quantity,
+        item.total_return_quantity,
+        item.total_quantity,
+        item.return_quantity,
+        item.quantity,
+        item.qty,
+        0
+      ) || 0),
+      value: Number(firstDefined(
+        item.total_return_value,
+        item.total_return_amount,
+        item.total_amount,
+        item.return_amount,
+        item.amount,
+        item.value,
+        0
+      ) || 0),
+      count: Number(firstDefined(item.count, item.total_count, item.records, item.return_count, item.total_records, 0) || 0),
+    };
+  });
 };
 
 const normalizeReport = (reportData) => {
-  const data = reportData || {};
+  const data = reportData?.data && !Array.isArray(reportData.data) ? reportData.data : reportData || {};
+  const summary = data.summary || data.totals || data;
+  const ledgerAdjustedCount = Number(
+    firstDefined(summary.ledger_adjusted_count, summary.adjusted_count, summary.ledger_adjusted, 0) || 0
+  );
+  const nonAdjustedCount = Number(
+    firstDefined(summary.non_adjusted_count, summary.not_adjusted_count, summary.unadjusted_count, summary.not_adjusted, 0) || 0
+  );
+  const ledgerBreakdownSource = getFirstBreakdownSource(data, [
+    "ledger_wise",
+    "by_ledger",
+    "by_ledger_adjusted",
+    "ledger_breakdown",
+    "ledger_adjusted_breakdown",
+    "ledger_adjustment_breakdown",
+    "ledger_status",
+  ]);
+  const ledgerBreakdown = normalizeBreakdown(
+    ledgerBreakdownSource,
+    ["ledger_status", "ledger_adjusted", "adjust_distributor_ledger", "adjusted", "status"]
+  );
 
   return {
     totalReturnedQuantity: Number(
-      firstDefined(data.total_returned_quantity, data.total_return_quantity, data.total_quantity, 0) || 0
+      firstDefined(summary.total_returned_quantity, summary.total_return_quantity, summary.total_quantity, 0) || 0
     ),
     totalReturnValue: Number(
-      firstDefined(data.total_return_value, data.total_return_amount, data.total_amount, 0) || 0
+      firstDefined(summary.total_return_value, summary.total_return_amount, summary.total_amount, 0) || 0
     ),
-    ledgerAdjustedCount: Number(
-      firstDefined(data.ledger_adjusted_count, data.adjusted_count, 0) || 0
-    ),
-    nonAdjustedCount: Number(
-      firstDefined(data.non_adjusted_count, data.not_adjusted_count, data.unadjusted_count, 0) || 0
-    ),
+    ledgerAdjustedCount,
+    nonAdjustedCount,
     distributorBreakdown: normalizeBreakdown(
-      firstDefined(data.distributor_wise, data.distributor_breakdown, data.by_distributor, []),
+      getFirstBreakdownSource(data, ["distributor_wise", "by_distributor", "distributor_breakdown", "distributors"]),
       ["distributor_name", "distributor"]
     ),
     medicineBreakdown: normalizeBreakdown(
-      firstDefined(data.medicine_wise, data.medicine_breakdown, data.by_medicine, []),
+      getFirstBreakdownSource(data, ["medicine_wise", "by_medicine", "medicine_breakdown", "medicines"]),
       ["medicine_name", "medicine"]
     ),
     reasonBreakdown: normalizeBreakdown(
-      firstDefined(data.reason_wise, data.reason_breakdown, data.by_reason, []),
+      getFirstBreakdownSource(data, ["reason_wise", "by_reason", "reason_breakdown", "reasons"]),
       ["reason"]
     ),
+    ledgerBreakdown: ledgerBreakdown.length ? ledgerBreakdown : [
+      ledgerAdjustedCount > 0 ? {
+        id: "ledger-adjusted",
+        name: "Ledger Adjusted",
+        quantity: 0,
+        value: 0,
+        count: ledgerAdjustedCount,
+      } : null,
+      nonAdjustedCount > 0 ? {
+        id: "ledger-not-adjusted",
+        name: "Not Adjusted",
+        quantity: 0,
+        value: 0,
+        count: nonAdjustedCount,
+      } : null,
+    ].filter(Boolean),
   };
 };
 
@@ -473,6 +573,7 @@ export default function PurchaseReturns() {
       return;
     }
 
+    const selectedReturnData = getSelectedReturnData();
     const payload = {
       return_date: form.return_date,
       distributor_id: form.distributor_id,
@@ -672,10 +773,11 @@ export default function PurchaseReturns() {
         </div>
       </form>
 
-      <div className="grid xl:grid-cols-3 gap-4">
+      <div className="grid xl:grid-cols-4 gap-4">
         <BreakdownTable title="Distributor-wise Breakdown" items={report.distributorBreakdown} />
         <BreakdownTable title="Medicine-wise Breakdown" items={report.medicineBreakdown} />
         <BreakdownTable title="Reason-wise Breakdown" items={report.reasonBreakdown} />
+        <BreakdownTable title="Ledger-wise Breakdown" items={report.ledgerBreakdown} />
       </div>
 
       <div className="bg-white border border-slate-200 rounded-sm overflow-x-auto">
