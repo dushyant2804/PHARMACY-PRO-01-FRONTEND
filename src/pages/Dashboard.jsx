@@ -89,17 +89,6 @@ const getMedicineName = (item) => {
   return firstDefined(item.name, item.medicine_name, item.medicine, "-");
 };
 
-const normalizeReturnStatus = (status) => {
-  const value = String(status || "").toLowerCase().replace(/[ -]/g, "_");
-
-  if (["returned", "fully_returned", "full_returned"].includes(value)) return "Returned";
-  if (["partially_returned", "partial_returned", "partial"].includes(value)) return "Partially Returned";
-  if (["sold_out", "soldout"].includes(value)) return "Sold Out";
-  if (["not_returned", "none", "pending"].includes(value)) return "Not Returned";
-
-  return "";
-};
-
 const toNumber = (value, fallback = 0) => {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue : fallback;
@@ -165,76 +154,113 @@ const getItemReturnedQuantity = (item) => toNumber(firstDefined(
   0
 ));
 
-const normalizeMatchValue = (value) => String(value ?? "").trim().toLowerCase();
-
-const sameIdentifier = (left, right, keys) => keys.some((key) => {
-  const leftValue = normalizeMatchValue(left[key]);
-  const rightValue = normalizeMatchValue(right[key]);
-  return leftValue && rightValue && leftValue === rightValue;
-});
-
-const recordsMatchExpiryItem = (item, record) => {
-  const itemNormalized = {
-    medicine_id: firstDefined(item.medicine_id, item.id),
-    medicine_key: firstDefined(item.medicine_key, item.key, item.sku),
-    batch_number: firstDefined(item.batch_number, item.batch_no, item.batch, item.batchNo),
-    expiry_date: firstDefined(item.expiry_date, item.expiry, item.expiryDate),
-    distributor_id: item.distributor_id,
-    medicine_name: getMedicineName(item),
-    distributor_name: firstDefined(item.distributor_name, item.distributor),
-  };
-  const recordNormalized = {
-    medicine_id: record.medicine_id,
-    medicine_key: record.medicine_key,
-    batch_number: firstDefined(record.batch_number, record.batch_no, record.batch, record.batchNo),
-    expiry_date: firstDefined(record.expiry_date, record.expiry, record.expiryDate),
-    distributor_id: record.distributor_id,
-    medicine_name: firstDefined(record.medicine_name, record.name, record.medicine),
-    distributor_name: firstDefined(record.distributor_name, record.distributor),
-  };
-
-  const hasMedicineIdentifier = ["medicine_id", "medicine_key"].some(
-    (key) => itemNormalized[key] && recordNormalized[key]
+const normalizeCollection = (payload) => {
+  const items = firstDefined(
+    payload?.items,
+    payload?.results,
+    payload?.data,
+    payload?.medicines,
+    payload?.purchase_returns,
+    payload?.returns,
+    payload
   );
 
-  const batchAndExpiryMatch = ["batch_number", "expiry_date"].every(
-    (key) => !itemNormalized[key] || !recordNormalized[key] || normalizeMatchValue(itemNormalized[key]) === normalizeMatchValue(recordNormalized[key])
-  );
-  const distributorIdMatches = !itemNormalized.distributor_id
-    || !recordNormalized.distributor_id
-    || normalizeMatchValue(itemNormalized.distributor_id) === normalizeMatchValue(recordNormalized.distributor_id);
-
-  if (hasMedicineIdentifier) {
-    return sameIdentifier(itemNormalized, recordNormalized, ["medicine_id", "medicine_key"])
-      && batchAndExpiryMatch
-      && distributorIdMatches;
-  }
-
-  return normalizeMatchValue(itemNormalized.medicine_name) === normalizeMatchValue(recordNormalized.medicine_name)
-    && batchAndExpiryMatch
-    && distributorIdMatches
-    && (!itemNormalized.distributor_name || !recordNormalized.distributor_name || normalizeMatchValue(itemNormalized.distributor_name) === normalizeMatchValue(recordNormalized.distributor_name));
+  return Array.isArray(items) ? items : [];
 };
 
-const getReturnStatus = (item, purchaseReturns) => {
+const buildInventoryBatchRecords = (medicines) => medicines.flatMap((medicine) => {
+  const batches = Array.isArray(medicine.batches) ? medicine.batches : [];
+
+  if (!batches.length) {
+    return [{
+      ...medicine,
+      medicine_id: firstDefined(medicine.medicine_id, medicine.id),
+      medicine_key: firstDefined(medicine.medicine_key, medicine.key, medicine.sku),
+      medicine_name: firstDefined(medicine.medicine_name, medicine.name),
+      distributor_name: firstDefined(medicine.distributor_name, medicine.distributor),
+      available_stock: firstDefined(medicine.available_stock, medicine.total_stock),
+    }];
+  }
+
+  return batches.map((batch) => ({
+    ...batch,
+    medicine_id: firstDefined(batch.medicine_id, medicine.medicine_id, medicine.id),
+    medicine_key: firstDefined(batch.medicine_key, medicine.medicine_key, medicine.key, medicine.sku),
+    medicine_name: firstDefined(batch.medicine_name, medicine.medicine_name, medicine.name),
+    distributor_id: firstDefined(batch.distributor_id, medicine.distributor_id),
+    distributor_name: firstDefined(batch.distributor_name, batch.distributor, medicine.distributor_name, medicine.distributor),
+  }));
+});
+
+const normalizeMatchValue = (value) => String(value ?? "").trim().toLowerCase();
+
+const getRecordMatchFields = (item) => ({
+  medicine_id: firstDefined(item.medicine_id, item.id),
+  medicine_key: firstDefined(item.medicine_key, item.key, item.sku),
+  batch_number: firstDefined(item.batch_number, item.batch_no, item.batch, item.batchNo),
+  expiry_date: firstDefined(item.expiry_date, item.expiry, item.expiryDate),
+  distributor_id: item.distributor_id,
+  medicine_name: firstDefined(item.medicine_name, item.name, item.medicine),
+  distributor_name: firstDefined(item.distributor_name, item.distributor),
+});
+
+const valuesMatchWhenBothPresent = (left, right, key) => {
+  const leftValue = normalizeMatchValue(left[key]);
+  const rightValue = normalizeMatchValue(right[key]);
+  return !leftValue || !rightValue || leftValue === rightValue;
+};
+
+const hasMatchingMedicine = (left, right) => {
+  const leftId = normalizeMatchValue(left.medicine_id);
+  const rightId = normalizeMatchValue(right.medicine_id);
+  const leftKey = normalizeMatchValue(left.medicine_key);
+  const rightKey = normalizeMatchValue(right.medicine_key);
+
+  if (leftId && rightId) return leftId === rightId;
+  if (leftKey && rightKey) return leftKey === rightKey;
+
+  return normalizeMatchValue(left.medicine_name)
+    && normalizeMatchValue(left.medicine_name) === normalizeMatchValue(right.medicine_name);
+};
+
+const recordsMatchExpiryItem = (item, record) => {
+  const itemFields = getRecordMatchFields(item);
+  const recordFields = getRecordMatchFields(record);
+
+  return hasMatchingMedicine(itemFields, recordFields)
+    && valuesMatchWhenBothPresent(itemFields, recordFields, "batch_number")
+    && valuesMatchWhenBothPresent(itemFields, recordFields, "expiry_date")
+    && valuesMatchWhenBothPresent(itemFields, recordFields, "distributor_id")
+    && valuesMatchWhenBothPresent(itemFields, recordFields, "distributor_name");
+};
+
+const findInventoryBatchForExpiryItem = (item, inventoryBatches) => {
+  return inventoryBatches.find((batch) => recordsMatchExpiryItem(item, batch));
+};
+
+const getReturnableQuantity = (item, availableStock) => {
+  const originalQuantity = getOriginalBatchQuantity(item);
+
+  if (originalQuantity > 0) return originalQuantity;
+  if (availableStock !== undefined && availableStock > 0) return availableStock;
+
+  return 0;
+};
+
+const getReturnStatus = (item, purchaseReturns, inventoryBatches) => {
+  const inventoryBatch = findInventoryBatchForExpiryItem(item, inventoryBatches);
+  const availableStock = firstDefined(getAvailableStock(inventoryBatch || {}), getAvailableStock(item));
   const matchedReturns = purchaseReturns.filter((record) => recordsMatchExpiryItem(item, record));
   const returnedQuantity = matchedReturns.reduce(
     (sum, record) => sum + toNumber(firstDefined(record.return_quantity, record.quantity, record.qty, 0)),
     getItemReturnedQuantity(item)
   );
-  const originalQuantity = getOriginalBatchQuantity(item);
-  const availableStock = getAvailableStock(item);
-  const backendStatus = normalizeReturnStatus(firstDefined(
-    item.return_status,
-    item.purchase_return_status,
-    item.returned_status,
-    item.status
-  ));
+  const returnableQuantity = getReturnableQuantity(inventoryBatch || item, availableStock);
 
-  if (returnedQuantity > 0 && returnedQuantity >= originalQuantity) return "Returned";
-  if (returnedQuantity > 0 && returnedQuantity < originalQuantity) return "Partially Returned";
-  if (availableStock <= 0 && returnedQuantity <= 0) return "Sold Out";
-  if (backendStatus && backendStatus !== "Sold Out") return backendStatus;
+  if (availableStock !== undefined && availableStock <= 0) return "Sold Out";
+  if (returnedQuantity > 0 && returnableQuantity > 0 && returnedQuantity >= returnableQuantity) return "Returned";
+  if (returnedQuantity > 0) return "Partially Returned";
+
   return "Not Returned";
 };
 
@@ -285,6 +311,7 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [outstanding, setOutstanding] = useState(null);
   const [purchaseReturns, setPurchaseReturns] = useState([]);
+  const [inventoryBatches, setInventoryBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -305,19 +332,18 @@ export default function Dashboard() {
 
       try {
         const returnsRes = await api.get("/purchase-returns");
-        const returnItems = firstDefined(
-          returnsRes.data?.items,
-          returnsRes.data?.results,
-          returnsRes.data?.data,
-          returnsRes.data?.purchase_returns,
-          returnsRes.data?.returns,
-          returnsRes.data,
-          []
-        );
-        setPurchaseReturns(Array.isArray(returnItems) ? returnItems : []);
+        setPurchaseReturns(normalizeCollection(returnsRes.data));
       } catch (e) {
         console.warn("Failed to load purchase return status records", e);
         setPurchaseReturns([]);
+      }
+
+      try {
+        const medicinesRes = await api.get("/medicines");
+        setInventoryBatches(buildInventoryBatchRecords(normalizeCollection(medicinesRes.data)));
+      } catch (e) {
+        console.warn("Failed to load inventory batch status records", e);
+        setInventoryBatches([]);
       }
     } catch (e) {
       toast.error("Failed to load dashboard");
@@ -530,7 +556,7 @@ export default function Dashboard() {
                 {firstDefined(item.days_to_expiry, item.days_left, item.days_remaining, 0)} days
               </td>
               <td className="p-2">
-                <ReturnStatusBadge status={getReturnStatus(item, purchaseReturns)} />
+                <ReturnStatusBadge status={getReturnStatus(item, purchaseReturns, inventoryBatches)} />
               </td>
             </tr>
           )}
@@ -554,7 +580,7 @@ export default function Dashboard() {
                   Expired {expiredDaysAgo} days ago
                 </td>
                 <td className="p-2">
-                  <ReturnStatusBadge status={getReturnStatus(item, purchaseReturns)} />
+                  <ReturnStatusBadge status={getReturnStatus(item, purchaseReturns, inventoryBatches)} />
                 </td>
               </tr>
             );
