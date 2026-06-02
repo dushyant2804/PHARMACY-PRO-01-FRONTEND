@@ -474,6 +474,13 @@ function ReportStat({ label, value, tone }) {
   );
 }
 
+const breakdownColumns = [
+  { key: "name", label: "Name / Label", alignClassName: "text-left", cellClassName: "font-medium text-slate-800" },
+  { key: "quantity", label: "Total Quantity", alignClassName: "text-right", cellClassName: "num-cell whitespace-nowrap" },
+  { key: "value", label: "Total Return Amount", alignClassName: "text-right", cellClassName: "num-cell whitespace-nowrap font-semibold" },
+  { key: "count", label: "Return Count", alignClassName: "text-right", cellClassName: "num-cell whitespace-nowrap" },
+];
+
 function BreakdownTable({ title, items }) {
   return (
     <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
@@ -481,32 +488,36 @@ function BreakdownTable({ title, items }) {
         <h3 className="font-semibold text-slate-800">{title}</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="data-table min-w-[640px]">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th className="text-right">Total Quantity</th>
-            <th className="text-right">Total Return Amount</th>
-            <th className="text-right">Return Count</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.length === 0 && (
+        <table className="w-full min-w-[720px] border-collapse text-sm">
+          <thead>
             <tr>
-              <td colSpan={4} className="text-center py-6 text-slate-500">
-                No breakdown data.
-              </td>
+              {breakdownColumns.map((column) => (
+                <th
+                  key={column.key}
+                  className={`border-b-2 border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 ${column.alignClassName}`}
+                >
+                  {column.label}
+                </th>
+              ))}
             </tr>
-          )}
-          {items.map((item) => (
-            <tr key={item.id}>
-              <td className="font-medium">{item.name}</td>
-              <td className="num-cell">{item.quantity}</td>
-              <td className="num-cell font-semibold">{fmtINR(item.value)}</td>
-              <td className="num-cell">{item.count}</td>
-            </tr>
-          ))}
-        </tbody>
+          </thead>
+          <tbody>
+            {items.length === 0 && (
+              <tr>
+                <td colSpan={breakdownColumns.length} className="border-b border-slate-100 px-3 py-6 text-center text-slate-500">
+                  No breakdown data.
+                </td>
+              </tr>
+            )}
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td className={`border-b border-slate-100 px-3 py-2 ${breakdownColumns[0].alignClassName} ${breakdownColumns[0].cellClassName}`}>{item.name}</td>
+                <td className={`border-b border-slate-100 px-3 py-2 ${breakdownColumns[1].alignClassName} ${breakdownColumns[1].cellClassName}`}>{item.quantity}</td>
+                <td className={`border-b border-slate-100 px-3 py-2 ${breakdownColumns[2].alignClassName} ${breakdownColumns[2].cellClassName}`}>{fmtINR(item.value)}</td>
+                <td className={`border-b border-slate-100 px-3 py-2 ${breakdownColumns[3].alignClassName} ${breakdownColumns[3].cellClassName}`}>{item.count}</td>
+              </tr>
+            ))}
+          </tbody>
         </table>
       </div>
     </div>
