@@ -154,6 +154,16 @@ const getItemReturnedQuantity = (item) => toNumber(firstDefined(
   0
 ));
 
+const getPurchaseReturnQuantity = (record) => toNumber(firstDefined(
+  record.return_quantity,
+  record.returned_quantity,
+  record.purchase_return_quantity,
+  record.total_returned_quantity,
+  record.quantity,
+  record.qty,
+  0
+));
+
 const normalizeCollection = (payload) => {
   const items = firstDefined(
     payload?.items,
@@ -194,6 +204,13 @@ const buildInventoryBatchRecords = (medicines) => medicines.flatMap((medicine) =
 
 const normalizeMatchValue = (value) => String(value ?? "").trim().toLowerCase();
 
+const normalizeDateMatchValue = (value) => {
+  const normalized = normalizeMatchValue(value);
+  if (!normalized) return normalized;
+
+  return normalized.slice(0, 10);
+};
+
 const getRecordMatchFields = (item) => ({
   medicine_id: firstDefined(item.medicine_id, item.id),
   medicine_key: firstDefined(item.medicine_key, item.key, item.sku),
@@ -205,8 +222,9 @@ const getRecordMatchFields = (item) => ({
 });
 
 const valuesMatchWhenBothPresent = (left, right, key) => {
-  const leftValue = normalizeMatchValue(left[key]);
-  const rightValue = normalizeMatchValue(right[key]);
+  const normalizer = key === "expiry_date" ? normalizeDateMatchValue : normalizeMatchValue;
+  const leftValue = normalizer(left[key]);
+  const rightValue = normalizer(right[key]);
   return !leftValue || !rightValue || leftValue === rightValue;
 };
 
@@ -216,8 +234,8 @@ const hasMatchingMedicine = (left, right) => {
   const leftKey = normalizeMatchValue(left.medicine_key);
   const rightKey = normalizeMatchValue(right.medicine_key);
 
-  if (leftId && rightId) return leftId === rightId;
-  if (leftKey && rightKey) return leftKey === rightKey;
+  if (leftId && rightId && leftId === rightId) return true;
+  if (leftKey && rightKey && leftKey === rightKey) return true;
 
   return normalizeMatchValue(left.medicine_name)
     && normalizeMatchValue(left.medicine_name) === normalizeMatchValue(right.medicine_name);
@@ -238,13 +256,29 @@ const findInventoryBatchForExpiryItem = (item, inventoryBatches) => {
   return inventoryBatches.find((batch) => recordsMatchExpiryItem(item, batch));
 };
 
-const getReturnableQuantity = (item, availableStock) => {
+const getExplicitReturnableQuantity = (item) => toOptionalNumber(firstDefined(
+  item.returnable_quantity,
+  item.expired_returnable_quantity,
+  item.expiring_returnable_quantity,
+  item.expired_quantity,
+  item.expiring_quantity,
+  item.remaining_expired_quantity,
+  item.remaining_expiring_quantity
+));
+
+const getReturnableQuantity = (item, availableStock, returnedQuantity) => {
+  const explicitReturnableQuantity = getExplicitReturnableQuantity(item);
+
+  if (explicitReturnableQuantity !== undefined) return explicitReturnableQuantity;
+
+  if (availableStock !== undefined) {
+    return Math.max(availableStock, 0) + returnedQuantity;
+  }
+
   const originalQuantity = getOriginalBatchQuantity(item);
-
   if (originalQuantity > 0) return originalQuantity;
-  if (availableStock !== undefined && availableStock > 0) return availableStock;
 
-  return 0;
+  return returnedQuantity;
 };
 
 const getReturnStatus = (item, purchaseReturns, inventoryBatches) => {
@@ -252,14 +286,18 @@ const getReturnStatus = (item, purchaseReturns, inventoryBatches) => {
   const availableStock = firstDefined(getAvailableStock(inventoryBatch || {}), getAvailableStock(item));
   const matchedReturns = purchaseReturns.filter((record) => recordsMatchExpiryItem(item, record));
   const returnedQuantity = matchedReturns.reduce(
-    (sum, record) => sum + toNumber(firstDefined(record.return_quantity, record.quantity, record.qty, 0)),
+    (sum, record) => sum + getPurchaseReturnQuantity(record),
     getItemReturnedQuantity(item)
   );
-  const returnableQuantity = getReturnableQuantity(inventoryBatch || item, availableStock);
+  const returnableQuantity = getReturnableQuantity(
+    { ...(inventoryBatch || {}), ...item },
+    availableStock,
+    returnedQuantity
+  );
 
-  if (availableStock !== undefined && availableStock <= 0) return "Sold Out";
   if (returnedQuantity > 0 && returnableQuantity > 0 && returnedQuantity >= returnableQuantity) return "Returned";
   if (returnedQuantity > 0) return "Partially Returned";
+  if (availableStock !== undefined && availableStock <= 0) return "Sold Out";
 
   return "Not Returned";
 };

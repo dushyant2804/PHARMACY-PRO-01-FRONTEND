@@ -474,55 +474,51 @@ function ReportStat({ label, value, tone }) {
   );
 }
 
-const breakdownColumns = [
-  { key: "name", label: "Name", width: "46%", headerClassName: "text-left", cellClassName: "font-medium text-slate-800" },
-  { key: "quantity", label: "Total Quantity", width: "18%", headerClassName: "text-right", cellClassName: "num-cell whitespace-nowrap" },
-  { key: "value", label: "Total Return Amount", width: "22%", headerClassName: "text-right", cellClassName: "num-cell whitespace-nowrap font-semibold" },
-  { key: "count", label: "Return Count", width: "14%", headerClassName: "text-right", cellClassName: "num-cell whitespace-nowrap" },
-];
-
-function BreakdownTable({ title, items }) {
+function BreakdownCardList({ title, items }) {
   return (
-    <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
+    <section className="w-full bg-white border border-slate-200 rounded-sm shadow-sm">
       <div className="px-4 py-3 bg-slate-50 border-b">
         <h3 className="font-semibold text-slate-800">{title}</h3>
       </div>
-      <div className="overflow-x-auto">
-        <table className="data-table table-fixed min-w-[760px]">
-          <colgroup>
-            {breakdownColumns.map((column) => (
-              <col key={column.key} style={{ width: column.width }} />
-            ))}
-          </colgroup>
-          <thead>
-            <tr>
-              {breakdownColumns.map((column) => (
-                <th key={column.key} className={column.headerClassName}>
-                  {column.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={breakdownColumns.length} className="text-center py-6 text-slate-500">
-                  No breakdown data.
-                </td>
-              </tr>
-            )}
-            {items.map((item) => (
-              <tr key={item.id}>
-                <td className={breakdownColumns[0].cellClassName}>{item.name}</td>
-                <td className={breakdownColumns[1].cellClassName}>{item.quantity}</td>
-                <td className={breakdownColumns[2].cellClassName}>{fmtINR(item.value)}</td>
-                <td className={breakdownColumns[3].cellClassName}>{item.count}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      <div className="p-4 space-y-3">
+        {items.length === 0 ? (
+          <div className="rounded-sm border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            No breakdown data.
+          </div>
+        ) : (
+          items.map((item) => (
+            <div
+              key={item.id}
+              className="w-full rounded-sm border border-slate-200 bg-white p-4 shadow-[0_1px_0_rgba(15,23,42,0.03)]"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="break-words text-sm font-semibold text-slate-900">
+                    {item.name}
+                  </div>
+                </div>
+
+                <div className="grid gap-2 text-sm text-slate-600 sm:min-w-[300px] sm:grid-cols-3 sm:text-right">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-slate-400">Quantity</div>
+                    <div className="font-semibold text-slate-800">{item.quantity}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-slate-400">Amount</div>
+                    <div className="font-semibold text-slate-800">{fmtINR(item.value)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-slate-400">Returns</div>
+                    <div className="font-semibold text-slate-800">{item.count}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -899,10 +895,10 @@ export default function PurchaseReturns() {
       </form>
 
       <div className="space-y-6">
-        <BreakdownTable title="Distributor-wise Breakdown" items={report.distributorBreakdown} />
-        <BreakdownTable title="Medicine-wise Breakdown" items={report.medicineBreakdown} />
-        <BreakdownTable title="Reason-wise Breakdown" items={report.reasonBreakdown} />
-        <BreakdownTable title="Ledger-wise Breakdown" items={report.ledgerBreakdown} />
+        <BreakdownCardList title="Distributor-wise Breakdown" items={report.distributorBreakdown} />
+        <BreakdownCardList title="Medicine-wise Breakdown" items={report.medicineBreakdown} />
+        <BreakdownCardList title="Reason-wise Breakdown" items={report.reasonBreakdown} />
+        <BreakdownCardList title="Ledger-wise Breakdown" items={report.ledgerBreakdown} />
       </div>
 
       <div className="bg-white border border-slate-200 rounded-sm overflow-x-auto">
