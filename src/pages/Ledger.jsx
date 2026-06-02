@@ -42,6 +42,18 @@ const isEditableDistributorTransaction = (transaction) => {
   return ["payment", "purchase", "manual", "manual_payment", "manual_purchase", "adjustment", "payment_adjustment"].includes(kind);
 };
 
+const getReceiptRefText = (transaction) => {
+  const values = [transaction.receipt_number, transaction.reference_number]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  return values.length ? values.join(" / ") : "*";
+};
+
+const isEditableDistributorTransaction = (transaction) => {
+  const kind = getTransactionKind(transaction);
+  return kind === "payment" || kind === "manual" || kind === "manual_payment";
+};
+
 export default function Ledger() {
   const { type, id } = useParams(); // type: distributor | customer
   const [data, setData] = useState(null);
@@ -54,7 +66,7 @@ export default function Ledger() {
   const [editForm, setEditForm] = useState({
     receipt_number: "",
     reference_number: "",
-    payment_mode: "cash",
+    mode: "cash",
     notes: ""
   });
   const [form, setForm] = useState({
@@ -127,7 +139,7 @@ const openEditDialog = (transaction) => {
   setEditForm({
     receipt_number: transaction.receipt_number || "",
     reference_number: transaction.reference_number || "",
-    payment_mode: getTransactionMode(transaction) || "cash",
+    mode: transaction.mode || "cash",
     notes: transaction.notes || ""
   });
   setEditOpen(true);
@@ -139,17 +151,12 @@ const handleEditSave = async (e) => {
 
   setSavingEdit(true);
   try {
-    const payload = {
+    await api.patch(`/distributor-transactions/${editingTransaction.id}`, {
+      receipt_number: editForm.receipt_number,
       reference_number: editForm.reference_number,
+      mode: editForm.mode,
       notes: editForm.notes
-    };
-
-    if (!isPurchaseTransaction(editingTransaction)) {
-      payload.receipt_number = editForm.receipt_number;
-      payload.payment_mode = editForm.payment_mode;
-    }
-
-    await api.patch(`/distributor-transactions/${editingTransaction.id}`, payload);
+    });
     toast.success("Transaction updated");
     setEditOpen(false);
     setEditingTransaction(null);
@@ -357,7 +364,7 @@ const handleDelete = async (txnId) => {
              <th>Date</th>
              <th>Type</th>
              <th>Reference / Notes</th>
-             {type === "distributor" && <th>Receipt / Invoice No.</th>}
+             {type === "distributor" && <th>Receipt / Ref No.</th>}
              <th>Mode</th>
              <th className="text-right">Amount</th>
              <th className="text-right">Running Balance</th>
@@ -371,8 +378,8 @@ const handleDelete = async (txnId) => {
                 <td className="font-mono-nums text-xs">{fmtDate(getTransactionDate(t))}</td>
                 <td className="uppercase text-xs tracking-wider font-semibold">{t.type}</td>
                 <td>{t.reference || t.notes || "—"}</td>
-                {type === "distributor" && <td className="text-sm font-medium">{getReceiptInvoiceText(t)}</td>}
-                <td className="text-xs uppercase">{getTransactionMode(t) || "—"}</td>
+                {type === "distributor" && <td className="text-sm font-medium">{getReceiptRefText(t)}</td>}
+                <td className="text-xs uppercase">{t.mode || "—"}</td>
                 <td className={`num-cell font-semibold ${t.type === "payment" ? "text-emerald-600" : "text-slate-800"}`}>
                   {t.type === "payment" ? "−" : "+"}{fmtINR(t.amount)}
                 </td>
@@ -413,66 +420,46 @@ const handleDelete = async (txnId) => {
               Update receipt, reference, payment mode, and notes only. Amount, distributor, and transaction type cannot be edited here.
             </div>
 
-            {isPurchaseTransaction(editingTransaction) ? (
-              <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">
-                  Invoice / Bill Number
-                </Label>
-                <Input
-                  value={editForm.reference_number}
-                  onChange={(e) => setEditForm({ ...editForm, reference_number: e.target.value })}
-                  className="rounded-sm mt-1"
-                />
-                <div className="text-xs text-slate-500 mt-1">
-                  Saved as the transaction reference number.
-                </div>
-              </div>
-            ) : (
-              <>
-                <div>
-                  <Label className="text-xs uppercase font-semibold text-slate-600">
-                    Receipt Number
-                  </Label>
-                  <Input
-                    value={editForm.receipt_number}
-                    onChange={(e) => setEditForm({ ...editForm, receipt_number: e.target.value })}
-                    className="rounded-sm mt-1"
-                  />
-                </div>
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Receipt Number
+              </Label>
+              <Input
+                value={editForm.receipt_number}
+                onChange={(e) => setEditForm({ ...editForm, receipt_number: e.target.value })}
+                className="rounded-sm mt-1"
+              />
+            </div>
 
-                <div>
-                  <Label className="text-xs uppercase font-semibold text-slate-600">
-                    Reference Number
-                  </Label>
-                  <Input
-                    value={editForm.reference_number}
-                    onChange={(e) => setEditForm({ ...editForm, reference_number: e.target.value })}
-                    className="rounded-sm mt-1"
-                  />
-                </div>
-              </>
-            )}
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Reference Number
+              </Label>
+              <Input
+                value={editForm.reference_number}
+                onChange={(e) => setEditForm({ ...editForm, reference_number: e.target.value })}
+                className="rounded-sm mt-1"
+              />
+            </div>
 
-            {!isPurchaseTransaction(editingTransaction) && (
-              <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">
-                  Payment Mode
-                </Label>
-                <Select value={editForm.payment_mode} onValueChange={(v) => setEditForm({ ...editForm, payment_mode: v })}>
-                  <SelectTrigger className="rounded-sm mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Payment Mode
+              </Label>
+              <Select value={editForm.mode} onValueChange={(v) => setEditForm({ ...editForm, mode: v })}>
+                <SelectTrigger className="rounded-sm mt-1">
+                  <SelectValue />
+                </SelectTrigger>
 
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="upi">UPI</SelectItem>
-                    <SelectItem value="card">Card</SelectItem>
-                    <SelectItem value="bank">Bank Transfer</SelectItem>
-                    <SelectItem value="cheque">Cheque</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="upi">UPI</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="bank">Bank Transfer</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <div>
               <Label className="text-xs uppercase font-semibold text-slate-600">
