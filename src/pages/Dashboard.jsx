@@ -82,12 +82,117 @@ const getExpiryDate = (item) => {
 };
 
 const getBatchNo = (item) => {
-  return firstDefined(item.batch_no, item.batch, item.batchNo, "-");
+  return firstDefined(item.batch_number, item.batch_no, item.batch, item.batchNo, "-");
 };
 
 const getMedicineName = (item) => {
   return firstDefined(item.name, item.medicine_name, item.medicine, "-");
 };
+
+const normalizeReturnStatus = (status) => {
+  const value = String(status || "").toLowerCase().replace(/[ -]/g, "_");
+
+  if (["returned", "fully_returned", "full_returned"].includes(value)) return "Returned";
+  if (["partially_returned", "partial_returned", "partial"].includes(value)) return "Partially Returned";
+  if (["not_returned", "none", "pending"].includes(value)) return "Not Returned";
+
+  return "";
+};
+
+const getItemQuantity = (item) => Number(firstDefined(
+  item.available_stock,
+  item.quantity_units,
+  item.stock,
+  item.qty,
+  item.quantity,
+  item.total_stock,
+  0
+) || 0);
+
+const normalizeMatchValue = (value) => String(value ?? "").trim().toLowerCase();
+
+const sameIdentifier = (left, right, keys) => keys.some((key) => {
+  const leftValue = normalizeMatchValue(left[key]);
+  const rightValue = normalizeMatchValue(right[key]);
+  return leftValue && rightValue && leftValue === rightValue;
+});
+
+const recordsMatchExpiryItem = (item, record) => {
+  const itemNormalized = {
+    medicine_id: firstDefined(item.medicine_id, item.id),
+    medicine_key: firstDefined(item.medicine_key, item.key, item.sku),
+    batch_number: firstDefined(item.batch_number, item.batch_no, item.batch, item.batchNo),
+    expiry_date: firstDefined(item.expiry_date, item.expiry, item.expiryDate),
+    distributor_id: item.distributor_id,
+    medicine_name: getMedicineName(item),
+    distributor_name: firstDefined(item.distributor_name, item.distributor),
+  };
+  const recordNormalized = {
+    medicine_id: record.medicine_id,
+    medicine_key: record.medicine_key,
+    batch_number: firstDefined(record.batch_number, record.batch_no, record.batch, record.batchNo),
+    expiry_date: firstDefined(record.expiry_date, record.expiry, record.expiryDate),
+    distributor_id: record.distributor_id,
+    medicine_name: firstDefined(record.medicine_name, record.name, record.medicine),
+    distributor_name: firstDefined(record.distributor_name, record.distributor),
+  };
+
+  const hasMedicineIdentifier = ["medicine_id", "medicine_key"].some(
+    (key) => itemNormalized[key] && recordNormalized[key]
+  );
+
+  const batchAndExpiryMatch = ["batch_number", "expiry_date"].every(
+    (key) => !itemNormalized[key] || !recordNormalized[key] || normalizeMatchValue(itemNormalized[key]) === normalizeMatchValue(recordNormalized[key])
+  );
+  const distributorIdMatches = !itemNormalized.distributor_id
+    || !recordNormalized.distributor_id
+    || normalizeMatchValue(itemNormalized.distributor_id) === normalizeMatchValue(recordNormalized.distributor_id);
+
+  if (hasMedicineIdentifier) {
+    return sameIdentifier(itemNormalized, recordNormalized, ["medicine_id", "medicine_key"])
+      && batchAndExpiryMatch
+      && distributorIdMatches;
+  }
+
+  return normalizeMatchValue(itemNormalized.medicine_name) === normalizeMatchValue(recordNormalized.medicine_name)
+    && batchAndExpiryMatch
+    && distributorIdMatches
+    && (!itemNormalized.distributor_name || !recordNormalized.distributor_name || normalizeMatchValue(itemNormalized.distributor_name) === normalizeMatchValue(recordNormalized.distributor_name));
+};
+
+const getReturnStatus = (item, purchaseReturns) => {
+  const backendStatus = normalizeReturnStatus(firstDefined(
+    item.return_status,
+    item.purchase_return_status,
+    item.returned_status,
+    item.status
+  ));
+  if (backendStatus) return backendStatus;
+
+  const matchedReturns = purchaseReturns.filter((record) => recordsMatchExpiryItem(item, record));
+  const returnedQuantity = matchedReturns.reduce(
+    (sum, record) => sum + Number(firstDefined(record.return_quantity, record.quantity, record.qty, 0) || 0),
+    0
+  );
+
+  if (returnedQuantity <= 0) return "Not Returned";
+  if (returnedQuantity >= getItemQuantity(item)) return "Returned";
+  return "Partially Returned";
+};
+
+function ReturnStatusBadge({ status }) {
+  const className = status === "Returned"
+    ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+    : status === "Partially Returned"
+    ? "bg-amber-100 text-amber-700 border-amber-200"
+    : "bg-slate-100 text-slate-600 border-slate-200";
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${className}`}>
+      {status}
+    </span>
+  );
+}
 
 const getPatientAlerts = (data) => {
   const alerts = firstDefined(
@@ -119,6 +224,7 @@ const getPatientAlertStatus = (alert) => {
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [outstanding, setOutstanding] = useState(null);
+  const [purchaseReturns, setPurchaseReturns] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -135,6 +241,23 @@ export default function Dashboard() {
         console.warn("Failed to load outstanding totals", e);
         toast.warning("Outstanding totals unavailable");
         setOutstanding(null);
+      }
+
+      try {
+        const returnsRes = await api.get("/purchase-returns");
+        const returnItems = firstDefined(
+          returnsRes.data?.items,
+          returnsRes.data?.results,
+          returnsRes.data?.data,
+          returnsRes.data?.purchase_returns,
+          returnsRes.data?.returns,
+          returnsRes.data,
+          []
+        );
+        setPurchaseReturns(Array.isArray(returnItems) ? returnItems : []);
+      } catch (e) {
+        console.warn("Failed to load purchase return status records", e);
+        setPurchaseReturns([]);
       }
     } catch (e) {
       toast.error("Failed to load dashboard");
@@ -335,7 +458,7 @@ export default function Dashboard() {
         <ExpiryTable
           title="Expiring Soon Medicines"
           tone="text-orange-600"
-          columns={["Medicine", "Batch", "Expiry Date", "Days Remaining"]}
+          columns={["Medicine", "Batch", "Expiry Date", "Days Remaining", "Return Status"]}
           items={expiringSoonItems}
           emptyText="No expiring soon medicines 🎉"
           renderRow={(item, i) => (
@@ -346,6 +469,9 @@ export default function Dashboard() {
               <td className="p-2 text-orange-600 font-bold">
                 {firstDefined(item.days_to_expiry, item.days_left, item.days_remaining, 0)} days
               </td>
+              <td className="p-2">
+                <ReturnStatusBadge status={getReturnStatus(item, purchaseReturns)} />
+              </td>
             </tr>
           )}
         />
@@ -353,7 +479,7 @@ export default function Dashboard() {
         <ExpiryTable
           title="Expired Medicines"
           tone="text-red-600"
-          columns={["Medicine", "Batch", "Expiry Date", "Status"]}
+          columns={["Medicine", "Batch", "Expiry Date", "Status", "Return Status"]}
           items={expiredItems}
           emptyText="No expired medicines 🎉"
           renderRow={(item, i) => {
@@ -366,6 +492,9 @@ export default function Dashboard() {
                 <td className="p-2 text-slate-600">{getExpiryDate(item)}</td>
                 <td className="p-2 text-red-600 font-bold">
                   Expired {expiredDaysAgo} days ago
+                </td>
+                <td className="p-2">
+                  <ReturnStatusBadge status={getReturnStatus(item, purchaseReturns)} />
                 </td>
               </tr>
             );
