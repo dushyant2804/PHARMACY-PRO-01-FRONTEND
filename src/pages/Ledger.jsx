@@ -49,11 +49,6 @@ const getReceiptRefText = (transaction) => {
   return values.length ? values.join(" / ") : "*";
 };
 
-const isEditableDistributorTransaction = (transaction) => {
-  const kind = getTransactionKind(transaction);
-  return kind === "payment" || kind === "manual" || kind === "manual_payment";
-};
-
 export default function Ledger() {
   const { type, id } = useParams(); // type: distributor | customer
   const [data, setData] = useState(null);
