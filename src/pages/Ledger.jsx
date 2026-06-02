@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 const currentMonthValue = () => new Date().toISOString().slice(0, 7);
@@ -21,12 +21,33 @@ const getTransactionMonth = (transaction) => {
 
 const getTransactionKind = (transaction) => String(transaction.type || "").toLowerCase();
 
+const getReceiptRefText = (transaction) => {
+  const values = [transaction.receipt_number, transaction.reference_number]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  return values.length ? values.join(" / ") : "*";
+};
+
+const isEditableDistributorTransaction = (transaction) => {
+  const kind = getTransactionKind(transaction);
+  return kind === "payment" || kind === "manual" || kind === "manual_payment";
+};
+
 export default function Ledger() {
   const { type, id } = useParams(); // type: distributor | customer
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(false);
   const [txnType, setTxnType] = useState(type === "distributor" ? "payment" : "sale");
   const [selectedMonth, setSelectedMonth] = useState(currentMonthValue());
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    receipt_number: "",
+    reference_number: "",
+    mode: "cash",
+    notes: ""
+  });
   const [form, setForm] = useState({
     amount: "",
     mode: "cash",
@@ -80,6 +101,40 @@ export default function Ledger() {
     0
   );
   const monthlyNetMovement = monthlyPurchaseTotal - monthlyPaymentTotal;
+
+const openEditDialog = (transaction) => {
+  setEditingTransaction(transaction);
+  setEditForm({
+    receipt_number: transaction.receipt_number || "",
+    reference_number: transaction.reference_number || "",
+    mode: transaction.mode || "cash",
+    notes: transaction.notes || ""
+  });
+  setEditOpen(true);
+};
+
+const handleEditSave = async (e) => {
+  e.preventDefault();
+  if (!editingTransaction) return;
+
+  setSavingEdit(true);
+  try {
+    await api.patch(`/distributor-transactions/${editingTransaction.id}`, {
+      receipt_number: editForm.receipt_number,
+      reference_number: editForm.reference_number,
+      mode: editForm.mode,
+      notes: editForm.notes
+    });
+    toast.success("Transaction updated");
+    setEditOpen(false);
+    setEditingTransaction(null);
+    await load();
+  } catch (e) {
+    toast.error(formatApiError(e));
+  } finally {
+    setSavingEdit(false);
+  }
+};
 
 const handleDelete = async (txnId) => {
   try {
@@ -277,6 +332,7 @@ const handleDelete = async (txnId) => {
              <th>Date</th>
              <th>Type</th>
              <th>Reference / Notes</th>
+             {type === "distributor" && <th>Receipt / Ref No.</th>}
              <th>Mode</th>
              <th className="text-right">Amount</th>
              <th className="text-right">Running Balance</th>
@@ -284,30 +340,118 @@ const handleDelete = async (txnId) => {
             </tr>
           </thead>
           <tbody>
-            {transactions.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate-500">No transactions yet.</td></tr>}
+            {transactions.length === 0 && <tr><td colSpan={type === "distributor" ? 8 : 7} className="text-center py-8 text-slate-500">No transactions yet.</td></tr>}
             {transactions.map((t) => (
               <tr key={t.id}>
                 <td className="font-mono-nums text-xs">{fmtDate(getTransactionDate(t))}</td>
                 <td className="uppercase text-xs tracking-wider font-semibold">{t.type}</td>
                 <td>{t.reference || t.notes || "—"}</td>
+                {type === "distributor" && <td className="text-sm font-medium">{getReceiptRefText(t)}</td>}
                 <td className="text-xs uppercase">{t.mode || "—"}</td>
                 <td className={`num-cell font-semibold ${t.type === "payment" ? "text-emerald-600" : "text-slate-800"}`}>
                   {t.type === "payment" ? "−" : "+"}{fmtINR(t.amount)}
                 </td>
                 <td className="num-cell">{fmtINR(t.running_balance)}</td>
                  <td>
-                  <button
-                   onClick={() => handleDelete(t.id)}
-                   className="text-red-600 text-xs hover:underline"
-                 >
-                   Delete
-                 </button>
+                  <div className="flex items-center gap-3">
+                    {type === "distributor" && isEditableDistributorTransaction(t) && (
+                      <button
+                        type="button"
+                        onClick={() => openEditDialog(t)}
+                        className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
+                        aria-label={`Edit transaction ${t.id}`}
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Edit
+                      </button>
+                    )}
+                    <button
+                     onClick={() => handleDelete(t.id)}
+                     className="text-red-600 text-xs hover:underline"
+                   >
+                     Delete
+                   </button>
+                  </div>
                 </td>
                </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="rounded-sm">
+          <DialogHeader><DialogTitle className="font-heading">Edit Transaction Details</DialogTitle></DialogHeader>
+          <form onSubmit={handleEditSave} className="space-y-3">
+            <div className="rounded-sm bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
+              Update receipt, reference, payment mode, and notes only. Amount, distributor, and transaction type cannot be edited here.
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Receipt Number
+              </Label>
+              <Input
+                value={editForm.receipt_number}
+                onChange={(e) => setEditForm({ ...editForm, receipt_number: e.target.value })}
+                className="rounded-sm mt-1"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Reference Number
+              </Label>
+              <Input
+                value={editForm.reference_number}
+                onChange={(e) => setEditForm({ ...editForm, reference_number: e.target.value })}
+                className="rounded-sm mt-1"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Payment Mode
+              </Label>
+              <Select value={editForm.mode} onValueChange={(v) => setEditForm({ ...editForm, mode: v })}>
+                <SelectTrigger className="rounded-sm mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="upi">UPI</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="bank">Bank Transfer</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Notes
+              </Label>
+              <Input
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                className="rounded-sm mt-1"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={savingEdit}>
+                Cancel
+              </Button>
+
+              <Button type="submit" className="rounded-sm bg-blue-600 hover:bg-blue-700" disabled={savingEdit}>
+                {savingEdit ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="rounded-sm">
