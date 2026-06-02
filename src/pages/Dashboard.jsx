@@ -33,13 +33,13 @@ function StatCard({ label, value, tone, sub, onClick }) {
 
 function ExpiryTable({ title, tone, columns, items, emptyText, renderRow }) {
   return (
-    <div className="bg-white border rounded-sm p-4">
+    <div className="w-full bg-white border rounded-sm p-4 shadow-sm">
       <h2 className={`font-semibold mb-3 ${tone}`}>
         {title}
       </h2>
 
-      <div className="max-h-[260px] overflow-auto">
-        <table className="w-full text-sm">
+      <div className="max-h-[320px] overflow-x-auto overflow-y-auto">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="sticky top-0 bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
             <tr>
               {columns.map((column) => (
@@ -94,20 +94,67 @@ const normalizeReturnStatus = (status) => {
 
   if (["returned", "fully_returned", "full_returned"].includes(value)) return "Returned";
   if (["partially_returned", "partial_returned", "partial"].includes(value)) return "Partially Returned";
+  if (["sold_out", "soldout"].includes(value)) return "Sold Out";
   if (["not_returned", "none", "pending"].includes(value)) return "Not Returned";
 
   return "";
 };
 
-const getItemQuantity = (item) => Number(firstDefined(
-  item.available_stock,
+const toNumber = (value, fallback = 0) => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+};
+
+const getAvailableStock = (item) => {
+  const purchasedMinusSold = firstDefined(item.purchased_units, item.purchased_quantity) !== undefined
+    || firstDefined(item.sold_units, item.sold_quantity) !== undefined
+    ? toNumber(firstDefined(item.purchased_units, item.purchased_quantity, 0))
+      - toNumber(firstDefined(item.sold_units, item.sold_quantity, 0))
+    : undefined;
+  const totalMinusSold = firstDefined(item.total_units, item.total_quantity) !== undefined
+    || firstDefined(item.sold_units, item.sold_quantity) !== undefined
+    ? toNumber(firstDefined(item.total_units, item.total_quantity, 0))
+      - toNumber(firstDefined(item.sold_units, item.sold_quantity, 0))
+    : undefined;
+
+  return toNumber(firstDefined(
+    item.available_stock,
+    item.stock,
+    item.available_quantity,
+    item.remaining_quantity,
+    item.quantity,
+    item.qty,
+    item.quantity_units,
+    purchasedMinusSold,
+    totalMinusSold,
+    0
+  ));
+};
+
+const getOriginalBatchQuantity = (item) => toNumber(firstDefined(
+  item.original_quantity,
+  item.original_batch_quantity,
+  item.batch_quantity,
+  item.purchased_units,
+  item.total_units,
+  item.purchased_quantity,
+  item.total_quantity,
   item.quantity_units,
-  item.stock,
-  item.qty,
   item.quantity,
-  item.total_stock,
+  item.qty,
+  item.stock,
+  item.available_stock,
   0
-) || 0);
+));
+
+const getItemReturnedQuantity = (item) => toNumber(firstDefined(
+  item.returned_quantity,
+  item.return_quantity,
+  item.purchase_return_quantity,
+  item.total_returned_quantity,
+  item.returned_units,
+  0
+));
 
 const normalizeMatchValue = (value) => String(value ?? "").trim().toLowerCase();
 
@@ -161,23 +208,25 @@ const recordsMatchExpiryItem = (item, record) => {
 };
 
 const getReturnStatus = (item, purchaseReturns) => {
+  const matchedReturns = purchaseReturns.filter((record) => recordsMatchExpiryItem(item, record));
+  const returnedQuantity = matchedReturns.reduce(
+    (sum, record) => sum + toNumber(firstDefined(record.return_quantity, record.quantity, record.qty, 0)),
+    getItemReturnedQuantity(item)
+  );
+  const originalQuantity = getOriginalBatchQuantity(item);
+  const availableStock = getAvailableStock(item);
   const backendStatus = normalizeReturnStatus(firstDefined(
     item.return_status,
     item.purchase_return_status,
     item.returned_status,
     item.status
   ));
-  if (backendStatus) return backendStatus;
 
-  const matchedReturns = purchaseReturns.filter((record) => recordsMatchExpiryItem(item, record));
-  const returnedQuantity = matchedReturns.reduce(
-    (sum, record) => sum + Number(firstDefined(record.return_quantity, record.quantity, record.qty, 0) || 0),
-    0
-  );
-
-  if (returnedQuantity <= 0) return "Not Returned";
-  if (returnedQuantity >= getItemQuantity(item)) return "Returned";
-  return "Partially Returned";
+  if (returnedQuantity > 0 && returnedQuantity >= originalQuantity) return "Returned";
+  if (returnedQuantity > 0 && returnedQuantity < originalQuantity) return "Partially Returned";
+  if (availableStock <= 0 && returnedQuantity <= 0) return "Sold Out";
+  if (backendStatus && backendStatus !== "Sold Out") return backendStatus;
+  return "Not Returned";
 };
 
 function ReturnStatusBadge({ status }) {
@@ -185,6 +234,8 @@ function ReturnStatusBadge({ status }) {
     ? "bg-emerald-100 text-emerald-700 border-emerald-200"
     : status === "Partially Returned"
     ? "bg-amber-100 text-amber-700 border-amber-200"
+    : status === "Sold Out"
+    ? "bg-red-100 text-red-700 border-red-200"
     : "bg-slate-100 text-slate-600 border-slate-200";
 
   return (
@@ -454,7 +505,7 @@ export default function Dashboard() {
         </div>
       </div>
       {/* EXPIRY SECTIONS */}
-      <div className="grid xl:grid-cols-2 gap-4">
+      <div className="space-y-6">
         <ExpiryTable
           title="Expiring Soon Medicines"
           tone="text-orange-600"
