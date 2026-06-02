@@ -92,7 +92,6 @@ const getMedicineName = (item) => {
 const normalizeReturnStatus = (status) => {
   const value = String(status || "").toLowerCase().replace(/[ -]/g, "_");
 
-  if (["sold_out", "soldout", "out_of_stock", "empty_stock"].includes(value)) return "Sold Out";
   if (["returned", "fully_returned", "full_returned"].includes(value)) return "Returned";
   if (["partially_returned", "partial_returned", "partial"].includes(value)) return "Partially Returned";
   if (["not_returned", "none", "pending"].includes(value)) return "Not Returned";
@@ -100,52 +99,15 @@ const normalizeReturnStatus = (status) => {
   return "";
 };
 
-const getNumericValue = (...values) => {
-  const value = firstDefined(...values);
-  const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
-};
-
-const getAvailableStock = (item) => {
-  const explicitAvailable = firstDefined(
-    item.available_stock,
-    item.stock,
-    item.available_quantity,
-    item.remaining_quantity
-  );
-
-  if (explicitAvailable !== undefined && explicitAvailable !== null) {
-    return getNumericValue(explicitAvailable);
-  }
-
-  const purchasedUnits = Number(item.purchased_units);
-  const totalUnits = Number(item.total_units);
-  const soldUnits = Number(firstDefined(item.sold_units, item.consumed_units, 0));
-
-  if (Number.isFinite(purchasedUnits)) return purchasedUnits - soldUnits;
-  if (Number.isFinite(totalUnits)) return totalUnits - soldUnits;
-
-  return getNumericValue(item.quantity_units, item.qty, item.quantity, item.total_stock, 0);
-};
-
-const getItemQuantity = (item) => {
-  const explicitQuantity = firstDefined(
-    item.original_quantity,
-    item.original_stock,
-    item.purchased_units,
-    item.total_units,
-    item.purchase_quantity,
-    item.received_quantity,
-    item.total_quantity,
-    item.total_stock
-  );
-
-  if (explicitQuantity !== undefined && explicitQuantity !== null) {
-    return getNumericValue(explicitQuantity);
-  }
-
-  return getAvailableStock(item);
-};
+const getItemQuantity = (item) => Number(firstDefined(
+  item.available_stock,
+  item.quantity_units,
+  item.stock,
+  item.qty,
+  item.quantity,
+  item.total_stock,
+  0
+) || 0);
 
 const normalizeMatchValue = (value) => String(value ?? "").trim().toLowerCase();
 
@@ -205,21 +167,17 @@ const getReturnStatus = (item, purchaseReturns) => {
     item.returned_status,
     item.status
   ));
+  if (backendStatus) return backendStatus;
 
   const matchedReturns = purchaseReturns.filter((record) => recordsMatchExpiryItem(item, record));
   const returnedQuantity = matchedReturns.reduce(
     (sum, record) => sum + Number(firstDefined(record.return_quantity, record.quantity, record.qty, 0) || 0),
     0
   );
-  const availableStock = getAvailableStock(item);
-  const batchQuantity = getItemQuantity(item);
 
-  if (backendStatus === "Sold Out") return backendStatus;
-  if (availableStock <= 0 && returnedQuantity <= 0) return "Sold Out";
-  if (returnedQuantity > 0 && returnedQuantity >= batchQuantity) return "Returned";
-  if (returnedQuantity > 0) return "Partially Returned";
-  if (backendStatus) return backendStatus;
-  return "Not Returned";
+  if (returnedQuantity <= 0) return "Not Returned";
+  if (returnedQuantity >= getItemQuantity(item)) return "Returned";
+  return "Partially Returned";
 };
 
 function ReturnStatusBadge({ status }) {
@@ -227,8 +185,6 @@ function ReturnStatusBadge({ status }) {
     ? "bg-emerald-100 text-emerald-700 border-emerald-200"
     : status === "Partially Returned"
     ? "bg-amber-100 text-amber-700 border-amber-200"
-    : status === "Sold Out"
-    ? "bg-slate-200 text-slate-700 border-slate-300"
     : "bg-slate-100 text-slate-600 border-slate-200";
 
   return (

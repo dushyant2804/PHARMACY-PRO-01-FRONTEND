@@ -411,7 +411,6 @@ export default function PurchaseReturns() {
   const [batchSearchOpen, setBatchSearchOpen] = useState(false);
   const [batchSearchLoading, setBatchSearchLoading] = useState(false);
   const [selectedBatchKey, setSelectedBatchKey] = useState("");
-  const [selectedBatchOption, setSelectedBatchOption] = useState(null);
   const [report, setReport] = useState(emptyReport);
   const [filters, setFilters] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
@@ -437,7 +436,6 @@ export default function PurchaseReturns() {
     setBatchOptions([]);
     setBatchSearchOpen(false);
     setSelectedBatchKey("");
-    setSelectedBatchOption(null);
     setOpen(true);
   };
 
@@ -510,7 +508,6 @@ export default function PurchaseReturns() {
       mrp: "",
     }));
     setSelectedBatchKey("");
-    setSelectedBatchOption(null);
 
     if (value.trim().length < 2) {
       setBatchOptions([]);
@@ -551,60 +548,19 @@ export default function PurchaseReturns() {
       mrp: option.mrp || "",
     }));
     setSelectedBatchKey(getBatchOptionKey(option, index));
-    setSelectedBatchOption(option);
     setBatchSearchOpen(false);
   };
 
-  const getSelectedFormValue = (formKey, optionKey = formKey, fallback = "") => {
-    const formValue = form[formKey];
-    if (formValue !== undefined && formValue !== null && String(formValue).trim() !== "") {
-      return formValue;
-    }
-
-    const optionValue = selectedBatchOption?.[optionKey];
-    if (optionValue !== undefined && optionValue !== null && String(optionValue).trim() !== "") {
-      return optionValue;
-    }
-
-    return fallback;
-  };
-
-  const getSelectedReturnData = () => {
-    const distributorId = getSelectedFormValue("distributor_id");
-    const distributorName = getSelectedFormValue("distributor_name", "distributor");
-
-    return {
-      return_date: form.return_date,
-      distributor_id: distributorId ? String(distributorId) : "",
-      distributor: distributorName,
-      distributor_name: distributorName,
-      medicine_id: getSelectedFormValue("medicine_id"),
-      medicine_key: getSelectedFormValue("medicine_key"),
-      medicine_name: String(getSelectedFormValue("medicine_name")).trim(),
-      batch_number: String(getSelectedFormValue("batch_number")).trim(),
-      expiry_date: getSelectedFormValue("expiry_date"),
-      available_stock: Number(getSelectedFormValue("available_stock", "available_stock", 0) || 0),
-      return_quantity: Number(form.return_quantity || 0),
-      purchase_rate: Number(getSelectedFormValue("purchase_rate", "purchase_rate", 0) || 0),
-      mrp: getSelectedFormValue("mrp"),
-      reason: form.reason,
-      notes: String(form.notes || "").trim(),
-      adjust_distributor_ledger: Boolean(form.adjust_distributor_ledger),
-    };
-  };
-
   const validateForm = () => {
-    const selectedReturnData = getSelectedReturnData();
-
-    if (!selectedReturnData.return_date) return "Return date is required";
-    if (!selectedReturnData.distributor && !selectedReturnData.distributor_id) return "Distributor is required";
-    if (!selectedReturnData.medicine_name) return "Medicine name is required";
-    if (!selectedBatchKey || !selectedReturnData.batch_number) return "Select an exact medicine batch";
-    if (!selectedReturnData.expiry_date) return "Expiry date is required";
-    if (!selectedReturnData.return_quantity || selectedReturnData.return_quantity <= 0) return "Return quantity must be greater than 0";
-    if (selectedReturnData.return_quantity > selectedReturnData.available_stock) return "Return quantity cannot exceed available stock";
-    if (Number.isNaN(selectedReturnData.purchase_rate) || selectedReturnData.purchase_rate < 0) return "Purchase rate is required";
-    if (!reasons.includes(selectedReturnData.reason)) return "Reason is required";
+    if (!form.return_date) return "Return date is required";
+    if (!form.distributor_id) return "Distributor is required";
+    if (!form.medicine_name.trim()) return "Medicine name is required";
+    if (!selectedBatchKey || !form.batch_number.trim()) return "Select an exact medicine batch";
+    if (!form.expiry_date) return "Expiry date is required";
+    if (!form.return_quantity || Number(form.return_quantity) <= 0) return "Return quantity must be greater than 0";
+    if (Number(form.return_quantity) > Number(form.available_stock || 0)) return "Return quantity cannot exceed available stock";
+    if (form.purchase_rate === "" || Number(form.purchase_rate) < 0) return "Purchase rate is required";
+    if (!form.reason) return "Reason is required";
     return "";
   };
 
@@ -619,23 +575,22 @@ export default function PurchaseReturns() {
 
     const selectedReturnData = getSelectedReturnData();
     const payload = {
-      return_date: selectedReturnData.return_date,
-      distributor: selectedReturnData.distributor,
-      distributor_id: selectedReturnData.distributor_id,
-      distributor_name: selectedReturnData.distributor_name,
-      medicine_id: selectedReturnData.medicine_id,
-      medicine_key: selectedReturnData.medicine_key,
-      medicine_name: selectedReturnData.medicine_name,
-      batch_number: selectedReturnData.batch_number,
-      expiry_date: selectedReturnData.expiry_date,
-      available_stock: selectedReturnData.available_stock,
-      return_quantity: selectedReturnData.return_quantity,
-      purchase_rate: selectedReturnData.purchase_rate,
-      mrp: selectedReturnData.mrp === "" ? undefined : Number(selectedReturnData.mrp),
-      return_amount: selectedReturnData.return_quantity * selectedReturnData.purchase_rate,
-      reason: selectedReturnData.reason,
-      notes: selectedReturnData.notes,
-      adjust_distributor_ledger: selectedReturnData.adjust_distributor_ledger,
+      return_date: form.return_date,
+      distributor_id: form.distributor_id,
+      distributor_name: form.distributor_name,
+      medicine_id: form.medicine_id,
+      medicine_key: form.medicine_key,
+      medicine_name: form.medicine_name.trim(),
+      batch_number: form.batch_number.trim(),
+      expiry_date: form.expiry_date,
+      available_stock: Number(form.available_stock || 0),
+      return_quantity: Number(form.return_quantity),
+      purchase_rate: Number(form.purchase_rate),
+      mrp: form.mrp === "" ? undefined : Number(form.mrp),
+      return_amount: returnAmount,
+      reason: form.reason,
+      notes: form.notes.trim(),
+      adjust_distributor_ledger: form.adjust_distributor_ledger,
     };
 
     try {
@@ -646,7 +601,6 @@ export default function PurchaseReturns() {
       setForm({ ...emptyForm, return_date: new Date().toISOString().split("T")[0], adjust_distributor_ledger: false });
       setBatchOptions([]);
       setSelectedBatchKey("");
-      setSelectedBatchOption(null);
       await loadAll(1, appliedFilters);
     } catch (e) {
       toast.error(formatApiError(e));
