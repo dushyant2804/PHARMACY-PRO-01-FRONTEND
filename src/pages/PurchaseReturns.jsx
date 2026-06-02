@@ -31,11 +31,15 @@ const emptyForm = {
   return_date: new Date().toISOString().split("T")[0],
   distributor_id: "",
   distributor_name: "",
+  medicine_id: "",
+  medicine_key: "",
   medicine_name: "",
   batch_number: "",
   expiry_date: "",
+  available_stock: "",
   return_quantity: "",
   purchase_rate: "",
+  mrp: "",
   reason: "Expired",
   notes: "",
   adjust_distributor_ledger: false,
@@ -171,6 +175,85 @@ const buildQueryParams = (filters, page) => {
   return params;
 };
 
+const getMedicineId = (medicine, batch = {}) =>
+  firstDefined(batch.medicine_id, medicine.id, medicine.medicine_id, medicine.medicineId, "");
+
+const getMedicineKey = (medicine, batch = {}) =>
+  firstDefined(batch.medicine_key, medicine.medicine_key, medicine.key, medicine.sku, getMedicineId(medicine, batch));
+
+const getBatchNumber = (batch = {}) =>
+  firstDefined(batch.batch_number, batch.batch_no, batch.batch, batch.batchNo, "");
+
+const getBatchExpiry = (batch = {}) =>
+  firstDefined(batch.expiry_date, batch.expiry, batch.expiryDate, "");
+
+const getBatchStock = (batch = {}) =>
+  firstDefined(batch.available_stock, batch.quantity_units, batch.stock, batch.qty, batch.quantity, 0);
+
+const getBatchDistributorName = (batch = {}, medicine = {}) =>
+  firstDefined(batch.distributor_name, batch.distributor, medicine.distributor_name, "");
+
+const getBatchDistributorId = (batch = {}, medicine = {}) =>
+  firstDefined(batch.distributor_id, medicine.distributor_id, "");
+
+const getBatchPurchaseRate = (batch = {}) =>
+  firstDefined(batch.purchase_rate, batch.purchase_price, batch.rate, 0);
+
+const getBatchMrp = (batch = {}) =>
+  firstDefined(batch.mrp, batch.MRP, "");
+
+const normalizeMedicineResponse = (data) => {
+  const items = firstDefined(data?.items, data?.data, data?.results, data, []);
+  return Array.isArray(items) ? items : [];
+};
+
+const buildBatchOptions = (medicines) => {
+  return medicines.flatMap((medicine) => {
+    const batches = Array.isArray(medicine.batches) ? medicine.batches : [];
+
+    if (!batches.length) {
+      return [{
+        medicine,
+        batch: {},
+        medicine_id: getMedicineId(medicine),
+        medicine_key: getMedicineKey(medicine),
+        medicine_name: firstDefined(medicine.name, medicine.medicine_name, ""),
+        batch_number: "",
+        expiry_date: "",
+        available_stock: Number(firstDefined(medicine.total_stock, medicine.available_stock, 0) || 0),
+        distributor: firstDefined(medicine.distributor_name, medicine.distributor, ""),
+        distributor_id: firstDefined(medicine.distributor_id, ""),
+        purchase_rate: Number(firstDefined(medicine.purchase_rate, medicine.purchase_price, 0) || 0),
+        mrp: firstDefined(medicine.mrp, ""),
+      }];
+    }
+
+    return batches.map((batch) => ({
+      medicine,
+      batch,
+      medicine_id: getMedicineId(medicine, batch),
+      medicine_key: getMedicineKey(medicine, batch),
+      medicine_name: firstDefined(medicine.name, medicine.medicine_name, batch.medicine_name, ""),
+      batch_number: getBatchNumber(batch),
+      expiry_date: getBatchExpiry(batch),
+      available_stock: Number(getBatchStock(batch) || 0),
+      distributor: getBatchDistributorName(batch, medicine),
+      distributor_id: getBatchDistributorId(batch, medicine),
+      purchase_rate: Number(getBatchPurchaseRate(batch) || 0),
+      mrp: getBatchMrp(batch),
+    }));
+  });
+};
+
+const getBatchOptionKey = (option, index) => [
+  option.medicine_id,
+  option.medicine_key,
+  option.batch_number,
+  option.expiry_date,
+  option.distributor_id,
+  index,
+].join("-");
+
 function ReportStat({ label, value, tone }) {
   return (
     <div className="bg-white border border-slate-200 rounded-sm p-4">
@@ -224,6 +307,10 @@ function BreakdownTable({ title, items }) {
 export default function PurchaseReturns() {
   const [returns, setReturns] = useState([]);
   const [distributors, setDistributors] = useState([]);
+  const [batchOptions, setBatchOptions] = useState([]);
+  const [batchSearchOpen, setBatchSearchOpen] = useState(false);
+  const [batchSearchLoading, setBatchSearchLoading] = useState(false);
+  const [selectedBatchKey, setSelectedBatchKey] = useState("");
   const [report, setReport] = useState(emptyReport);
   const [filters, setFilters] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
@@ -245,7 +332,10 @@ export default function PurchaseReturns() {
   const returnAmount = useMemo(() => getReturnAmount(form), [form]);
 
   const openCreateDialog = () => {
-    setForm({ ...emptyForm, return_date: new Date().toISOString().split("T")[0] });
+    setForm({ ...emptyForm, return_date: new Date().toISOString().split("T")[0], adjust_distributor_ledger: false });
+    setBatchOptions([]);
+    setBatchSearchOpen(false);
+    setSelectedBatchKey("");
     setOpen(true);
   };
 
@@ -305,22 +395,70 @@ export default function PurchaseReturns() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const updateDistributor = (value) => {
-    const distributor = distributors.find((item) => String(item.id) === String(value));
-    setForm({
-      ...form,
-      distributor_id: value,
-      distributor_name: distributor?.name || "",
-    });
+  const searchBatchOptions = async (value) => {
+    setForm((current) => ({
+      ...current,
+      medicine_name: value,
+      medicine_id: "",
+      medicine_key: "",
+      batch_number: "",
+      expiry_date: "",
+      available_stock: "",
+      purchase_rate: "",
+      mrp: "",
+    }));
+    setSelectedBatchKey("");
+
+    if (value.trim().length < 2) {
+      setBatchOptions([]);
+      setBatchSearchOpen(false);
+      return;
+    }
+
+    try {
+      setBatchSearchLoading(true);
+      const { data } = await api.get("/medicines", { params: { search: value.trim() } });
+      const options = buildBatchOptions(normalizeMedicineResponse(data));
+      setBatchOptions(options);
+      setBatchSearchOpen(true);
+    } catch (e) {
+      toast.error(formatApiError(e));
+      setBatchOptions([]);
+      setBatchSearchOpen(false);
+    } finally {
+      setBatchSearchLoading(false);
+    }
+  };
+
+  const applyBatchOption = (option, index) => {
+    const distributor = distributors.find((item) => String(item.id) === String(option.distributor_id));
+
+    setForm((current) => ({
+      ...current,
+      medicine_id: option.medicine_id || "",
+      medicine_key: option.medicine_key || "",
+      medicine_name: option.medicine_name || "",
+      batch_number: option.batch_number || "",
+      expiry_date: option.expiry_date || "",
+      distributor: option.distributor || distributor?.name || current.distributor_name || "",
+      distributor_id: option.distributor_id ? String(option.distributor_id) : current.distributor_id,
+      distributor_name: option.distributor || distributor?.name || current.distributor_name || "",
+      available_stock: option.available_stock,
+      purchase_rate: option.purchase_rate,
+      mrp: option.mrp || "",
+    }));
+    setSelectedBatchKey(getBatchOptionKey(option, index));
+    setBatchSearchOpen(false);
   };
 
   const validateForm = () => {
     if (!form.return_date) return "Return date is required";
     if (!form.distributor_id) return "Distributor is required";
     if (!form.medicine_name.trim()) return "Medicine name is required";
-    if (!form.batch_number.trim()) return "Batch number is required";
+    if (!selectedBatchKey || !form.batch_number.trim()) return "Select an exact medicine batch";
     if (!form.expiry_date) return "Expiry date is required";
     if (!form.return_quantity || Number(form.return_quantity) <= 0) return "Return quantity must be greater than 0";
+    if (Number(form.return_quantity) > Number(form.available_stock || 0)) return "Return quantity cannot exceed available stock";
     if (form.purchase_rate === "" || Number(form.purchase_rate) < 0) return "Purchase rate is required";
     if (!form.reason) return "Reason is required";
     return "";
@@ -339,11 +477,15 @@ export default function PurchaseReturns() {
       return_date: form.return_date,
       distributor_id: form.distributor_id,
       distributor_name: form.distributor_name,
+      medicine_id: form.medicine_id,
+      medicine_key: form.medicine_key,
       medicine_name: form.medicine_name.trim(),
       batch_number: form.batch_number.trim(),
       expiry_date: form.expiry_date,
+      available_stock: Number(form.available_stock || 0),
       return_quantity: Number(form.return_quantity),
       purchase_rate: Number(form.purchase_rate),
+      mrp: form.mrp === "" ? undefined : Number(form.mrp),
       return_amount: returnAmount,
       reason: form.reason,
       notes: form.notes.trim(),
@@ -355,7 +497,9 @@ export default function PurchaseReturns() {
       await api.post("/purchase-returns", payload);
       toast.success("Purchase return created");
       setOpen(false);
-      setForm({ ...emptyForm, return_date: new Date().toISOString().split("T")[0] });
+      setForm({ ...emptyForm, return_date: new Date().toISOString().split("T")[0], adjust_distributor_ledger: false });
+      setBatchOptions([]);
+      setSelectedBatchKey("");
       await loadAll(1, appliedFilters);
     } catch (e) {
       toast.error(formatApiError(e));
@@ -652,47 +796,61 @@ export default function PurchaseReturns() {
 
               <div>
                 <Label className="text-xs uppercase font-semibold text-slate-600">Distributor</Label>
-                <Select value={form.distributor_id} onValueChange={updateDistributor}>
-                  <SelectTrigger className="rounded-sm mt-1"><SelectValue placeholder="Select distributor" /></SelectTrigger>
-                  <SelectContent>
-                    {distributors.map((distributor) => (
-                      <SelectItem key={distributor.id} value={String(distributor.id)}>
-                        {distributor.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  value={form.distributor_name}
+                  readOnly
+                  placeholder="Auto-filled after batch selection"
+                  className="rounded-sm mt-1 bg-slate-50"
+                  required
+                />
               </div>
 
-              <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">Medicine Name</Label>
+              <div className="md:col-span-2 relative">
+                <Label className="text-xs uppercase font-semibold text-slate-600">Medicine / Batch</Label>
                 <Input
                   value={form.medicine_name}
-                  onChange={(e) => setForm({ ...form, medicine_name: e.target.value })}
+                  onChange={(e) => searchBatchOptions(e.target.value)}
+                  onFocus={() => batchOptions.length > 0 && setBatchSearchOpen(true)}
+                  placeholder="Type medicine name and select an exact batch"
                   className="rounded-sm mt-1"
                   required
                 />
+                {batchSearchOpen && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-sm shadow-lg max-h-72 overflow-y-auto">
+                    {batchSearchLoading && (
+                      <div className="p-3 text-sm text-slate-500">Searching medicines…</div>
+                    )}
+                    {!batchSearchLoading && batchOptions.length === 0 && (
+                      <div className="p-3 text-sm text-slate-500">No matching batches found.</div>
+                    )}
+                    {!batchSearchLoading && batchOptions.map((option, index) => (
+                      <button
+                        type="button"
+                        key={getBatchOptionKey(option, index)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => applyBatchOption(option, index)}
+                        className="block w-full text-left p-3 hover:bg-blue-50 border-b last:border-b-0"
+                      >
+                        <div className="font-semibold text-slate-900">
+                          {option.medicine_name} | Batch {option.batch_number || "-"} | Exp {option.expiry_date || "-"}
+                        </div>
+                        <div className="text-xs text-slate-600 mt-1">
+                          Stock {option.available_stock} | {option.distributor || "No distributor"} | {fmtINR(option.purchase_rate || 0)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
                 <Label className="text-xs uppercase font-semibold text-slate-600">Batch Number</Label>
-                <Input
-                  value={form.batch_number}
-                  onChange={(e) => setForm({ ...form, batch_number: e.target.value })}
-                  className="rounded-sm mt-1"
-                  required
-                />
+                <Input value={form.batch_number} readOnly className="rounded-sm mt-1 bg-slate-50" required />
               </div>
 
               <div>
                 <Label className="text-xs uppercase font-semibold text-slate-600">Expiry Date</Label>
-                <Input
-                  type="date"
-                  value={form.expiry_date}
-                  onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}
-                  className="rounded-sm mt-1"
-                  required
-                />
+                <Input value={form.expiry_date} readOnly className="rounded-sm mt-1 bg-slate-50" required />
               </div>
 
               <div>
@@ -708,10 +866,14 @@ export default function PurchaseReturns() {
               </div>
 
               <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">Return Quantity</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-xs uppercase font-semibold text-slate-600">Return Quantity</Label>
+                  <span className="text-xs text-slate-500">Available: {form.available_stock || 0}</span>
+                </div>
                 <Input
                   type="number"
                   min="0"
+                  max={form.available_stock || undefined}
                   step="1"
                   value={form.return_quantity}
                   onChange={(e) => setForm({ ...form, return_quantity: e.target.value })}
@@ -727,10 +889,15 @@ export default function PurchaseReturns() {
                   min="0"
                   step="0.01"
                   value={form.purchase_rate}
-                  onChange={(e) => setForm({ ...form, purchase_rate: e.target.value })}
-                  className="rounded-sm mt-1"
+                  readOnly
+                  className="rounded-sm mt-1 bg-slate-50"
                   required
                 />
+              </div>
+
+              <div>
+                <Label className="text-xs uppercase font-semibold text-slate-600">MRP</Label>
+                <Input value={form.mrp || ""} readOnly className="rounded-sm mt-1 bg-slate-50" />
               </div>
 
               <div>
