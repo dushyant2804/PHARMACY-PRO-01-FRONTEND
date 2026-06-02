@@ -102,24 +102,21 @@ const toOptionalNumber = (value) => {
 };
 
 const getAvailableStock = (item) => {
-  const explicitAvailableStock = [
+  const directStock = [
     item.available_stock,
     item.available_quantity,
     item.remaining_quantity,
-    item.quantity_units,
     item.stock,
+    item.quantity,
+    item.qty,
+    item.quantity_units,
   ].map(toOptionalNumber).find((value) => value !== undefined);
 
-  if (explicitAvailableStock !== undefined) return explicitAvailableStock;
+  if (directStock !== undefined) return directStock;
 
-  const soldUnits = toOptionalNumber(firstDefined(item.sold_units, item.sold_quantity));
-  const purchasedUnits = toOptionalNumber(firstDefined(
-    item.purchased_units,
-    item.purchased_quantity,
-    item.purchase_quantity,
-    item.received_quantity
-  ));
+  const purchasedUnits = toOptionalNumber(firstDefined(item.purchased_units, item.purchased_quantity));
   const totalUnits = toOptionalNumber(firstDefined(item.total_units, item.total_quantity));
+  const soldUnits = toOptionalNumber(firstDefined(item.sold_units, item.sold_quantity));
 
   if (purchasedUnits !== undefined && soldUnits !== undefined) {
     return purchasedUnits - soldUnits;
@@ -129,9 +126,7 @@ const getAvailableStock = (item) => {
     return totalUnits - soldUnits;
   }
 
-  return [item.quantity, item.qty]
-    .map(toOptionalNumber)
-    .find((value) => value !== undefined);
+  return undefined;
 };
 
 const getOriginalBatchQuantity = (item) => toNumber(firstDefined(

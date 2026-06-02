@@ -475,10 +475,10 @@ function ReportStat({ label, value, tone }) {
 }
 
 const breakdownColumns = [
-  { key: "name", label: "Name / Label", alignClassName: "text-left", cellClassName: "font-medium text-slate-800" },
-  { key: "quantity", label: "Total Quantity", alignClassName: "text-right", cellClassName: "num-cell whitespace-nowrap" },
-  { key: "value", label: "Total Return Amount", alignClassName: "text-right", cellClassName: "num-cell whitespace-nowrap font-semibold" },
-  { key: "count", label: "Return Count", alignClassName: "text-right", cellClassName: "num-cell whitespace-nowrap" },
+  { key: "name", label: "Name", width: "46%", headerClassName: "text-left", cellClassName: "font-medium text-slate-800" },
+  { key: "quantity", label: "Total Quantity", width: "18%", headerClassName: "text-right", cellClassName: "num-cell whitespace-nowrap" },
+  { key: "value", label: "Total Return Amount", width: "22%", headerClassName: "text-right", cellClassName: "num-cell whitespace-nowrap font-semibold" },
+  { key: "count", label: "Return Count", width: "14%", headerClassName: "text-right", cellClassName: "num-cell whitespace-nowrap" },
 ];
 
 function BreakdownTable({ title, items }) {
@@ -488,14 +488,16 @@ function BreakdownTable({ title, items }) {
         <h3 className="font-semibold text-slate-800">{title}</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse text-sm">
+        <table className="data-table table-fixed min-w-[760px]">
+          <colgroup>
+            {breakdownColumns.map((column) => (
+              <col key={column.key} style={{ width: column.width }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               {breakdownColumns.map((column) => (
-                <th
-                  key={column.key}
-                  className={`border-b-2 border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 ${column.alignClassName}`}
-                >
+                <th key={column.key} className={column.headerClassName}>
                   {column.label}
                 </th>
               ))}
@@ -504,17 +506,17 @@ function BreakdownTable({ title, items }) {
           <tbody>
             {items.length === 0 && (
               <tr>
-                <td colSpan={breakdownColumns.length} className="border-b border-slate-100 px-3 py-6 text-center text-slate-500">
+                <td colSpan={breakdownColumns.length} className="text-center py-6 text-slate-500">
                   No breakdown data.
                 </td>
               </tr>
             )}
             {items.map((item) => (
               <tr key={item.id}>
-                <td className={`border-b border-slate-100 px-3 py-2 ${breakdownColumns[0].alignClassName} ${breakdownColumns[0].cellClassName}`}>{item.name}</td>
-                <td className={`border-b border-slate-100 px-3 py-2 ${breakdownColumns[1].alignClassName} ${breakdownColumns[1].cellClassName}`}>{item.quantity}</td>
-                <td className={`border-b border-slate-100 px-3 py-2 ${breakdownColumns[2].alignClassName} ${breakdownColumns[2].cellClassName}`}>{fmtINR(item.value)}</td>
-                <td className={`border-b border-slate-100 px-3 py-2 ${breakdownColumns[3].alignClassName} ${breakdownColumns[3].cellClassName}`}>{item.count}</td>
+                <td className={breakdownColumns[0].cellClassName}>{item.name}</td>
+                <td className={breakdownColumns[1].cellClassName}>{item.quantity}</td>
+                <td className={breakdownColumns[2].cellClassName}>{fmtINR(item.value)}</td>
+                <td className={breakdownColumns[3].cellClassName}>{item.count}</td>
               </tr>
             ))}
           </tbody>
