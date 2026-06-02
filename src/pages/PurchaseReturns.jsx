@@ -143,12 +143,12 @@ const getFirstBreakdownSource = (data, keys) => {
 };
 
 const formatBreakdownName = (value) => {
-  if (typeof value === "boolean") return value ? "Ledger Adjusted" : "Not Adjusted";
+  if (typeof value === "boolean") return value ? "Ledger Adjusted" : "Ledger Not Adjusted";
 
   const normalized = String(value ?? "").trim();
   const lowered = normalized.toLowerCase();
   if (["true", "yes", "adjusted", "ledger_adjusted"].includes(lowered)) return "Ledger Adjusted";
-  if (["false", "no", "not_adjusted", "non_adjusted", "unadjusted"].includes(lowered)) return "Not Adjusted";
+  if (["false", "no", "not_adjusted", "non_adjusted", "unadjusted"].includes(lowered)) return "Ledger Not Adjusted";
 
   return normalized || "—";
 };
@@ -191,6 +191,113 @@ const normalizeBreakdown = (items, nameKeys = ["name"]) => {
     };
   });
 };
+
+const toNumber = (value, fallback = 0) => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+};
+
+const hasBreakdownRows = (report) => [
+  report.distributorBreakdown,
+  report.medicineBreakdown,
+  report.reasonBreakdown,
+  report.ledgerBreakdown,
+].some((items) => Array.isArray(items) && items.length > 0);
+
+const parseBoolean = (value) => {
+  if (typeof value === "boolean") return value;
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return ["true", "1", "yes", "y", "adjusted", "ledger_adjusted"].includes(normalized);
+};
+
+const addBreakdownRecord = (groups, key, name, record) => {
+  const safeKey = String(firstDefined(key, name, "—"));
+  const safeName = formatBreakdownName(name);
+  const existing = groups.get(safeKey) || {
+    id: safeKey,
+    name: safeName,
+    quantity: 0,
+    value: 0,
+    count: 0,
+  };
+
+  existing.quantity += toNumber(firstDefined(record.return_quantity, record.quantity, record.qty, 0));
+  existing.value += toNumber(firstDefined(record.return_amount, record.total_return_amount, record.amount, record.value, 0));
+  existing.count += 1;
+  groups.set(safeKey, existing);
+};
+
+const sortedBreakdownRows = (groups) => Array.from(groups.values())
+  .sort((left, right) => right.value - left.value || right.quantity - left.quantity || left.name.localeCompare(right.name));
+
+const buildReportFromReturns = (returnItems = []) => {
+  const distributorGroups = new Map();
+  const medicineGroups = new Map();
+  const reasonGroups = new Map();
+  const ledgerGroups = new Map();
+  let totalReturnedQuantity = 0;
+  let totalReturnValue = 0;
+  let ledgerAdjustedCount = 0;
+  let nonAdjustedCount = 0;
+
+  returnItems.forEach((record, index) => {
+    const quantity = toNumber(firstDefined(record.return_quantity, record.quantity, record.qty, 0));
+    const value = toNumber(firstDefined(record.return_amount, record.total_return_amount, record.amount, record.value, 0));
+    const ledgerAdjusted = parseBoolean(firstDefined(record.adjust_distributor_ledger, record.ledger_adjusted, false));
+
+    totalReturnedQuantity += quantity;
+    totalReturnValue += value;
+    if (ledgerAdjusted) ledgerAdjustedCount += 1;
+    else nonAdjustedCount += 1;
+
+    addBreakdownRecord(
+      distributorGroups,
+      firstDefined(record.distributor_id, record.distributor_name, record.distributor, `unknown-distributor-${index}`),
+      firstDefined(record.distributor_name, record.distributor, record.distributor_id, "Unknown Distributor"),
+      record
+    );
+    addBreakdownRecord(
+      medicineGroups,
+      firstDefined(record.medicine_id, record.medicine_key, record.medicine_name, record.medicine, `unknown-medicine-${index}`),
+      firstDefined(record.medicine_name, record.medicine, record.medicine_key, record.medicine_id, "Unknown Medicine"),
+      record
+    );
+    addBreakdownRecord(
+      reasonGroups,
+      firstDefined(record.reason, "No Reason"),
+      firstDefined(record.reason, "No Reason"),
+      record
+    );
+    addBreakdownRecord(
+      ledgerGroups,
+      ledgerAdjusted ? "ledger-adjusted" : "ledger-not-adjusted",
+      ledgerAdjusted ? "Ledger Adjusted" : "Ledger Not Adjusted",
+      record
+    );
+  });
+
+  return {
+    totalReturnedQuantity,
+    totalReturnValue,
+    ledgerAdjustedCount,
+    nonAdjustedCount,
+    distributorBreakdown: sortedBreakdownRows(distributorGroups),
+    medicineBreakdown: sortedBreakdownRows(medicineGroups),
+    reasonBreakdown: sortedBreakdownRows(reasonGroups),
+    ledgerBreakdown: sortedBreakdownRows(ledgerGroups),
+  };
+};
+
+const mergeReportWithFallback = (apiReport, fallbackReport) => ({
+  totalReturnedQuantity: apiReport.totalReturnedQuantity || fallbackReport.totalReturnedQuantity,
+  totalReturnValue: apiReport.totalReturnValue || fallbackReport.totalReturnValue,
+  ledgerAdjustedCount: apiReport.ledgerAdjustedCount || fallbackReport.ledgerAdjustedCount,
+  nonAdjustedCount: apiReport.nonAdjustedCount || fallbackReport.nonAdjustedCount,
+  distributorBreakdown: apiReport.distributorBreakdown.length ? apiReport.distributorBreakdown : fallbackReport.distributorBreakdown,
+  medicineBreakdown: apiReport.medicineBreakdown.length ? apiReport.medicineBreakdown : fallbackReport.medicineBreakdown,
+  reasonBreakdown: apiReport.reasonBreakdown.length ? apiReport.reasonBreakdown : fallbackReport.reasonBreakdown,
+  ledgerBreakdown: apiReport.ledgerBreakdown.length ? apiReport.ledgerBreakdown : fallbackReport.ledgerBreakdown,
+});
 
 const normalizeReport = (reportData) => {
   const data = reportData?.data && !Array.isArray(reportData.data) ? reportData.data : reportData || {};
@@ -246,7 +353,7 @@ const normalizeReport = (reportData) => {
       } : null,
       nonAdjustedCount > 0 ? {
         id: "ledger-not-adjusted",
-        name: "Not Adjusted",
+        name: "Ledger Not Adjusted",
         quantity: 0,
         value: 0,
         count: nonAdjustedCount,
@@ -369,17 +476,18 @@ function ReportStat({ label, value, tone }) {
 
 function BreakdownTable({ title, items }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-sm overflow-hidden">
+    <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
       <div className="px-4 py-3 bg-slate-50 border-b">
         <h3 className="font-semibold text-slate-800">{title}</h3>
       </div>
-      <table className="data-table">
+      <div className="overflow-x-auto">
+        <table className="data-table min-w-[640px]">
         <thead>
           <tr>
             <th>Name</th>
-            <th className="text-right">Qty</th>
-            <th className="text-right">Value</th>
-            <th className="text-right">Count</th>
+            <th className="text-right">Total Quantity</th>
+            <th className="text-right">Total Return Amount</th>
+            <th className="text-right">Return Count</th>
           </tr>
         </thead>
         <tbody>
@@ -399,7 +507,8 @@ function BreakdownTable({ title, items }) {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }
@@ -459,34 +568,37 @@ export default function PurchaseReturns() {
       setReturns(normalized.items);
       setPagination(normalized);
       setPage(normalized.page || nextPage);
+      return normalized.items;
     } catch (e) {
       setError(formatApiError(e));
       toast.error(formatApiError(e));
+      return [];
     } finally {
       setLoading(false);
     }
   };
 
-  const loadReport = async (nextFilters = appliedFilters) => {
+  const loadReport = async (nextFilters = appliedFilters, fallbackReturns = returns) => {
+    const fallbackReport = buildReportFromReturns(fallbackReturns);
+
     try {
       setReportLoading(true);
       const { data } = await api.get("/reports/purchase-returns", {
         params: buildQueryParams(nextFilters),
       });
-      setReport(normalizeReport(data));
+      const normalizedReport = normalizeReport(data);
+      setReport(hasBreakdownRows(normalizedReport) ? mergeReportWithFallback(normalizedReport, fallbackReport) : fallbackReport);
     } catch (e) {
       toast.error(formatApiError(e));
-      setReport(emptyReport);
+      setReport(fallbackReport);
     } finally {
       setReportLoading(false);
     }
   };
 
   const loadAll = async (nextPage = page, nextFilters = appliedFilters) => {
-    await Promise.all([
-      loadReturns(nextPage, nextFilters),
-      loadReport(nextFilters),
-    ]);
+    const fallbackReturns = await loadReturns(nextPage, nextFilters);
+    await loadReport(nextFilters, fallbackReturns);
   };
 
   useEffect(() => {
@@ -773,7 +885,7 @@ export default function PurchaseReturns() {
         </div>
       </form>
 
-      <div className="grid xl:grid-cols-4 gap-4">
+      <div className="space-y-6">
         <BreakdownTable title="Distributor-wise Breakdown" items={report.distributorBreakdown} />
         <BreakdownTable title="Medicine-wise Breakdown" items={report.medicineBreakdown} />
         <BreakdownTable title="Reason-wise Breakdown" items={report.reasonBreakdown} />
@@ -825,7 +937,7 @@ export default function PurchaseReturns() {
             )}
 
             {!loading && !error && returns.map((item) => {
-              const adjusted = Boolean(item.adjust_distributor_ledger || item.ledger_adjusted);
+              const adjusted = parseBoolean(firstDefined(item.adjust_distributor_ledger, item.ledger_adjusted, false));
               return (
                 <tr key={item.id || `${item.medicine_name}-${item.batch_number}-${item.return_date}`}>
                   <td className="font-mono-nums text-xs">{fmtDate(firstDefined(item.return_date, item.date, item.created_at))}</td>
