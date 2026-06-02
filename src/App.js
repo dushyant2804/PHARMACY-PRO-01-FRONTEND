@@ -30,6 +30,7 @@ import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
 import PurchaseOrders from "@/pages/PurchaseOrders";
 import PurchaseOrderDetail from "@/pages/PurchaseOrderDetail";
+import PurchaseReturns from "@/pages/PurchaseReturns";
 import DailySales from "@/pages/DailySales";
 import Patients from "@/pages/Patients";
 
@@ -217,6 +218,15 @@ function App() {
               element={
                 <Protected>
                   <PurchaseOrderDetail />
+                </Protected>
+              }
+            />
+
+            <Route
+              path="/purchase-returns"
+              element={
+                <Protected>
+                  <PurchaseReturns />
                 </Protected>
               }
             />
