@@ -19,7 +19,28 @@ const getTransactionMonth = (transaction) => {
   return date ? String(date).slice(0, 7) : "";
 };
 
-const getTransactionKind = (transaction) => String(transaction.type || "").toLowerCase();
+const getTransactionKind = (transaction) => String(transaction?.type || "").toLowerCase();
+
+const getTransactionMode = (transaction) => transaction?.payment_mode || transaction?.mode;
+
+const getReceiptInvoiceText = (transaction) => {
+  const values = [
+    transaction.receipt_number,
+    transaction.invoice_number,
+    transaction.bill_number,
+    transaction.reference_number
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  return values.length ? values.join(" / ") : "*";
+};
+
+const isPurchaseTransaction = (transaction) => getTransactionKind(transaction) === "purchase";
+
+const isEditableDistributorTransaction = (transaction) => {
+  const kind = getTransactionKind(transaction);
+  return ["payment", "purchase", "manual", "manual_payment", "manual_purchase", "adjustment", "payment_adjustment"].includes(kind);
+};
 
 const getReceiptRefText = (transaction) => {
   const values = [transaction.receipt_number, transaction.reference_number]
@@ -52,7 +73,9 @@ export default function Ledger() {
     amount: "",
     mode: "cash",
     notes: "",
-    date: ""
+    date: "",
+    receipt_number: "",
+    reference_number: ""
   });
 
   const load = async () => {
@@ -67,15 +90,24 @@ export default function Ledger() {
       const endpoint = type === "distributor"
         ? `/ledger/distributor/${id}/${txnType}`
         : `/ledger/customer/${id}/${txnType}`;
-      await api.post(endpoint, {
+      const payload = {
        amount: Number(form.amount),
        mode: form.mode,
        notes: form.notes,
        date: form.date
-     });
+     };
+
+      if (type === "distributor" && txnType === "payment") {
+        payload.receipt_number = form.receipt_number;
+      }
+      if (type === "distributor" && txnType === "purchase") {
+        payload.reference_number = form.reference_number;
+      }
+
+      await api.post(endpoint, payload);
       toast.success("Entry added");
       setOpen(false);
-      setForm({ amount: "", mode: "cash", notes: "", date: "" });
+      setForm({ amount: "", mode: "cash", notes: "", date: "", receipt_number: "", reference_number: "" });
       load();
     } catch (e) { toast.error(formatApiError(e)); }
   };
@@ -309,7 +341,7 @@ const handleDelete = async (txnId) => {
                     <div>
                       <div className="font-medium">{transaction.reference || transaction.notes || "Payment"}</div>
                       <div className="text-xs text-slate-500">
-                        {fmtDate(getTransactionDate(transaction))} • {(transaction.mode || "-").toUpperCase()}
+                        {fmtDate(getTransactionDate(transaction))} • {(getTransactionMode(transaction) || "-").toUpperCase()}
                       </div>
                     </div>
                     <div className="font-semibold text-emerald-600 font-mono-nums">
@@ -507,6 +539,38 @@ const handleDelete = async (txnId) => {
 
   </div>
 )}
+
+  {type === "distributor" && txnType === "payment" && (
+    <div>
+      <Label className="text-xs uppercase font-semibold text-slate-600">
+        Receipt Number
+      </Label>
+
+      <Input
+        value={form.receipt_number}
+        onChange={(e) =>
+          setForm({ ...form, receipt_number: e.target.value })
+        }
+        className="rounded-sm mt-1"
+      />
+    </div>
+  )}
+
+  {type === "distributor" && txnType === "purchase" && (
+    <div>
+      <Label className="text-xs uppercase font-semibold text-slate-600">
+        Invoice / Bill Number
+      </Label>
+
+      <Input
+        value={form.reference_number}
+        onChange={(e) =>
+          setForm({ ...form, reference_number: e.target.value })
+        }
+        className="rounded-sm mt-1"
+      />
+    </div>
+  )}
 
   <div>
     <Label className="text-xs uppercase font-semibold text-slate-600">
