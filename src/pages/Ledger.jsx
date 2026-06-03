@@ -60,7 +60,6 @@ export default function Ledger() {
   const [editForm, setEditForm] = useState({
     receipt_number: "",
     reference_number: "",
-    invoice_number: "",
     payment_mode: "cash",
     mode: "cash",
     notes: ""
@@ -135,16 +134,9 @@ const openEditDialog = (transaction) => {
   setEditingTransaction(transaction);
   const paymentMode = getTransactionMode(transaction) || "cash";
 
-  const invoiceNumber = getFirstAvailableValue([
-    transaction.invoice_number,
-    transaction.bill_number,
-    transaction.reference_number
-  ]);
-
   setEditForm({
     receipt_number: transaction.receipt_number || "",
     reference_number: transaction.reference_number || "",
-    invoice_number: invoiceNumber === "-" ? "" : invoiceNumber,
     payment_mode: paymentMode,
     mode: paymentMode,
     notes: transaction.notes || ""
@@ -160,7 +152,7 @@ const handleEditSave = async (e) => {
   try {
     const payload = isPurchaseTransaction(editingTransaction)
       ? {
-          reference_number: editForm.invoice_number || editForm.reference_number,
+          reference_number: editForm.reference_number,
           notes: editForm.notes
         }
       : {
@@ -438,70 +430,49 @@ const handleDelete = async (txnId) => {
                 : "Update receipt, reference, payment mode, and notes only. Amount, distributor, and transaction type cannot be edited here."}
             </div>
 
-            {editingIsPurchase ? (
-              <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">
-                  Invoice / Bill Number
-                </Label>
-                <Input
-                  value={editForm.invoice_number}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      invoice_number: e.target.value,
-                      reference_number: e.target.value
-                    })
-                  }
-                  className="rounded-sm mt-1"
-                />
-              </div>
-            ) : (
-              <>
-                <div>
-                  <Label className="text-xs uppercase font-semibold text-slate-600">
-                    Receipt Number
-                  </Label>
-                  <Input
-                    value={editForm.receipt_number}
-                    onChange={(e) => setEditForm({ ...editForm, receipt_number: e.target.value })}
-                    className="rounded-sm mt-1"
-                  />
-                </div>
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Receipt Number
+              </Label>
+              <Input
+                value={editForm.receipt_number}
+                onChange={(e) => setEditForm({ ...editForm, receipt_number: e.target.value })}
+                className="rounded-sm mt-1"
+              />
+            </div>
 
-                <div>
-                  <Label className="text-xs uppercase font-semibold text-slate-600">
-                    Reference Number
-                  </Label>
-                  <Input
-                    value={editForm.reference_number}
-                    onChange={(e) => setEditForm({ ...editForm, reference_number: e.target.value })}
-                    className="rounded-sm mt-1"
-                  />
-                </div>
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Reference Number
+              </Label>
+              <Input
+                value={editForm.reference_number}
+                onChange={(e) => setEditForm({ ...editForm, reference_number: e.target.value })}
+                className="rounded-sm mt-1"
+              />
+            </div>
 
-                <div>
-                  <Label className="text-xs uppercase font-semibold text-slate-600">
-                    Payment Mode
-                  </Label>
-                  <Select
-                    value={editForm.payment_mode || editForm.mode}
-                    onValueChange={(v) => setEditForm({ ...editForm, payment_mode: v, mode: v })}
-                  >
-                    <SelectTrigger className="rounded-sm mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Payment Mode
+              </Label>
+              <Select
+                value={editForm.payment_mode || editForm.mode}
+                onValueChange={(v) => setEditForm({ ...editForm, payment_mode: v, mode: v })}
+              >
+                <SelectTrigger className="rounded-sm mt-1">
+                  <SelectValue />
+                </SelectTrigger>
 
-                    <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="upi">UPI</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                      <SelectItem value="bank">Bank Transfer</SelectItem>
-                      <SelectItem value="cheque">Cheque</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="upi">UPI</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="bank">Bank Transfer</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <div>
               <Label className="text-xs uppercase font-semibold text-slate-600">
