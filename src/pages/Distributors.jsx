@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, BookOpen, Pencil, Trash2 } from "lucide-react";
+import { Plus, BookOpen, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
 const empty = { name: "", phone: "", email: "", address: "", gstin: "", opening_balance: 0 };
+
+const getCurrentBalance = (distributor) =>
+  distributor.current_balance ?? distributor.outstanding_balance ?? 0;
 
 export default function Distributors() {
   const [list, setList] = useState([]);
@@ -70,7 +73,7 @@ export default function Distributors() {
 
       <div className="bg-white border border-slate-200 rounded-sm overflow-x-auto">
         <table className="data-table">
-          <thead><tr><th>Name</th><th>Phone</th><th>GSTIN</th><th className="text-right">Opening</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Phone</th><th>GSTIN</th><th className="text-right">Current Balance</th><th></th></tr></thead>
           <tbody>
             {list.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-500">No distributors yet.</td></tr>}
             {list.map((d) => (
@@ -78,7 +81,7 @@ export default function Distributors() {
                 <td className="font-medium">{d.name}</td>
                 <td>{d.phone || "—"}</td>
                 <td className="font-mono text-xs">{d.gstin || "—"}</td>
-                <td className="num-cell">{fmtINR(d.opening_balance)}</td>
+                <td className="num-cell">{fmtINR(getCurrentBalance(d))}</td>
                 <td className="text-right">
                   <Link to={`/ledger/distributor/${d.id}`} className="text-blue-600 text-xs hover:underline inline-flex items-center gap-1">
                     <BookOpen className="w-3 h-3" />Ledger
