@@ -61,6 +61,7 @@ export default function Ledger() {
   const [editForm, setEditForm] = useState({
     receipt_number: "",
     reference_number: "",
+    payment_mode: "cash",
     mode: "cash",
     notes: ""
   });
@@ -131,10 +132,13 @@ export default function Ledger() {
 
 const openEditDialog = (transaction) => {
   setEditingTransaction(transaction);
+  const paymentMode = getTransactionMode(transaction) || "cash";
+
   setEditForm({
     receipt_number: transaction.receipt_number || "",
     reference_number: transaction.reference_number || "",
-    mode: transaction.mode || "cash",
+    payment_mode: paymentMode,
+    mode: paymentMode,
     notes: transaction.notes || ""
   });
   setEditOpen(true);
@@ -146,12 +150,19 @@ const handleEditSave = async (e) => {
 
   setSavingEdit(true);
   try {
-    await api.patch(`/distributor-transactions/${editingTransaction.id}`, {
-      receipt_number: editForm.receipt_number,
-      reference_number: editForm.reference_number,
-      mode: editForm.mode,
-      notes: editForm.notes
-    });
+    const payload = isPurchaseTransaction(editingTransaction)
+      ? {
+          reference_number: editForm.reference_number,
+          notes: editForm.notes
+        }
+      : {
+          receipt_number: editForm.receipt_number,
+          reference_number: editForm.reference_number,
+          payment_mode: editForm.payment_mode || editForm.mode,
+          notes: editForm.notes
+        };
+
+    await api.patch(`/distributor-transactions/${editingTransaction.id}`, payload);
     toast.success("Transaction updated");
     setEditOpen(false);
     setEditingTransaction(null);
@@ -441,7 +452,10 @@ const handleDelete = async (txnId) => {
               <Label className="text-xs uppercase font-semibold text-slate-600">
                 Payment Mode
               </Label>
-              <Select value={editForm.mode} onValueChange={(v) => setEditForm({ ...editForm, mode: v })}>
+              <Select
+                value={editForm.payment_mode || editForm.mode}
+                onValueChange={(v) => setEditForm({ ...editForm, payment_mode: v, mode: v })}
+              >
                 <SelectTrigger className="rounded-sm mt-1">
                   <SelectValue />
                 </SelectTrigger>
