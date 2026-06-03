@@ -23,20 +23,20 @@ const getTransactionKind = (transaction) => String(transaction?.type || "").toLo
 
 const getTransactionMode = (transaction) => transaction?.payment_mode || transaction?.mode;
 
-const getTransactionTypeLabel = (transaction) => {
-  const kind = getTransactionKind(transaction);
-  if (kind === "opening_balance") return "Opening Balance";
-  return transaction?.type || "-";
-};
+const getTransactionTypeLabel = (transaction) =>
+  transaction?.display_type || transaction?.type || "-";
 
 const getCleanFieldValue = (value) => String(value || "").trim();
 
 const getFirstAvailableValue = (values) =>
   values.map(getCleanFieldValue).find(Boolean) || "-";
 
-const isPurchaseTransaction = (transaction) => getTransactionKind(transaction).includes("purchase");
+const isOpeningBalanceTransaction = (transaction) =>
+  getTransactionKind(transaction) === "opening_balance" ||
+  Boolean(transaction?.is_opening_balance || transaction?.opening_balance);
 
-const isOpeningBalanceTransaction = (transaction) => getTransactionKind(transaction) === "opening_balance";
+const isPurchaseTransaction = (transaction) =>
+  isOpeningBalanceTransaction(transaction) || getTransactionKind(transaction).includes("purchase");
 
 const getDistributorDocumentNumber = (transaction) => {
   if (isPurchaseTransaction(transaction)) {
@@ -51,27 +51,12 @@ const getDistributorDocumentNumber = (transaction) => {
 };
 
 const isEditableDistributorTransaction = (transaction) => {
-  if (isOpeningBalanceTransaction(transaction)) return false;
-
   const kind = getTransactionKind(transaction);
-  return ["payment", "purchase", "manual", "manual_payment", "manual_purchase", "adjustment", "payment_adjustment"].includes(kind);
+  return ["opening_balance", "payment", "purchase", "manual", "manual_payment", "manual_purchase", "adjustment", "payment_adjustment"].includes(kind);
 };
 
-const buildOpeningBalanceTransaction = (entity) => {
-  if (!entity || entity.opening_balance === undefined || entity.opening_balance === null) return null;
-
-  const openingBalance = Number(entity.opening_balance || 0);
-
-  return {
-    id: "opening-balance",
-    type: "opening_balance",
-    date: entity?.created_at || entity?.updated_at || null,
-    reference: "Opening Balance",
-    notes: "Opening Balance",
-    amount: openingBalance,
-    running_balance: openingBalance
-  };
-};
+const getReferenceNotes = (transaction) =>
+  isOpeningBalanceTransaction(transaction) ? "Opening Balance" : (transaction.reference || transaction.notes || "—");
 
 const getNewTransactionModeOptions = (type, txnType) => {
   if (type === "distributor" && txnType === "purchase") {
@@ -105,6 +90,7 @@ export default function Ledger() {
     receipt_number: "",
     reference_number: "",
     invoice_number: "",
+    bill_number: "",
     payment_mode: "cash",
     mode: "cash",
     notes: ""
@@ -157,10 +143,7 @@ export default function Ledger() {
   if (!data) return <div className="text-slate-500">Loading…</div>;
   const entity = type === "distributor" ? data.distributor : data.customer;
   const transactions = data.transactions || [];
-  const openingBalanceTransaction = type === "distributor" ? buildOpeningBalanceTransaction(entity) : null;
-  const ledgerTransactions = openingBalanceTransaction
-    ? [openingBalanceTransaction, ...transactions]
-    : transactions;
+  const ledgerTransactions = transactions;
   const newTransactionModeOptions = getNewTransactionModeOptions(type, txnType);
   const monthlyTransactions = transactions.filter(
     (transaction) => getTransactionMonth(transaction) === selectedMonth
@@ -195,7 +178,8 @@ const openEditDialog = (transaction) => {
 
   setEditForm({
     receipt_number: transaction.receipt_number || "",
-    invoice_number: transaction.invoice_number || transaction.bill_number || transaction.reference_number || "",
+    invoice_number: transaction.invoice_number || "",
+    bill_number: transaction.bill_number || "",
     reference_number: transaction.reference_number || "",
     payment_mode: paymentMode,
     mode: paymentMode,
@@ -213,7 +197,8 @@ const handleEditSave = async (e) => {
     const payload = isPurchaseTransaction(editingTransaction)
       ? {
           invoice_number: editForm.invoice_number,
-          reference_number: editForm.invoice_number,
+          bill_number: editForm.bill_number,
+          reference_number: editForm.reference_number,
           notes: editForm.notes
         }
       : {
@@ -447,11 +432,11 @@ const handleDelete = async (txnId) => {
               <tr key={t.id}>
                 <td className="font-mono-nums text-xs">{getTransactionDate(t) ? fmtDate(getTransactionDate(t)) : "—"}</td>
                 <td className="uppercase text-xs tracking-wider font-semibold">{getTransactionTypeLabel(t)}</td>
-                <td>{isOpeningBalanceTransaction(t) ? "Opening Balance" : (t.reference || t.notes || "—")}</td>
+                <td>{getReferenceNotes(t)}</td>
                 {type === "distributor" && <td className="text-sm font-medium">{getDistributorDocumentNumber(t)}</td>}
                 <td className="text-xs uppercase">{getTransactionMode(t) || "—"}</td>
-                <td className={`num-cell font-semibold ${t.type === "payment" ? "text-emerald-600" : "text-slate-800"}`}>
-                  {t.type === "payment" ? "−" : Number(t.amount || 0) < 0 ? "" : "+"}{fmtINR(t.amount)}
+                <td className={`num-cell font-semibold ${getTransactionKind(t) === "payment" ? "text-emerald-600" : "text-slate-800"}`}>
+                  {getTransactionKind(t) === "payment" ? "−" : Number(t.amount || 0) < 0 ? "" : "+"}{fmtINR(t.amount)}
                 </td>
                 <td className="num-cell">{fmtINR(t.running_balance)}</td>
                  <td>
@@ -490,7 +475,7 @@ const handleDelete = async (txnId) => {
           <form onSubmit={handleEditSave} className="space-y-3">
             <div className="rounded-sm bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
               {editingIsPurchase
-                ? "Amount, date, and transaction type are locked. Update invoice / bill number and notes / reference only."
+                ? "Amount, date, and transaction type are locked. Update invoice, bill, reference, and notes only."
                 : "Amount, date, and transaction type are locked. Update receipt, reference, payment mode, and notes only."}
             </div>
 
@@ -532,7 +517,7 @@ const handleDelete = async (txnId) => {
               <>
                 <div>
                   <Label className="text-xs uppercase font-semibold text-slate-600">
-                    Invoice / Bill Number
+                    Invoice Number
                   </Label>
                   <Input
                     value={editForm.invoice_number}
@@ -543,7 +528,29 @@ const handleDelete = async (txnId) => {
 
                 <div>
                   <Label className="text-xs uppercase font-semibold text-slate-600">
-                    Notes / Reference
+                    Bill Number
+                  </Label>
+                  <Input
+                    value={editForm.bill_number}
+                    onChange={(e) => setEditForm({ ...editForm, bill_number: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Reference Number
+                  </Label>
+                  <Input
+                    value={editForm.reference_number}
+                    onChange={(e) => setEditForm({ ...editForm, reference_number: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Notes
                   </Label>
                   <Input
                     value={editForm.notes}
