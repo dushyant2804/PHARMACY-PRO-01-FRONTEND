@@ -23,12 +23,20 @@ const getTransactionKind = (transaction) => String(transaction?.type || "").toLo
 
 const getTransactionMode = (transaction) => transaction?.payment_mode || transaction?.mode;
 
+const getTransactionTypeLabel = (transaction) => {
+  const kind = getTransactionKind(transaction);
+  if (kind === "opening_balance") return "Opening Balance";
+  return transaction?.type || "-";
+};
+
 const getCleanFieldValue = (value) => String(value || "").trim();
 
 const getFirstAvailableValue = (values) =>
   values.map(getCleanFieldValue).find(Boolean) || "-";
 
 const isPurchaseTransaction = (transaction) => getTransactionKind(transaction).includes("purchase");
+
+const isOpeningBalanceTransaction = (transaction) => getTransactionKind(transaction) === "opening_balance";
 
 const getDistributorDocumentNumber = (transaction) => {
   if (isPurchaseTransaction(transaction)) {
@@ -43,8 +51,44 @@ const getDistributorDocumentNumber = (transaction) => {
 };
 
 const isEditableDistributorTransaction = (transaction) => {
+  if (isOpeningBalanceTransaction(transaction)) return false;
+
   const kind = getTransactionKind(transaction);
   return ["payment", "purchase", "manual", "manual_payment", "manual_purchase", "adjustment", "payment_adjustment"].includes(kind);
+};
+
+const buildOpeningBalanceTransaction = (entity) => {
+  if (!entity || entity.opening_balance === undefined || entity.opening_balance === null) return null;
+
+  const openingBalance = Number(entity.opening_balance || 0);
+
+  return {
+    id: "opening-balance",
+    type: "opening_balance",
+    date: entity?.created_at || entity?.updated_at || null,
+    reference: "Opening Balance",
+    notes: "Opening Balance",
+    amount: openingBalance,
+    running_balance: openingBalance
+  };
+};
+
+const getNewTransactionModeOptions = (type, txnType) => {
+  if (type === "distributor" && txnType === "purchase") {
+    return [
+      { value: "cash", label: "Cash" },
+      { value: "upi", label: "UPI" },
+      { value: "credit", label: "Credit" }
+    ];
+  }
+
+  return [
+    { value: "cash", label: "Cash" },
+    { value: "upi", label: "UPI" },
+    { value: "card", label: "Card" },
+    { value: "bank", label: "Bank Transfer" },
+    { value: "cheque", label: "Cheque" }
+  ];
 };
 
 
@@ -60,6 +104,7 @@ export default function Ledger() {
   const [editForm, setEditForm] = useState({
     receipt_number: "",
     reference_number: "",
+    invoice_number: "",
     payment_mode: "cash",
     mode: "cash",
     notes: ""
@@ -97,6 +142,7 @@ export default function Ledger() {
         payload.receipt_number = form.receipt_number;
       }
       if (type === "distributor" && txnType === "purchase") {
+        payload.invoice_number = form.invoice_number;
         payload.reference_number = form.invoice_number || form.reference_number;
       }
 
@@ -111,6 +157,11 @@ export default function Ledger() {
   if (!data) return <div className="text-slate-500">Loading…</div>;
   const entity = type === "distributor" ? data.distributor : data.customer;
   const transactions = data.transactions || [];
+  const openingBalanceTransaction = type === "distributor" ? buildOpeningBalanceTransaction(entity) : null;
+  const ledgerTransactions = openingBalanceTransaction
+    ? [openingBalanceTransaction, ...transactions]
+    : transactions;
+  const newTransactionModeOptions = getNewTransactionModeOptions(type, txnType);
   const monthlyTransactions = transactions.filter(
     (transaction) => getTransactionMonth(transaction) === selectedMonth
   );
@@ -130,12 +181,21 @@ export default function Ledger() {
   );
   const monthlyNetMovement = monthlyPurchaseTotal - monthlyPaymentTotal;
 
+  const handleTransactionTypeChange = (value) => {
+    setTxnType(value);
+    const nextModeOptions = getNewTransactionModeOptions(type, value);
+    if (!nextModeOptions.some((option) => option.value === form.mode)) {
+      setForm({ ...form, mode: nextModeOptions[0]?.value || "cash" });
+    }
+  };
+
 const openEditDialog = (transaction) => {
   setEditingTransaction(transaction);
   const paymentMode = getTransactionMode(transaction) || "cash";
 
   setEditForm({
     receipt_number: transaction.receipt_number || "",
+    invoice_number: transaction.invoice_number || transaction.bill_number || transaction.reference_number || "",
     reference_number: transaction.reference_number || "",
     payment_mode: paymentMode,
     mode: paymentMode,
@@ -152,7 +212,8 @@ const handleEditSave = async (e) => {
   try {
     const payload = isPurchaseTransaction(editingTransaction)
       ? {
-          reference_number: editForm.reference_number,
+          invoice_number: editForm.invoice_number,
+          reference_number: editForm.invoice_number,
           notes: editForm.notes
         }
       : {
@@ -191,6 +252,7 @@ const handleDelete = async (txnId) => {
 };
 
   const editingIsPurchase = editingTransaction && isPurchaseTransaction(editingTransaction);
+  const editingDate = editingTransaction ? String(getTransactionDate(editingTransaction) || "").slice(0, 10) : "";
   
   return (
     <div className="space-y-6" data-testid="ledger-page">
@@ -380,16 +442,16 @@ const handleDelete = async (txnId) => {
             </tr>
           </thead>
           <tbody>
-            {transactions.length === 0 && <tr><td colSpan={type === "distributor" ? 8 : 7} className="text-center py-8 text-slate-500">No transactions yet.</td></tr>}
-            {transactions.map((t) => (
+            {ledgerTransactions.length === 0 && <tr><td colSpan={type === "distributor" ? 8 : 7} className="text-center py-8 text-slate-500">No transactions yet.</td></tr>}
+            {ledgerTransactions.map((t) => (
               <tr key={t.id}>
-                <td className="font-mono-nums text-xs">{fmtDate(getTransactionDate(t))}</td>
-                <td className="uppercase text-xs tracking-wider font-semibold">{t.type}</td>
-                <td>{t.reference || t.notes || "—"}</td>
+                <td className="font-mono-nums text-xs">{getTransactionDate(t) ? fmtDate(getTransactionDate(t)) : "—"}</td>
+                <td className="uppercase text-xs tracking-wider font-semibold">{getTransactionTypeLabel(t)}</td>
+                <td>{isOpeningBalanceTransaction(t) ? "Opening Balance" : (t.reference || t.notes || "—")}</td>
                 {type === "distributor" && <td className="text-sm font-medium">{getDistributorDocumentNumber(t)}</td>}
                 <td className="text-xs uppercase">{getTransactionMode(t) || "—"}</td>
                 <td className={`num-cell font-semibold ${t.type === "payment" ? "text-emerald-600" : "text-slate-800"}`}>
-                  {t.type === "payment" ? "−" : "+"}{fmtINR(t.amount)}
+                  {t.type === "payment" ? "−" : Number(t.amount || 0) < 0 ? "" : "+"}{fmtINR(t.amount)}
                 </td>
                 <td className="num-cell">{fmtINR(t.running_balance)}</td>
                  <td>
@@ -405,12 +467,14 @@ const handleDelete = async (txnId) => {
                         Edit
                       </button>
                     )}
-                    <button
-                     onClick={() => handleDelete(t.id)}
-                     className="text-red-600 text-xs hover:underline"
-                   >
-                     Delete
-                   </button>
+                    {!isOpeningBalanceTransaction(t) && (
+                      <button
+                        onClick={() => handleDelete(t.id)}
+                        className="text-red-600 text-xs hover:underline"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </td>
                </tr>
@@ -426,64 +490,126 @@ const handleDelete = async (txnId) => {
           <form onSubmit={handleEditSave} className="space-y-3">
             <div className="rounded-sm bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
               {editingIsPurchase
-                ? "Update invoice / bill number and notes only. Amount, distributor, and transaction type cannot be edited here."
-                : "Update receipt, reference, payment mode, and notes only. Amount, distributor, and transaction type cannot be edited here."}
+                ? "Amount, date, and transaction type are locked. Update invoice / bill number and notes / reference only."
+                : "Amount, date, and transaction type are locked. Update receipt, reference, payment mode, and notes only."}
             </div>
 
             <div>
               <Label className="text-xs uppercase font-semibold text-slate-600">
-                Receipt Number
+                Transaction Type
               </Label>
               <Input
-                value={editForm.receipt_number}
-                onChange={(e) => setEditForm({ ...editForm, receipt_number: e.target.value })}
-                className="rounded-sm mt-1"
+                value={editingTransaction ? getTransactionTypeLabel(editingTransaction) : ""}
+                disabled
+                className="rounded-sm mt-1 bg-slate-100"
               />
             </div>
 
             <div>
               <Label className="text-xs uppercase font-semibold text-slate-600">
-                Reference Number
+                Transaction Date
               </Label>
               <Input
-                value={editForm.reference_number}
-                onChange={(e) => setEditForm({ ...editForm, reference_number: e.target.value })}
-                className="rounded-sm mt-1"
+                type="date"
+                value={editingDate}
+                disabled
+                className="rounded-sm mt-1 bg-slate-100"
               />
             </div>
 
             <div>
               <Label className="text-xs uppercase font-semibold text-slate-600">
-                Payment Mode
-              </Label>
-              <Select
-                value={editForm.payment_mode || editForm.mode}
-                onValueChange={(v) => setEditForm({ ...editForm, payment_mode: v, mode: v })}
-              >
-                <SelectTrigger className="rounded-sm mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="upi">UPI</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="bank">Bank Transfer</SelectItem>
-                  <SelectItem value="cheque">Cheque</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">
-                Notes
+                Amount
               </Label>
               <Input
-                value={editForm.notes}
-                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                className="rounded-sm mt-1"
+                value={editingTransaction ? fmtINR(editingTransaction.amount) : ""}
+                disabled
+                className="rounded-sm mt-1 bg-slate-100"
               />
             </div>
+
+            {editingIsPurchase ? (
+              <>
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Invoice / Bill Number
+                  </Label>
+                  <Input
+                    value={editForm.invoice_number}
+                    onChange={(e) => setEditForm({ ...editForm, invoice_number: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Notes / Reference
+                  </Label>
+                  <Input
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Receipt Number
+                  </Label>
+                  <Input
+                    value={editForm.receipt_number}
+                    onChange={(e) => setEditForm({ ...editForm, receipt_number: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Reference Number
+                  </Label>
+                  <Input
+                    value={editForm.reference_number}
+                    onChange={(e) => setEditForm({ ...editForm, reference_number: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Payment Mode
+                  </Label>
+                  <Select
+                    value={editForm.payment_mode || editForm.mode}
+                    onValueChange={(v) => setEditForm({ ...editForm, payment_mode: v, mode: v })}
+                  >
+                    <SelectTrigger className="rounded-sm mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="upi">UPI</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                      <SelectItem value="bank">Bank Transfer</SelectItem>
+                      <SelectItem value="cheque">Cheque</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Notes
+                  </Label>
+                  <Input
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+              </>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={savingEdit}>
@@ -502,153 +628,134 @@ const handleDelete = async (txnId) => {
         <DialogContent className="rounded-sm">
           <DialogHeader><DialogTitle className="font-heading">New Transaction</DialogTitle></DialogHeader>
           <form onSubmit={submit} className="space-y-3">
-       {(type === "distributor" || type === "customer") && (
-        <div>
+            {(type === "distributor" || type === "customer") && (
+              <div>
+                <Label className="text-xs uppercase font-semibold text-slate-600">
+                  Transaction Type
+                </Label>
 
-    <Label className="text-xs uppercase font-semibold text-slate-600">
-      Type
-    </Label>
+                <Select value={txnType} onValueChange={handleTransactionTypeChange}>
+                  <SelectTrigger className="rounded-sm mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
 
-    <Select value={txnType} onValueChange={setTxnType}>
-      <SelectTrigger className="rounded-sm mt-1">
-        <SelectValue />
-      </SelectTrigger>
+                  <SelectContent>
+                    {type === "distributor" ? (
+                      <>
+                        <SelectItem value="purchase">Purchase (+)</SelectItem>
+                        <SelectItem value="payment">
+                          Payment to supplier (−)
+                        </SelectItem>
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="sale">Sale / Due (+)</SelectItem>
+                        <SelectItem value="payment">
+                          Payment Received (−)
+                        </SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-      <SelectContent>
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Date
+              </Label>
 
-        {type === "distributor" ? (
-          <>
-            <SelectItem value="purchase">Purchase (+)</SelectItem>
-            <SelectItem value="payment">
-              Payment to supplier (−)
-            </SelectItem>
-          </>
-        ) : (
-          <>
-            <SelectItem value="sale">Sale / Due (+)</SelectItem>
-            <SelectItem value="payment">
-              Payment Received (−)
-            </SelectItem>
-          </>
-        )}
+              <Input
+                type="date"
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+                className="rounded-sm mt-1"
+              />
+            </div>
 
-      </SelectContent>
-    </Select>
+            {type === "distributor" && txnType === "payment" && (
+              <div>
+                <Label className="text-xs uppercase font-semibold text-slate-600">
+                  Receipt Number
+                </Label>
 
-    <div>
-      <Label className="text-xs uppercase font-semibold text-slate-600">
-        Date
-      </Label>
+                <Input
+                  value={form.receipt_number}
+                  onChange={(e) => setForm({ ...form, receipt_number: e.target.value })}
+                  className="rounded-sm mt-1"
+                />
+              </div>
+            )}
 
-      <Input
-        type="date"
-        value={form.date}
-        onChange={(e) =>
-          setForm({ ...form, date: e.target.value })
-        }
-        className="rounded-sm mt-1"
-      />
-    </div>
+            {type === "distributor" && txnType === "purchase" && (
+              <div>
+                <Label className="text-xs uppercase font-semibold text-slate-600">
+                  Invoice / Bill Number
+                </Label>
 
-  </div>
-)}
+                <Input
+                  value={form.invoice_number}
+                  onChange={(e) => setForm({ ...form, invoice_number: e.target.value, reference_number: e.target.value })}
+                  className="rounded-sm mt-1"
+                />
+              </div>
+            )}
 
-  {type === "distributor" && txnType === "payment" && (
-    <div>
-      <Label className="text-xs uppercase font-semibold text-slate-600">
-        Receipt Number
-      </Label>
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Amount
+              </Label>
 
-      <Input
-        value={form.receipt_number}
-        onChange={(e) =>
-          setForm({ ...form, receipt_number: e.target.value })
-        }
-        className="rounded-sm mt-1"
-      />
-    </div>
-  )}
+              <Input
+                type="number"
+                step="0.01"
+                required
+                value={form.amount}
+                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                className="rounded-sm mt-1"
+              />
+            </div>
 
-  {type === "distributor" && txnType === "purchase" && (
-    <div>
-      <Label className="text-xs uppercase font-semibold text-slate-600">
-        Invoice / Bill Number
-      </Label>
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Mode
+              </Label>
 
-      <Input
-        value={form.invoice_number}
-        onChange={(e) =>
-          setForm({ ...form, invoice_number: e.target.value, reference_number: e.target.value })
-        }
-        className="rounded-sm mt-1"
-      />
-    </div>
-  )}
+              <Select value={form.mode} onValueChange={(v) => setForm({ ...form, mode: v })}>
+                <SelectTrigger className="rounded-sm mt-1">
+                  <SelectValue />
+                </SelectTrigger>
 
-  <div>
-    <Label className="text-xs uppercase font-semibold text-slate-600">
-      Amount
-    </Label>
+                <SelectContent>
+                  {newTransactionModeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-    <Input
-      type="number"
-      step="0.01"
-      required
-      value={form.amount}
-      onChange={(e) =>
-        setForm({ ...form, amount: e.target.value })
-      }
-      className="rounded-sm mt-1"
-    />
-  </div>
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Notes / Reference
+              </Label>
 
-  <div>
-    <Label className="text-xs uppercase font-semibold text-slate-600">
-      Mode
-    </Label>
+              <Input
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                className="rounded-sm mt-1"
+              />
+            </div>
 
-    <Select value={form.mode} onValueChange={(v) =>
-      setForm({ ...form, mode: v })
-    }>
-      <SelectTrigger className="rounded-sm mt-1">
-        <SelectValue />
-      </SelectTrigger>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
 
-      <SelectContent>
-        <SelectItem value="cash">Cash</SelectItem>
-        <SelectItem value="upi">UPI</SelectItem>
-        <SelectItem value="card">Card</SelectItem>
-        <SelectItem value="bank">Bank Transfer</SelectItem>
-        <SelectItem value="cheque">Cheque</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
-
-  <div>
-    <Label className="text-xs uppercase font-semibold text-slate-600">
-      Notes
-    </Label>
-
-    <Input
-      value={form.notes}
-      onChange={(e) =>
-        setForm({ ...form, notes: e.target.value })
-      }
-      className="rounded-sm mt-1"
-    />
-  </div>
-
-  <div className="flex justify-end gap-2 pt-2">
-    <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-      Cancel
-    </Button>
-
-    <Button type="submit" className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="save-txn">
-      Save
-    </Button>
-  </div>
-
-</form>
+              <Button type="submit" className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="save-txn">
+                Save
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
