@@ -28,8 +28,15 @@ const getCurrentIndianFinancialYear = () => {
 const getTransactionDate = (transaction) =>
   transaction.date || transaction.transaction_date || transaction.created_at;
 
-const getLedgerTxnDate = (transaction) =>
-  transaction.transaction_date || transaction.date || transaction.opening_balance_date || transaction.created_at;
+const getLedgerTxnDate = (transaction) => {
+  const isOpeningBalance =
+    String(transaction?.type || "").toLowerCase() === "opening_balance" ||
+    Boolean(transaction?.is_opening_balance || transaction?.opening_balance);
+
+  return isOpeningBalance
+    ? transaction.opening_balance_date || transaction.date || transaction.transaction_date || transaction.created_at
+    : transaction.transaction_date || transaction.date || transaction.opening_balance_date || transaction.created_at;
+};
 
 const getTransactionMonth = (transaction) => {
   const date = getTransactionDate(transaction);
@@ -112,7 +119,8 @@ export default function Ledger() {
     bill_number: "",
     payment_mode: "cash",
     mode: "cash",
-    notes: ""
+    notes: "",
+    date: ""
   });
   const [form, setForm] = useState({
     amount: "",
@@ -226,7 +234,8 @@ const openEditDialog = (transaction) => {
     reference_number: transaction.reference_number || "",
     payment_mode: paymentMode,
     mode: paymentMode,
-    notes: transaction.notes || ""
+    notes: transaction.notes || "",
+    date: String(getLedgerTxnDate(transaction) || "").slice(0, 10)
   });
   setEditOpen(true);
 };
@@ -237,19 +246,25 @@ const handleEditSave = async (e) => {
 
   setSavingEdit(true);
   try {
-    const payload = isPurchaseTransaction(editingTransaction)
+    const editingIsOpeningBalance = type === "distributor" && isOpeningBalanceTransaction(editingTransaction);
+    const payload = editingIsOpeningBalance
       ? {
-          invoice_number: editForm.invoice_number,
-          bill_number: editForm.bill_number,
-          reference_number: editForm.reference_number,
-          notes: editForm.notes
+          opening_balance_date: editForm.date,
+          date: editForm.date
         }
-      : {
-          receipt_number: editForm.receipt_number,
-          reference_number: editForm.reference_number,
-          payment_mode: editForm.payment_mode || editForm.mode,
-          notes: editForm.notes
-        };
+      : isPurchaseTransaction(editingTransaction)
+        ? {
+            invoice_number: editForm.invoice_number,
+            bill_number: editForm.bill_number,
+            reference_number: editForm.reference_number,
+            notes: editForm.notes
+          }
+        : {
+            receipt_number: editForm.receipt_number,
+            reference_number: editForm.reference_number,
+            payment_mode: editForm.payment_mode || editForm.mode,
+            notes: editForm.notes
+          };
 
     await api.patch(`/distributor-transactions/${editingTransaction.id}`, payload);
     toast.success("Transaction updated");
@@ -263,12 +278,14 @@ const handleEditSave = async (e) => {
   }
 };
 
-const handleDelete = async (txnId) => {
+const handleDelete = async (transaction) => {
+  if (isOpeningBalanceTransaction(transaction)) return;
+
   try {
     const endpoint =
       type === "distributor"
-        ? `/ledger/distributor/${id}/transaction/${txnId}`
-        : `/ledger/customer/${id}/transaction/${txnId}`;
+        ? `/ledger/distributor/${id}/transaction/${transaction.id}`
+        : `/ledger/customer/${id}/transaction/${transaction.id}`;
 
     await api.delete(endpoint);
 
@@ -279,10 +296,13 @@ const handleDelete = async (txnId) => {
   }
 };
 
+  const editingIsOpeningBalance = type === "distributor" && editingTransaction && isOpeningBalanceTransaction(editingTransaction);
   const editingIsPurchase = editingTransaction && isPurchaseTransaction(editingTransaction);
-  const editingDate = editingTransaction
-    ? String((type === "distributor" ? getLedgerTxnDate(editingTransaction) : getTransactionDate(editingTransaction)) || "").slice(0, 10)
-    : "";
+  const editingDate = editingIsOpeningBalance
+    ? editForm.date
+    : editingTransaction
+      ? String((type === "distributor" ? getLedgerTxnDate(editingTransaction) : getTransactionDate(editingTransaction)) || "").slice(0, 10)
+      : "";
   
   return (
     <div className="space-y-6" data-testid="ledger-page">
@@ -528,7 +548,7 @@ const handleDelete = async (txnId) => {
                     )}
                     {!isOpeningBalanceTransaction(t) && (
                       <button
-                        onClick={() => handleDelete(t.id)}
+                        onClick={() => handleDelete(t)}
                         className="text-red-600 text-xs hover:underline"
                       >
                         Delete
@@ -548,9 +568,11 @@ const handleDelete = async (txnId) => {
           <DialogHeader><DialogTitle className="font-heading">Edit Transaction Details</DialogTitle></DialogHeader>
           <form onSubmit={handleEditSave} className="space-y-3">
             <div className="rounded-sm bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
-              {editingIsPurchase
-                ? "Amount, date, and transaction type are locked. Update invoice, bill, reference, and notes only."
-                : "Amount, date, and transaction type are locked. Update receipt, reference, payment mode, and notes only."}
+              {editingIsOpeningBalance
+                ? "Amount and transaction type are locked. Use this once to correct old opening balance date."
+                : editingIsPurchase
+                  ? "Amount, date, and transaction type are locked. Update invoice, bill, reference, and notes only."
+                  : "Amount, date, and transaction type are locked. Update receipt, reference, payment mode, and notes only."}
             </div>
 
             <div>
@@ -571,8 +593,9 @@ const handleDelete = async (txnId) => {
               <Input
                 type="date"
                 value={editingDate}
-                disabled
-                className="rounded-sm mt-1 bg-slate-100"
+                disabled={!editingIsOpeningBalance}
+                onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                className={`rounded-sm mt-1 ${editingIsOpeningBalance ? "" : "bg-slate-100"}`}
               />
             </div>
 
@@ -587,7 +610,7 @@ const handleDelete = async (txnId) => {
               />
             </div>
 
-            {editingIsPurchase ? (
+            {editingIsOpeningBalance ? null : editingIsPurchase ? (
               <>
                 <div>
                   <Label className="text-xs uppercase font-semibold text-slate-600">
