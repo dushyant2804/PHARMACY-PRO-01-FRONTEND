@@ -21,6 +21,11 @@ const getTransactionMonth = (transaction) => {
 
 const getTransactionKind = (transaction) => String(transaction?.type || "").toLowerCase();
 
+const getTransactionDisplayKind = (transaction) =>
+  String(transaction?.display_type || transaction?.type || "").toLowerCase();
+
+const getDueStatus = (transaction) => String(transaction?.due_status || "").toLowerCase();
+
 const getTransactionMode = (transaction) => transaction?.payment_mode || transaction?.mode;
 
 const getTransactionTypeLabel = (transaction) =>
@@ -35,8 +40,18 @@ const isOpeningBalanceTransaction = (transaction) =>
   getTransactionKind(transaction) === "opening_balance" ||
   Boolean(transaction?.is_opening_balance || transaction?.opening_balance);
 
+const isBroughtForwardTransaction = (transaction) =>
+  getTransactionKind(transaction) === "brought_forward" ||
+  getTransactionDisplayKind(transaction) === "brought_forward" ||
+  getDueStatus(transaction) === "brought_forward";
+
 const isPurchaseTransaction = (transaction) =>
   isOpeningBalanceTransaction(transaction) || getTransactionKind(transaction).includes("purchase");
+
+const hasBillWiseAmounts = (transaction) =>
+  [transaction?.bill_amount, transaction?.paid_amount, transaction?.due_amount].some(
+    (value) => value !== undefined && value !== null
+  );
 
 const getDistributorDocumentNumber = (transaction) => {
   if (isPurchaseTransaction(transaction)) {
@@ -51,12 +66,70 @@ const getDistributorDocumentNumber = (transaction) => {
 };
 
 const isEditableDistributorTransaction = (transaction) => {
+  if (isBroughtForwardTransaction(transaction)) return false;
+
   const kind = getTransactionKind(transaction);
   return ["opening_balance", "payment", "purchase", "manual", "manual_payment", "manual_purchase", "adjustment", "payment_adjustment"].includes(kind);
 };
 
-const getReferenceNotes = (transaction) =>
-  isOpeningBalanceTransaction(transaction) ? "Opening Balance" : (transaction.reference || transaction.notes || "—");
+const getReferenceNotes = (transaction) => {
+  if (isOpeningBalanceTransaction(transaction)) return "Opening Balance";
+  if (isBroughtForwardTransaction(transaction)) {
+    return transaction.description || transaction.reference || transaction.notes || "B/F from previous FY";
+  }
+
+  return transaction.reference || transaction.notes || "—";
+};
+
+const dueStatusStyles = {
+  cleared: {
+    label: "Cleared",
+    row: "",
+    badge: "bg-slate-100 text-slate-700 border-slate-200",
+    amount: "text-slate-800"
+  },
+  oldest_due: {
+    label: "Oldest Due",
+    row: "bg-red-50 text-red-900",
+    badge: "bg-red-100 text-red-700 border-red-200",
+    amount: "text-red-700"
+  },
+  later_due: {
+    label: "Due",
+    row: "bg-amber-50 text-amber-900",
+    badge: "bg-amber-100 text-amber-700 border-amber-200",
+    amount: "text-amber-700"
+  },
+  payment: {
+    label: "Payment",
+    row: "bg-emerald-50 text-emerald-900",
+    badge: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    amount: "text-emerald-700"
+  },
+  brought_forward: {
+    label: "B/F",
+    row: "bg-blue-50 text-blue-900",
+    badge: "bg-blue-100 text-blue-700 border-blue-200",
+    amount: "text-blue-700"
+  }
+};
+
+const getTransactionDueStatus = (transaction) => {
+  if (isBroughtForwardTransaction(transaction)) return "brought_forward";
+
+  const dueStatus = getDueStatus(transaction);
+  if (dueStatus) return dueStatus;
+
+  if (getTransactionKind(transaction) === "payment") return "payment";
+
+  return "";
+};
+
+const getDueStatusStyle = (transaction) =>
+  dueStatusStyles[getTransactionDueStatus(transaction)] || null;
+
+const formatFinancialYearLabel = (financialYear) =>
+  financialYear === "all" ? "All" : `FY ${financialYear}`;
 
 const getNewTransactionModeOptions = (type, txnType) => {
   if (type === "distributor" && txnType === "purchase") {
@@ -83,6 +156,7 @@ export default function Ledger() {
   const [open, setOpen] = useState(false);
   const [txnType, setTxnType] = useState(type === "distributor" ? "payment" : "sale");
   const [selectedMonth, setSelectedMonth] = useState(currentMonthValue());
+  const [selectedFinancialYear, setSelectedFinancialYear] = useState("all");
   const [editOpen, setEditOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -106,10 +180,14 @@ export default function Ledger() {
   });
 
   const load = async () => {
-    const { data } = await api.get(`/ledger/${type}/${id}`);
+    const config =
+      type === "distributor" && selectedFinancialYear !== "all"
+        ? { params: { financial_year: selectedFinancialYear } }
+        : undefined;
+    const { data } = await api.get(`/ledger/${type}/${id}`, config);
     setData(data);
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [type, id]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [type, id, selectedFinancialYear]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -144,6 +222,10 @@ export default function Ledger() {
   const entity = type === "distributor" ? data.distributor : data.customer;
   const transactions = data.transactions || [];
   const ledgerTransactions = transactions;
+  const availableFinancialYears = type === "distributor"
+    ? Array.from(new Set(data.available_financial_years || []))
+    : [];
+  const selectedFinancialYearLabel = formatFinancialYearLabel(data.financial_year || selectedFinancialYear);
   const newTransactionModeOptions = getNewTransactionModeOptions(type, txnType);
   const monthlyTransactions = transactions.filter(
     (transaction) => getTransactionMonth(transaction) === selectedMonth
@@ -241,13 +323,13 @@ const handleDelete = async (txnId) => {
   
   return (
     <div className="space-y-6" data-testid="ledger-page">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.15em] font-semibold text-slate-500">{type} ledger</div>
           <h1 className="font-heading text-3xl md:text-4xl font-bold">{entity.name}</h1>
           {entity.phone && <div className="text-sm text-slate-500 mt-1">{entity.phone}</div>}
         </div>
-        <div className="text-right space-y-2">
+        <div className="md:text-right space-y-2">
 
   <div>
 
@@ -304,6 +386,74 @@ const handleDelete = async (txnId) => {
       <Button onClick={() => setOpen(true)} className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="add-txn">
         <Plus className="w-4 h-4 mr-2" />Add Transaction
       </Button>
+
+      {type === "distributor" && (
+        <div className="bg-white border border-slate-200 rounded-sm p-4 space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+            <div>
+              <div className="text-xs uppercase tracking-[0.15em] font-semibold text-slate-500">
+                Financial year ledger
+              </div>
+              <h2 className="font-heading text-2xl font-bold">{selectedFinancialYearLabel}</h2>
+              {data.financial_year_start && data.financial_year_end && (
+                <p className="text-sm text-slate-500">
+                  {fmtDate(data.financial_year_start)} to {fmtDate(data.financial_year_end)}
+                </p>
+              )}
+            </div>
+
+            <div className="w-full lg:w-[240px]">
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                Financial Year
+              </Label>
+              <Select value={selectedFinancialYear} onValueChange={setSelectedFinancialYear}>
+                <SelectTrigger className="rounded-sm mt-1">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {availableFinancialYears.map((financialYear) => (
+                    <SelectItem key={financialYear} value={financialYear}>
+                      {formatFinancialYearLabel(financialYear)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+              <div className="text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                Opening Balance
+              </div>
+              <div className="mt-1 text-xl font-bold text-slate-800 font-mono-nums break-words">
+                {fmtINR(data.opening_balance || 0)}
+              </div>
+            </div>
+
+            <div className="rounded-sm border border-blue-100 bg-blue-50 p-4">
+              <div className="text-xs uppercase tracking-wider text-blue-700 font-semibold">
+                Brought Forward
+              </div>
+              <div className="mt-1 text-xl font-bold text-blue-700 font-mono-nums break-words">
+                {fmtINR(data.brought_forward_balance || 0)}
+              </div>
+            </div>
+
+            <div className="rounded-sm border border-slate-200 bg-white p-4">
+              <div className="text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                Closing Balance
+              </div>
+              <div className={`mt-1 text-xl font-bold font-mono-nums break-words ${
+                Number(data.closing_balance ?? data.balance ?? 0) > 0 ? "text-red-600" : "text-emerald-600"
+              }`}>
+                {fmtINR(data.closing_balance ?? data.balance ?? 0)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {type === "distributor" && (
         <div className="bg-white border border-slate-200 rounded-sm p-4 space-y-4">
@@ -428,42 +578,79 @@ const handleDelete = async (txnId) => {
           </thead>
           <tbody>
             {ledgerTransactions.length === 0 && <tr><td colSpan={type === "distributor" ? 8 : 7} className="text-center py-8 text-slate-500">No transactions yet.</td></tr>}
-            {ledgerTransactions.map((t) => (
-              <tr key={t.id}>
-                <td className="font-mono-nums text-xs">{getTransactionDate(t) ? fmtDate(getTransactionDate(t)) : "—"}</td>
-                <td className="uppercase text-xs tracking-wider font-semibold">{getTransactionTypeLabel(t)}</td>
-                <td>{getReferenceNotes(t)}</td>
-                {type === "distributor" && <td className="text-sm font-medium">{getDistributorDocumentNumber(t)}</td>}
-                <td className="text-xs uppercase">{getTransactionMode(t) || "—"}</td>
-                <td className={`num-cell font-semibold ${getTransactionKind(t) === "payment" ? "text-emerald-600" : "text-slate-800"}`}>
-                  {getTransactionKind(t) === "payment" ? "−" : Number(t.amount || 0) < 0 ? "" : "+"}{fmtINR(t.amount)}
-                </td>
-                <td className="num-cell">{fmtINR(t.running_balance)}</td>
-                 <td>
-                  <div className="flex items-center gap-3">
-                    {type === "distributor" && isEditableDistributorTransaction(t) && (
-                      <button
-                        type="button"
-                        onClick={() => openEditDialog(t)}
-                        className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
-                        aria-label={`Edit transaction ${t.id}`}
-                      >
-                        <Pencil className="w-3 h-3" />
-                        Edit
-                      </button>
+            {ledgerTransactions.map((t, index) => {
+              const dueStyle = type === "distributor" ? getDueStatusStyle(t) : null;
+              const amountClass = dueStyle?.amount || (getTransactionKind(t) === "payment" ? "text-emerald-600" : "text-slate-800");
+              const canEdit = type === "distributor" && isEditableDistributorTransaction(t);
+              const canDelete = !isOpeningBalanceTransaction(t) && !isBroughtForwardTransaction(t);
+
+              return (
+                <tr key={t.id || `${getTransactionKind(t)}-${index}`} className={dueStyle?.row || ""}>
+                  <td className="font-mono-nums text-xs whitespace-normal">{getTransactionDate(t) ? fmtDate(getTransactionDate(t)) : "—"}</td>
+                  <td className="space-y-1">
+                    <div className="uppercase text-xs tracking-wider font-semibold">{getTransactionTypeLabel(t)}</div>
+                    {dueStyle && (
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${dueStyle.badge}`}>
+                        {dueStyle.label}
+                      </span>
                     )}
-                    {!isOpeningBalanceTransaction(t) && (
-                      <button
-                        onClick={() => handleDelete(t.id)}
-                        className="text-red-600 text-xs hover:underline"
-                      >
-                        Delete
-                      </button>
+                  </td>
+                  <td className="min-w-[160px] whitespace-normal">{getReferenceNotes(t)}</td>
+                  {type === "distributor" && <td className="text-sm font-medium whitespace-normal">{getDistributorDocumentNumber(t)}</td>}
+                  <td className="text-xs uppercase whitespace-normal">{getTransactionMode(t) || "—"}</td>
+                  <td className={`num-cell font-semibold align-top ${amountClass}`}>
+                    <div>{getTransactionKind(t) === "payment" ? "−" : Number(t.amount || 0) < 0 ? "" : "+"}{fmtINR(t.amount)}</div>
+                    {type === "distributor" && isPurchaseTransaction(t) && hasBillWiseAmounts(t) && (
+                      <div className="mt-2 inline-grid gap-1 rounded-sm bg-white/70 p-2 text-left text-[0.7rem] font-medium text-slate-600 shadow-sm sm:min-w-[150px]">
+                        {t.bill_amount !== undefined && t.bill_amount !== null && (
+                          <div className="flex justify-between gap-2">
+                            <span>Bill Amount</span>
+                            <span className="font-mono-nums text-slate-800">{fmtINR(t.bill_amount)}</span>
+                          </div>
+                        )}
+                        {t.paid_amount !== undefined && t.paid_amount !== null && (
+                          <div className="flex justify-between gap-2">
+                            <span>Paid</span>
+                            <span className="font-mono-nums text-emerald-700">{fmtINR(t.paid_amount)}</span>
+                          </div>
+                        )}
+                        {t.due_amount !== undefined && t.due_amount !== null && (
+                          <div className="flex justify-between gap-2">
+                            <span>Due</span>
+                            <span className="font-mono-nums text-red-700">{fmtINR(t.due_amount)}</span>
+                          </div>
+                        )}
+                      </div>
                     )}
-                  </div>
-                </td>
-               </tr>
-            ))}
+                  </td>
+                  <td className="num-cell align-top">{fmtINR(t.running_balance)}</td>
+                  <td className="align-top">
+                    <div className="flex flex-wrap items-center gap-3">
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => openEditDialog(t)}
+                          className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
+                          aria-label={`Edit transaction ${t.id}`}
+                        >
+                          <Pencil className="w-3 h-3" />
+                          Edit
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(t.id)}
+                          className="text-red-600 text-xs hover:underline"
+                        >
+                          Delete
+                        </button>
+                      )}
+                      {!canEdit && !canDelete && <span className="text-xs text-slate-400">—</span>}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
