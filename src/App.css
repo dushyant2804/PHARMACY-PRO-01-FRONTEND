@@ -85,3 +85,24 @@
   color: #475569;
   border: 1px solid #e2e8f0;
 }
+
+.data-table tbody tr.bg-red-50,
+.data-table tbody tr.bg-red-50:nth-child(even),
+.data-table tbody tr.bg-red-50:hover {
+  background: #fef2f2;
+}
+.data-table tbody tr.bg-amber-50,
+.data-table tbody tr.bg-amber-50:nth-child(even),
+.data-table tbody tr.bg-amber-50:hover {
+  background: #fffbeb;
+}
+.data-table tbody tr.bg-emerald-50,
+.data-table tbody tr.bg-emerald-50:nth-child(even),
+.data-table tbody tr.bg-emerald-50:hover {
+  background: #ecfdf5;
+}
+.data-table tbody tr.bg-blue-50,
+.data-table tbody tr.bg-blue-50:nth-child(even),
+.data-table tbody tr.bg-blue-50:hover {
+  background: #eff6ff;
+}
