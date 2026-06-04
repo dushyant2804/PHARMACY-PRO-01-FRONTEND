@@ -100,10 +100,17 @@ const getNewTransactionModeOptions = (type, txnType) => {
   ];
 };
 
+const getDistributorTotalBalance = (distributor) => {
+  if (!distributor) return null;
+  const balance = distributor.current_balance ?? distributor.outstanding_balance;
+  return balance === undefined || balance === null ? null : Number(balance || 0);
+};
+
 
 export default function Ledger() {
   const { type, id } = useParams(); // type: distributor | customer
   const [data, setData] = useState(null);
+  const [distributorTotalBalance, setDistributorTotalBalance] = useState(null);
   const [open, setOpen] = useState(false);
   const [txnType, setTxnType] = useState(type === "distributor" ? "payment" : "sale");
   const [selectedMonth, setSelectedMonth] = useState(currentMonthValue());
@@ -139,6 +146,32 @@ export default function Ledger() {
     const { data } = await api.get(`/ledger/${type}/${id}`, config);
     setData(data);
 
+    if (type === "distributor") {
+      const ledgerDistributorBalance = getDistributorTotalBalance(data.distributor);
+
+      if (ledgerDistributorBalance !== null) {
+        setDistributorTotalBalance(ledgerDistributorBalance);
+      } else {
+        try {
+          const { data: distributors } = await api.get("/distributors");
+          const matchingDistributor = Array.isArray(distributors)
+            ? distributors.find((distributor) => String(distributor.id) === String(id))
+            : null;
+          const listDistributorBalance = getDistributorTotalBalance(matchingDistributor);
+
+          if (listDistributorBalance !== null) {
+            setDistributorTotalBalance(listDistributorBalance);
+          } else if (selectedFinancialYear === ALL_FINANCIAL_YEARS) {
+            setDistributorTotalBalance(Number(data.balance || 0));
+          }
+        } catch {
+          if (selectedFinancialYear === ALL_FINANCIAL_YEARS) {
+            setDistributorTotalBalance(Number(data.balance || 0));
+          }
+        }
+      }
+    }
+
     if (type === "distributor" && !syncedBackendFinancialYearRef.current) {
       syncedBackendFinancialYearRef.current = true;
       if (data.current_financial_year && data.current_financial_year !== selectedFinancialYear) {
@@ -148,6 +181,7 @@ export default function Ledger() {
   };
   useEffect(() => {
     setData(null);
+    setDistributorTotalBalance(null);
     if (type === "distributor") {
       syncedBackendFinancialYearRef.current = false;
       setSelectedFinancialYear(getCurrentIndianFinancialYear());
@@ -249,8 +283,11 @@ const handleEditSave = async (e) => {
     const editingIsOpeningBalance = type === "distributor" && isOpeningBalanceTransaction(editingTransaction);
     const payload = editingIsOpeningBalance
       ? {
-          opening_balance_date: editForm.date,
-          date: editForm.date
+          invoice_number: editForm.invoice_number,
+          bill_number: editForm.bill_number,
+          receipt_number: editForm.receipt_number,
+          reference_number: editForm.reference_number,
+          notes: editForm.notes
         }
       : isPurchaseTransaction(editingTransaction)
         ? {
@@ -303,6 +340,9 @@ const handleDelete = async (transaction) => {
     : editingTransaction
       ? String((type === "distributor" ? getLedgerTxnDate(editingTransaction) : getTransactionDate(editingTransaction)) || "").slice(0, 10)
       : "";
+  const displayedBalance = type === "distributor"
+    ? distributorTotalBalance ?? getDistributorTotalBalance(entity) ?? (selectedFinancialYear === ALL_FINANCIAL_YEARS ? Number(data.balance || 0) : 0)
+    : data.balance;
   
   return (
     <div className="space-y-6" data-testid="ledger-page">
@@ -322,12 +362,12 @@ const handleDelete = async (transaction) => {
 
     <div
       className={`font-heading text-3xl font-bold font-mono-nums ${
-        data.balance > 0
+        displayedBalance > 0
           ? "text-red-600"
           : "text-emerald-600"
       }`}
     >
-      {fmtINR(data.balance)}
+      {fmtINR(displayedBalance)}
     </div>
 
     <div className="text-xs text-slate-500">
@@ -569,7 +609,7 @@ const handleDelete = async (transaction) => {
           <form onSubmit={handleEditSave} className="space-y-3">
             <div className="rounded-sm bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
               {editingIsOpeningBalance
-                ? "Amount and transaction type are locked. Use this once to correct old opening balance date."
+                ? "Amount, date, and transaction type are locked. Update invoice, bill, receipt, reference, and notes only."
                 : editingIsPurchase
                   ? "Amount, date, and transaction type are locked. Update invoice, bill, reference, and notes only."
                   : "Amount, date, and transaction type are locked. Update receipt, reference, payment mode, and notes only."}
@@ -593,9 +633,9 @@ const handleDelete = async (transaction) => {
               <Input
                 type="date"
                 value={editingDate}
-                disabled={!editingIsOpeningBalance}
+                disabled
                 onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                className={`rounded-sm mt-1 ${editingIsOpeningBalance ? "" : "bg-slate-100"}`}
+                className="rounded-sm mt-1 bg-slate-100"
               />
             </div>
 
@@ -610,7 +650,64 @@ const handleDelete = async (transaction) => {
               />
             </div>
 
-            {editingIsOpeningBalance ? null : editingIsPurchase ? (
+            {editingIsOpeningBalance ? (
+              <>
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Invoice Number
+                  </Label>
+                  <Input
+                    value={editForm.invoice_number}
+                    onChange={(e) => setEditForm({ ...editForm, invoice_number: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Bill Number
+                  </Label>
+                  <Input
+                    value={editForm.bill_number}
+                    onChange={(e) => setEditForm({ ...editForm, bill_number: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Receipt Number
+                  </Label>
+                  <Input
+                    value={editForm.receipt_number}
+                    onChange={(e) => setEditForm({ ...editForm, receipt_number: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Reference Number
+                  </Label>
+                  <Input
+                    value={editForm.reference_number}
+                    onChange={(e) => setEditForm({ ...editForm, reference_number: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase font-semibold text-slate-600">
+                    Notes
+                  </Label>
+                  <Input
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                    className="rounded-sm mt-1"
+                  />
+                </div>
+              </>
+            ) : editingIsPurchase ? (
               <>
                 <div>
                   <Label className="text-xs uppercase font-semibold text-slate-600">
