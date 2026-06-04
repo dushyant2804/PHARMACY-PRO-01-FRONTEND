@@ -28,6 +28,9 @@ const getCurrentIndianFinancialYear = () => {
 const getTransactionDate = (transaction) =>
   transaction.date || transaction.transaction_date || transaction.created_at;
 
+const getLedgerTxnDate = (transaction) =>
+  transaction.transaction_date || transaction.date || transaction.opening_balance_date || transaction.created_at;
+
 const getTransactionMonth = (transaction) => {
   const date = getTransactionDate(transaction);
   return date ? String(date).slice(0, 7) : "";
@@ -277,7 +280,9 @@ const handleDelete = async (txnId) => {
 };
 
   const editingIsPurchase = editingTransaction && isPurchaseTransaction(editingTransaction);
-  const editingDate = editingTransaction ? String(getTransactionDate(editingTransaction) || "").slice(0, 10) : "";
+  const editingDate = editingTransaction
+    ? String((type === "distributor" ? getLedgerTxnDate(editingTransaction) : getTransactionDate(editingTransaction)) || "").slice(0, 10)
+    : "";
   
   return (
     <div className="space-y-6" data-testid="ledger-page">
@@ -438,7 +443,7 @@ const handleDelete = async (txnId) => {
                   <div key={transaction.id} className="p-3 flex justify-between gap-3 text-sm">
                     <div>
                       <div className="font-medium">{transaction.reference || transaction.notes || "Purchase"}</div>
-                      <div className="text-xs text-slate-500">{fmtDate(getTransactionDate(transaction))}</div>
+                      <div className="text-xs text-slate-500">{fmtDate(getLedgerTxnDate(transaction))}</div>
                     </div>
                     <div className="font-semibold text-red-600 font-mono-nums">
                       +{fmtINR(transaction.amount)}
@@ -460,7 +465,7 @@ const handleDelete = async (txnId) => {
                     <div>
                       <div className="font-medium">{transaction.reference || transaction.notes || "Payment"}</div>
                       <div className="text-xs text-slate-500">
-                        {fmtDate(getTransactionDate(transaction))} • {(getTransactionMode(transaction) || "-").toUpperCase()}
+                        {fmtDate(getLedgerTxnDate(transaction))} • {(getTransactionMode(transaction) || "-").toUpperCase()}
                       </div>
                     </div>
                     <div className="font-semibold text-emerald-600 font-mono-nums">
@@ -494,7 +499,12 @@ const handleDelete = async (txnId) => {
             {ledgerTransactions.length === 0 && <tr><td colSpan={type === "distributor" ? 8 : 7} className="text-center py-8 text-slate-500">No transactions yet.</td></tr>}
             {ledgerTransactions.map((t) => (
               <tr key={t.id}>
-                <td className="font-mono-nums text-xs">{getTransactionDate(t) ? fmtDate(getTransactionDate(t)) : "—"}</td>
+                <td className="font-mono-nums text-xs">
+                  {(() => {
+                    const displayDate = type === "distributor" ? getLedgerTxnDate(t) : getTransactionDate(t);
+                    return displayDate ? fmtDate(displayDate) : "—";
+                  })()}
+                </td>
                 <td className="uppercase text-xs tracking-wider font-semibold">{getTransactionTypeLabel(t)}</td>
                 <td>{getReferenceNotes(t)}</td>
                 {type === "distributor" && <td className="text-sm font-medium">{getDistributorDocumentNumber(t)}</td>}
