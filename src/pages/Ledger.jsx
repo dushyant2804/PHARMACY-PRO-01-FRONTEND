@@ -107,6 +107,46 @@ const getDistributorTotalBalance = (distributor) => {
 };
 
 
+const BILL_STATUS_DISPLAY = {
+  cleared: {
+    label: "Cleared",
+    rowClassName: "",
+    badgeClassName: "border-emerald-100 bg-emerald-50 text-emerald-700"
+  },
+  oldest_due: {
+    label: "Oldest Due",
+    rowClassName: "bg-red-50/70",
+    badgeClassName: "border-red-200 bg-red-100 text-red-700"
+  },
+  later_due: {
+    label: "Due",
+    rowClassName: "bg-amber-50/80",
+    badgeClassName: "border-amber-200 bg-amber-100 text-amber-700"
+  }
+};
+
+const getBillStatusDisplay = (transaction) => {
+  const status = getCleanFieldValue(transaction?.bill_status).toLowerCase();
+  return BILL_STATUS_DISPLAY[status] || null;
+};
+
+const hasFieldValue = (value) => value !== undefined && value !== null && String(value).trim() !== "";
+
+const getBillWiseInfo = (transaction) => {
+  const fields = [
+    { label: "Bill Amount", value: transaction?.bill_amount },
+    { label: "Paid", value: transaction?.paid_amount },
+    { label: "Due", value: transaction?.due_amount }
+  ];
+
+  return fields.filter((field) => hasFieldValue(field.value));
+};
+
+const getAdjustedAgainstItems = (transaction) =>
+  Array.isArray(transaction?.adjusted_against)
+    ? transaction.adjusted_against.filter((item) => item && hasFieldValue(item.amount))
+    : [];
+
 export default function Ledger() {
   const { type, id } = useParams(); // type: distributor | customer
   const [data, setData] = useState(null);
@@ -613,47 +653,93 @@ const handleDelete = async (transaction) => {
           </thead>
           <tbody>
             {ledgerTransactions.length === 0 && <tr><td colSpan={type === "distributor" ? 8 : 7} className="text-center py-8 text-slate-500">No transactions yet.</td></tr>}
-            {ledgerTransactions.map((t) => (
-              <tr key={t.id}>
-                <td className="font-mono-nums text-xs">
-                  {(() => {
-                    const displayDate = type === "distributor" ? getLedgerTxnDate(t) : getTransactionDate(t);
-                    return displayDate ? fmtDate(displayDate) : "—";
-                  })()}
-                </td>
-                <td className="uppercase text-xs tracking-wider font-semibold">{getTransactionTypeLabel(t)}</td>
-                <td>{getReferenceNotes(t)}</td>
-                {type === "distributor" && <td className="text-sm font-medium">{getDistributorDocumentNumber(t)}</td>}
-                <td className="text-xs uppercase">{getTransactionMode(t) || "—"}</td>
-                <td className={`num-cell font-semibold ${getTransactionKind(t) === "payment" ? "text-emerald-600" : "text-slate-800"}`}>
-                  {getTransactionKind(t) === "payment" ? "−" : Number(t.amount || 0) < 0 ? "" : "+"}{fmtINR(t.amount)}
-                </td>
-                <td className="num-cell">{fmtINR(t.running_balance)}</td>
-                 <td>
-                  <div className="flex items-center gap-3">
-                    {type === "distributor" && isEditableDistributorTransaction(t) && (
-                      <button
-                        type="button"
-                        onClick={() => openEditDialog(t)}
-                        className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
-                        aria-label={`Edit transaction ${t.id}`}
-                      >
-                        <Pencil className="w-3 h-3" />
-                        Edit
-                      </button>
+            {ledgerTransactions.map((t) => {
+              const isDistributorLedger = type === "distributor";
+              const isDistributorPurchase = isDistributorLedger && isPurchaseTransaction(t);
+              const billStatusDisplay = isDistributorPurchase ? getBillStatusDisplay(t) : null;
+              const billWiseInfo = isDistributorPurchase ? getBillWiseInfo(t) : [];
+              const adjustedAgainstItems = isDistributorLedger ? getAdjustedAgainstItems(t) : [];
+
+              return (
+                <tr key={t.id} className={billStatusDisplay?.rowClassName || undefined}>
+                  <td className="font-mono-nums text-xs">
+                    {(() => {
+                      const displayDate = type === "distributor" ? getLedgerTxnDate(t) : getTransactionDate(t);
+                      return displayDate ? fmtDate(displayDate) : "—";
+                    })()}
+                  </td>
+                  <td className="uppercase text-xs tracking-wider font-semibold">
+                    <div className="flex flex-col items-start gap-1">
+                      <span>{getTransactionTypeLabel(t)}</span>
+                      {billStatusDisplay && (
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${billStatusDisplay.badgeClassName}`}>
+                          {billStatusDisplay.label}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <div>{getReferenceNotes(t)}</div>
+
+                    {billWiseInfo.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                        {billWiseInfo.map((field) => (
+                          <div key={field.label}>
+                            <span className="font-semibold">{field.label}:</span> {fmtINR(field.value)}
+                          </div>
+                        ))}
+                      </div>
                     )}
-                    {!isOpeningBalanceTransaction(t) && (
-                      <button
-                        onClick={() => handleDelete(t)}
-                        className="text-red-600 text-xs hover:underline"
-                      >
-                        Delete
-                      </button>
+
+                    {adjustedAgainstItems.length > 0 && (
+                      <div className="mt-2 text-xs text-slate-600">
+                        <div className="font-semibold text-slate-700">Adjusted Against:</div>
+                        <div className="mt-1 space-y-0.5">
+                          {adjustedAgainstItems.map((item, index) => {
+                            const invoiceRef = getFirstAvailableValue([item.invoice_no, item.transaction_id]);
+
+                            return (
+                              <div key={`${invoiceRef}-${index}`} className="font-mono-nums">
+                                {invoiceRef} {fmtINR(item.amount)}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
-                  </div>
-                </td>
-               </tr>
-            ))}
+                  </td>
+                  {type === "distributor" && <td className="text-sm font-medium">{getDistributorDocumentNumber(t)}</td>}
+                  <td className="text-xs uppercase">{getTransactionMode(t) || "—"}</td>
+                  <td className={`num-cell font-semibold ${getTransactionKind(t) === "payment" ? "text-emerald-600" : "text-slate-800"}`}>
+                    {getTransactionKind(t) === "payment" ? "−" : Number(t.amount || 0) < 0 ? "" : "+"}{fmtINR(t.amount)}
+                  </td>
+                  <td className="num-cell">{fmtINR(t.running_balance)}</td>
+                  <td>
+                    <div className="flex items-center gap-3">
+                      {type === "distributor" && isEditableDistributorTransaction(t) && (
+                        <button
+                          type="button"
+                          onClick={() => openEditDialog(t)}
+                          className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
+                          aria-label={`Edit transaction ${t.id}`}
+                        >
+                          <Pencil className="w-3 h-3" />
+                          Edit
+                        </button>
+                      )}
+                      {!isOpeningBalanceTransaction(t) && (
+                        <button
+                          onClick={() => handleDelete(t)}
+                          className="text-red-600 text-xs hover:underline"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
