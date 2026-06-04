@@ -343,6 +343,18 @@ const handleDelete = async (transaction) => {
   const displayedBalance = type === "distributor"
     ? distributorTotalBalance ?? getDistributorTotalBalance(entity) ?? (selectedFinancialYear === ALL_FINANCIAL_YEARS ? Number(data.balance || 0) : 0)
     : data.balance;
+  const isDistributorSpecificFinancialYear = type === "distributor" && selectedFinancialYear !== ALL_FINANCIAL_YEARS;
+  const broughtForwardBalance = Number(data.brought_forward_balance || 0);
+  const showBroughtForwardBox = isDistributorSpecificFinancialYear && broughtForwardBalance !== 0;
+  const broughtForwardFromFinancialYear = getCleanFieldValue(data.brought_forward_from_financial_year) || "previous FY";
+  const isClosedFinancialYear = data.is_financial_year_closed === true;
+  const showClosingBalanceBox = isDistributorSpecificFinancialYear && data.is_financial_year_closed !== undefined && data.is_financial_year_closed !== null;
+  const closingBalanceTitle = isClosedFinancialYear
+    ? `Balance C/F to FY ${getCleanFieldValue(data.carried_forward_to_financial_year) || "next FY"}`
+    : "Current Balance Till Date";
+  const closingBalanceValue = isClosedFinancialYear
+    ? data.carried_forward_balance || 0
+    : data.balance_till_date || 0;
   const ledgerSummaryTitle = selectedFinancialYear === ALL_FINANCIAL_YEARS
     ? "All Ledger Summary"
     : `FY ${selectedFinancialYear} Summary`;
@@ -569,6 +581,22 @@ const handleDelete = async (transaction) => {
         </div>
       )}
 
+      {showBroughtForwardBox && (
+        <div className="rounded-sm border border-blue-100 bg-blue-50/60 px-4 py-3 sm:px-5 sm:py-4 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-xs uppercase tracking-[0.15em] font-semibold text-blue-700">
+                B/F from FY {broughtForwardFromFinancialYear}
+              </div>
+              <div className="mt-1 text-sm text-slate-600">Opening Balance</div>
+            </div>
+            <div className={`font-heading text-xl sm:text-2xl font-bold font-mono-nums ${broughtForwardBalance > 0 ? "text-red-600" : "text-emerald-600"}`}>
+              {fmtINR(broughtForwardBalance)}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white border border-slate-200 rounded-sm overflow-x-auto">
         <table className="data-table">
           <thead>
@@ -654,6 +682,24 @@ const handleDelete = async (transaction) => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {showClosingBalanceBox && (
+        <div className="rounded-sm border border-slate-200 bg-slate-50 px-4 py-3 sm:px-5 sm:py-4 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-xs uppercase tracking-[0.15em] font-semibold text-slate-500">
+                {isClosedFinancialYear ? "Closing Separator" : "Running Balance"}
+              </div>
+              <div className="mt-1 font-heading text-lg font-bold text-slate-900">
+                {closingBalanceTitle}
+              </div>
+            </div>
+            <div className={`font-heading text-xl sm:text-2xl font-bold font-mono-nums ${Number(closingBalanceValue || 0) > 0 ? "text-red-600" : "text-emerald-600"}`}>
+              {fmtINR(closingBalanceValue)}
+            </div>
           </div>
         </div>
       )}
