@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import api, { fmtINR, fmtDate, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,20 @@ import { Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 const currentMonthValue = () => new Date().toISOString().slice(0, 7);
+
+const ALL_FINANCIAL_YEARS = "all";
+
+const getCurrentIndianFinancialYear = () => {
+  const parts = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "numeric"
+  }).formatToParts(new Date());
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const startYear = month >= 4 ? year : year - 1;
+  return `${startYear}-${String((startYear + 1) % 100).padStart(2, "0")}`;
+};
 
 const getTransactionDate = (transaction) =>
   transaction.date || transaction.transaction_date || transaction.created_at;
@@ -83,6 +97,8 @@ export default function Ledger() {
   const [open, setOpen] = useState(false);
   const [txnType, setTxnType] = useState(type === "distributor" ? "payment" : "sale");
   const [selectedMonth, setSelectedMonth] = useState(currentMonthValue());
+  const [selectedFinancialYear, setSelectedFinancialYear] = useState(getCurrentIndianFinancialYear);
+  const syncedBackendFinancialYearRef = useRef(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -106,10 +122,27 @@ export default function Ledger() {
   });
 
   const load = async () => {
-    const { data } = await api.get(`/ledger/${type}/${id}`);
+    const config = type === "distributor" && selectedFinancialYear !== ALL_FINANCIAL_YEARS
+      ? { params: { financial_year: selectedFinancialYear } }
+      : undefined;
+    const { data } = await api.get(`/ledger/${type}/${id}`, config);
     setData(data);
+
+    if (type === "distributor" && !syncedBackendFinancialYearRef.current) {
+      syncedBackendFinancialYearRef.current = true;
+      if (data.current_financial_year && data.current_financial_year !== selectedFinancialYear) {
+        setSelectedFinancialYear(data.current_financial_year);
+      }
+    }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [type, id]);
+  useEffect(() => {
+    setData(null);
+    if (type === "distributor") {
+      syncedBackendFinancialYearRef.current = false;
+      setSelectedFinancialYear(getCurrentIndianFinancialYear());
+    }
+  }, [type, id]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [type, id, selectedFinancialYear]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -145,6 +178,13 @@ export default function Ledger() {
   const transactions = data.transactions || [];
   const ledgerTransactions = transactions;
   const newTransactionModeOptions = getNewTransactionModeOptions(type, txnType);
+  const currentFinancialYear = data.current_financial_year || getCurrentIndianFinancialYear();
+  const financialYearOptions = [
+    ...new Set([
+      currentFinancialYear,
+      ...(data.available_financial_years || []).map(getCleanFieldValue).filter(Boolean)
+    ])
+  ];
   const monthlyTransactions = transactions.filter(
     (transaction) => getTransactionMonth(transaction) === selectedMonth
   );
@@ -241,7 +281,7 @@ const handleDelete = async (txnId) => {
   
   return (
     <div className="space-y-6" data-testid="ledger-page">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="text-xs uppercase tracking-[0.15em] font-semibold text-slate-500">{type} ledger</div>
           <h1 className="font-heading text-3xl md:text-4xl font-bold">{entity.name}</h1>
@@ -301,9 +341,33 @@ const handleDelete = async (txnId) => {
       </div>
       </div>
 
-      <Button onClick={() => setOpen(true)} className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="add-txn">
-        <Plus className="w-4 h-4 mr-2" />Add Transaction
-      </Button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <Button onClick={() => setOpen(true)} className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="add-txn">
+          <Plus className="w-4 h-4 mr-2" />Add Transaction
+        </Button>
+
+        {type === "distributor" && (
+          <div className="w-full sm:w-[220px]">
+            <Label className="text-xs uppercase font-semibold text-slate-600">
+              Financial Year
+            </Label>
+            <Select value={selectedFinancialYear} onValueChange={setSelectedFinancialYear}>
+              <SelectTrigger className="rounded-sm mt-1 bg-white" data-testid="financial-year-filter">
+                <SelectValue />
+              </SelectTrigger>
+
+              <SelectContent>
+                {financialYearOptions.map((financialYear) => (
+                  <SelectItem key={financialYear} value={financialYear}>
+                    {financialYear === currentFinancialYear ? `${financialYear} (Current FY)` : financialYear}
+                  </SelectItem>
+                ))}
+                <SelectItem value={ALL_FINANCIAL_YEARS}>All</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
 
       {type === "distributor" && (
         <div className="bg-white border border-slate-200 rounded-sm p-4 space-y-4">
