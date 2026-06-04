@@ -50,13 +50,88 @@ const emptyItem = {
   expiry_date: "",
   manufacturer: "",
   category: "OTC",
-  quantity: 1,
-  free_quantity: 0,
+  quantity: "",
+  free_quantity: "",
   purchase_price: 0,
   mrp: 0,
   gst_rate: 5,
   pack_size: "",
 };
+
+const firstDefined = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== "");
+
+const normalizeCollection = (data) => {
+  const collection = firstDefined(data?.items, data?.data, data?.results, data, []);
+  return Array.isArray(collection) ? collection : [];
+};
+
+const normalizeMatchValue = (value) => String(value || "").trim().toLowerCase();
+
+const getMedicineName = (medicine = {}) =>
+  firstDefined(medicine.name, medicine.medicine_name, medicine.medicine, "");
+
+const getMedicineId = (medicine = {}, batch = {}) =>
+  firstDefined(batch.medicine_id, medicine.id, medicine.medicine_id, medicine.medicineId, "");
+
+const getBatchNumber = (batch = {}) =>
+  firstDefined(batch.batch_no, batch.batchNo, batch.batch, batch.batch_number, "");
+
+const getBatchExpiry = (batch = {}) =>
+  firstDefined(batch.expiry, batch.expiry_date, batch.expiryDate, "");
+
+const getBatchPurchasePrice = (batch = {}) =>
+  firstDefined(batch.purchase_price, batch.purchase_rate, batch.rate, "");
+
+const getBatchPackSize = (batch = {}) =>
+  firstDefined(batch.pack_size, batch.packSize, "");
+
+const getBatchGstRate = (batch = {}) =>
+  firstDefined(batch.gst_rate, batch.gst, batch.gst_percent, "");
+
+const getBatchManufacturer = (batch = {}, medicine = {}) =>
+  firstDefined(batch.manufacturer, medicine.manufacturer, "");
+
+const getBatchCategory = (batch = {}, medicine = {}) =>
+  firstDefined(batch.category, medicine.category, "");
+
+const getBatchDistributor = (batch = {}, medicine = {}) =>
+  firstDefined(batch.distributor_name, batch.distributor, medicine.distributor_name, medicine.distributor, "");
+
+const normalizeBatchOption = (medicine = {}, batch = {}) => ({
+  medicine_id: getMedicineId(medicine, batch),
+  medicine_name: getMedicineName(medicine),
+  batch_no: getBatchNumber(batch),
+  expiry_date: getBatchExpiry(batch),
+  mrp: firstDefined(batch.mrp, medicine.mrp, ""),
+  purchase_price: getBatchPurchasePrice(batch),
+  pack_size: getBatchPackSize(batch),
+  gst_rate: getBatchGstRate(batch),
+  manufacturer: getBatchManufacturer(batch, medicine),
+  category: getBatchCategory(batch, medicine),
+  distributor_name: getBatchDistributor(batch, medicine),
+});
+
+const buildBatchOptionsForMedicine = (medicine = {}) => {
+  const batches = Array.isArray(medicine.batches) ? medicine.batches : [];
+
+  if (batches.length) {
+    return batches
+      .map((batch) => normalizeBatchOption(medicine, batch))
+      .filter((batch) => batch.batch_no);
+  }
+
+  const directBatch = normalizeBatchOption(medicine, medicine);
+  return directBatch.batch_no ? [directBatch] : [];
+};
+
+const batchOptionLabel = (batch) => [
+  batch.batch_no,
+  batch.expiry_date ? `Exp ${batch.expiry_date}` : "",
+  batch.mrp !== "" ? `MRP ₹${batch.mrp}` : "",
+  batch.purchase_price !== "" ? `Rate ₹${batch.purchase_price}` : "",
+  batch.distributor_name ? `Dist ${batch.distributor_name}` : "",
+].filter(Boolean).join(" | ");
 
 
 const normalizeExpiryStatus = (status) => {
@@ -138,6 +213,9 @@ export default function PurchaseOrders() {
   const [medicineSuggestions, setMedicineSuggestions] = useState([]);
   const [activeRow, setActiveRow] = useState(null);
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0);
+  const [rowMedicines, setRowMedicines] = useState({});
+  const [rowBatchOptions, setRowBatchOptions] = useState({});
+  const [activeBatchRow, setActiveBatchRow] = useState(null);
 
   const [poDate, setPoDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -170,9 +248,54 @@ export default function PurchaseOrders() {
     setItems(copy);
   };
 
+  const rememberMedicineBatches = (rowIndex, medicine) => {
+    setRowMedicines((prev) => ({ ...prev, [rowIndex]: medicine }));
+    setRowBatchOptions((prev) => ({
+      ...prev,
+      [rowIndex]: buildBatchOptionsForMedicine(medicine),
+    }));
+  };
+
+  const findMedicineForRow = async (rowIndex) => {
+    const row = items[rowIndex];
+    const selectedMedicine = rowMedicines[rowIndex];
+
+    if (selectedMedicine && normalizeMatchValue(getMedicineName(selectedMedicine)) === normalizeMatchValue(row?.name)) {
+      return selectedMedicine;
+    }
+
+    const name = String(row?.name || "").trim();
+    if (name.length < 2) return null;
+
+    try {
+      const { data } = await api.get(`/medicines?search=${encodeURIComponent(name)}`);
+      const medicines = normalizeCollection(data);
+      const exactMatch = medicines.find((medicine) =>
+        normalizeMatchValue(getMedicineName(medicine)) === normalizeMatchValue(name)
+      );
+
+      if (exactMatch) {
+        rememberMedicineBatches(rowIndex, exactMatch);
+        return exactMatch;
+      }
+    } catch (e) {
+      console.warn("Failed to load medicine batches", e);
+    }
+
+    setRowBatchOptions((prev) => ({ ...prev, [rowIndex]: [] }));
+    return null;
+  };
+
+  const ensureBatchOptionsForRow = async (rowIndex) => {
+    const existingOptions = rowBatchOptions[rowIndex];
+    if (Array.isArray(existingOptions)) return existingOptions;
+
+    const medicine = await findMedicineForRow(rowIndex);
+    return medicine ? buildBatchOptionsForMedicine(medicine) : [];
+  };
+
   const applyMedicineSuggestion = (rowIndex, medicine) => {
     const fields = [
-      "name",
       "manufacturer",
       "category",
       "pack_size",
@@ -180,7 +303,7 @@ export default function PurchaseOrders() {
 
     setItems((prev) => {
       const next = [...prev];
-      const row = { ...next[rowIndex] };
+      const row = { ...next[rowIndex], name: getMedicineName(medicine) || next[rowIndex].name };
 
       fields.forEach((field) => {
         if (medicine[field] !== undefined && medicine[field] !== null) {
@@ -192,9 +315,48 @@ export default function PurchaseOrders() {
       return next;
     });
 
+    rememberMedicineBatches(rowIndex, medicine);
     setMedicineSuggestions([]);
     setActiveRow(null);
     setHighlightedSuggestionIndex(0);
+  };
+
+  const getFilteredBatchOptions = (rowIndex) => {
+    const typedBatch = normalizeMatchValue(items[rowIndex]?.batch_no);
+    return (rowBatchOptions[rowIndex] || []).filter((batch) =>
+      !typedBatch || normalizeMatchValue(batch.batch_no).includes(typedBatch)
+    );
+  };
+
+  const applyBatchSuggestion = (rowIndex, batch) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const row = { ...next[rowIndex] };
+      const preservedQuantity = row.quantity;
+      const preservedFreeQuantity = row.free_quantity;
+
+      [
+        "batch_no",
+        "expiry_date",
+        "mrp",
+        "purchase_price",
+        "pack_size",
+        "gst_rate",
+        "manufacturer",
+        "category",
+      ].forEach((field) => {
+        if (batch[field] !== undefined && batch[field] !== null && batch[field] !== "") {
+          row[field] = batch[field];
+        }
+      });
+
+      row.quantity = preservedQuantity;
+      row.free_quantity = preservedFreeQuantity;
+      next[rowIndex] = row;
+      return next;
+    });
+
+    setActiveBatchRow(null);
   };
 
   const handleMedicineKeyDown = (event, rowIndex) => {
@@ -280,7 +442,10 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
     setIsRoundOffManual(false);
     setItems([{ ...emptyItem }]);
     setMedicineSuggestions([]);
+    setRowMedicines({});
+    setRowBatchOptions({});
     setActiveRow(null);
+    setActiveBatchRow(null);
     setOpen(true);
   };
 
@@ -296,6 +461,9 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
     setIsRoundOffManual(true);
 
     setItems((po.items || []).map((i) => ({ ...emptyItem, ...i })));
+    setRowMedicines({});
+    setRowBatchOptions({});
+    setActiveBatchRow(null);
 
     setOpen(true);
   };
@@ -339,12 +507,18 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
       cgst: totalCGST,
       sgst: totalSGST,
       grand_total: roundCurrency(grandTotal),
-      items: validItems.map((i) => ({
-        ...i,
-        quantity: Number(i.quantity || 0),
-        free_quantity: Number(i.free_quantity || 0),
-        purchase_price: Number(i.purchase_price || 0),
-      })),
+      items: validItems.map((i) => {
+        const item = { ...i };
+        delete item.low_stock_threshold;
+        delete item.low_stock;
+
+        return {
+          ...item,
+          quantity: Number(item.quantity || 0),
+          free_quantity: Number(item.free_quantity || 0),
+          purchase_price: Number(item.purchase_price || 0),
+        };
+      }),
     };
 
     setSaving(true);
@@ -374,6 +548,9 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
       setCashDiscount(0);
       setRoundOff(0);
       setIsRoundOffManual(false);
+      setRowMedicines({});
+      setRowBatchOptions({});
+      setActiveBatchRow(null);
     } catch (e) {
       toast.error(formatApiError(e));
     } finally {
@@ -542,6 +719,8 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
       const value = e.target.value;
 
       updateItem(i, "name", value);
+      setRowMedicines((prev) => ({ ...prev, [i]: null }));
+      setRowBatchOptions((prev) => ({ ...prev, [i]: undefined }));
 
       setActiveRow(i);
 
@@ -551,7 +730,7 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
           `/medicines?search=${encodeURIComponent(value)}`
         );
 
-        setMedicineSuggestions(data || []);
+        setMedicineSuggestions(normalizeCollection(data));
         setHighlightedSuggestionIndex(0);
 
       } else {
@@ -591,11 +770,37 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
 
 </td>
 
-          <td className="p-2">
+          <td className="p-2 relative min-w-[240px]">
             <Input
               value={it.batch_no}
-              onChange={(e) => updateItem(i, "batch_no", e.target.value)}
+              onFocus={() => {
+                setActiveBatchRow(i);
+                ensureBatchOptionsForRow(i);
+              }}
+              onChange={(e) => {
+                updateItem(i, "batch_no", e.target.value);
+                setActiveBatchRow(i);
+                ensureBatchOptionsForRow(i);
+              }}
+              onBlur={() => setTimeout(() => setActiveBatchRow(null), 120)}
+              placeholder="Type or select batch"
             />
+
+            {activeBatchRow === i && getFilteredBatchOptions(i).length > 0 && (
+              <div className="absolute left-2 right-2 z-50 mt-1 bg-white border rounded shadow max-h-56 overflow-y-auto min-w-[320px]">
+                {getFilteredBatchOptions(i).map((batch, batchIndex) => (
+                  <button
+                    type="button"
+                    key={`${batch.batch_no}-${batch.expiry_date}-${batch.distributor_name}-${batchIndex}`}
+                    className="block w-full text-left p-2 text-xs hover:bg-slate-100"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => applyBatchSuggestion(i, batch)}
+                  >
+                    {batchOptionLabel(batch)}
+                  </button>
+                ))}
+              </div>
+            )}
           </td>
 
           <td className="p-2">
