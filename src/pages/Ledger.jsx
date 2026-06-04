@@ -343,6 +343,34 @@ const handleDelete = async (transaction) => {
   const displayedBalance = type === "distributor"
     ? distributorTotalBalance ?? getDistributorTotalBalance(entity) ?? (selectedFinancialYear === ALL_FINANCIAL_YEARS ? Number(data.balance || 0) : 0)
     : data.balance;
+  const ledgerSummaryTitle = selectedFinancialYear === ALL_FINANCIAL_YEARS
+    ? "All Ledger Summary"
+    : `FY ${selectedFinancialYear} Summary`;
+  const ledgerSummaryAdjustments = Number(data.total_adjustments || 0);
+  const ledgerSummaryItems = [
+    {
+      label: "Total Purchase",
+      value: data.total_purchases || 0,
+      valueClassName: "text-red-600"
+    },
+    {
+      label: "Total Payment",
+      value: data.total_paid || 0,
+      valueClassName: "text-emerald-600"
+    },
+    ...(ledgerSummaryAdjustments
+      ? [{
+          label: "Total Adjustments",
+          value: ledgerSummaryAdjustments,
+          valueClassName: ledgerSummaryAdjustments > 0 ? "text-blue-600" : "text-slate-700"
+        }]
+      : []),
+    {
+      label: "Balance for Selected Period",
+      value: data.balance || 0,
+      valueClassName: Number(data.balance || 0) > 0 ? "text-red-600" : "text-emerald-600"
+    }
+  ];
   
   return (
     <div className="space-y-6" data-testid="ledger-page">
@@ -601,6 +629,34 @@ const handleDelete = async (transaction) => {
           </tbody>
         </table>
       </div>
+
+
+      {type === "distributor" && (
+        <div className="bg-white border border-slate-200 rounded-sm p-4 sm:p-5 shadow-sm">
+          <div className="flex flex-col gap-1 border-b border-slate-100 pb-3">
+            <div className="text-xs uppercase tracking-[0.15em] font-semibold text-slate-500">
+              Ledger closing note
+            </div>
+            <h2 className="font-heading text-2xl font-bold text-slate-900">{ledgerSummaryTitle}</h2>
+            <p className="text-sm text-slate-500">
+              Totals are from the currently loaded distributor ledger response.
+            </p>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {ledgerSummaryItems.map((item) => (
+              <div key={item.label} className="rounded-sm border border-slate-100 bg-slate-50 p-4">
+                <div className="text-xs uppercase tracking-wider font-semibold text-slate-500">
+                  {item.label}
+                </div>
+                <div className={`mt-2 text-xl sm:text-2xl font-bold font-mono-nums break-words ${item.valueClassName}`}>
+                  {fmtINR(item.value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
