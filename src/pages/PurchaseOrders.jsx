@@ -42,7 +42,87 @@ const requiredLabel = (text) => (
 const expandInputClass =
   "transition-all duration-150 focus:w-[260px] w-[140px]";
 
-const roundCurrency = (value) => Math.round((Number(value) || 0) * 100) / 100;
+const roundHalfUp = (value, decimals = 2) => {
+  const factor = 10 ** decimals;
+  return Math.round(((Number(value) || 0) + Number.EPSILON) * factor) / factor;
+};
+
+const roundCurrency = (value) => roundHalfUp(value, 2);
+
+const getPurchaseOrderCalculationSignature = (items, schemeDiscount, cashDiscount) =>
+  JSON.stringify({
+    items: items.map((item) => ({
+      quantity: Number(item.quantity || 0),
+      purchase_price: Number(item.purchase_price || 0),
+      gst_rate: Number(item.gst_rate || 0),
+    })),
+    scheme_discount: Number(schemeDiscount || 0),
+    cash_discount: Number(cashDiscount || 0),
+  });
+
+const calculatePurchaseOrderTotals = (items, schemeDiscount, cashDiscount) => {
+  const slabs = new Map();
+
+  items.forEach((item) => {
+    const quantity = Number(item.quantity || 0);
+    const purchasePrice = Number(item.purchase_price || 0);
+    const gstRate = Number(item.gst_rate || 0);
+    const lineSubtotal = quantity * purchasePrice;
+
+    if (!Number.isFinite(lineSubtotal) || lineSubtotal <= 0) return;
+
+    slabs.set(gstRate, (slabs.get(gstRate) || 0) + lineSubtotal);
+  });
+
+  const subTotal = roundCurrency(
+    Array.from(slabs.values()).reduce((sum, slabSubtotal) => sum + slabSubtotal, 0)
+  );
+  const discount = roundCurrency(Number(schemeDiscount || 0) + Number(cashDiscount || 0));
+
+  let taxableTotal = 0;
+  let totalCGST = 0;
+  let totalSGST = 0;
+
+  slabs.forEach((slabSubtotal, gstRate) => {
+    const slabDiscount = subTotal > 0 ? (discount * slabSubtotal) / subTotal : 0;
+    const slabTaxable = slabSubtotal - slabDiscount;
+    const slabGST = (slabTaxable * gstRate) / 100;
+
+    taxableTotal += slabTaxable;
+    totalCGST += roundCurrency(slabGST / 2);
+    totalSGST += roundCurrency(slabGST / 2);
+  });
+
+  taxableTotal = roundCurrency(taxableTotal);
+  totalCGST = roundCurrency(totalCGST);
+  totalSGST = roundCurrency(totalSGST);
+
+  const total = roundCurrency(taxableTotal + totalCGST + totalSGST);
+  const grandTotal = roundCurrency(Math.round(total));
+  const roundOff = roundCurrency(grandTotal - total);
+
+  return {
+    subTotal,
+    discount,
+    taxableTotal,
+    totalCGST,
+    totalSGST,
+    total,
+    roundOff,
+    grandTotal,
+  };
+};
+
+const getSavedPurchaseOrderTotals = (po, fallbackTotals) => ({
+  ...fallbackTotals,
+  subTotal: roundCurrency(firstDefined(po?.sub_total, fallbackTotals.subTotal)),
+  totalCGST: roundCurrency(firstDefined(po?.cgst, po?.total_cgst, fallbackTotals.totalCGST)),
+  totalSGST: roundCurrency(firstDefined(po?.sgst, po?.total_sgst, fallbackTotals.totalSGST)),
+  taxableTotal: roundCurrency(firstDefined(po?.taxable_total, fallbackTotals.taxableTotal)),
+  total: roundCurrency(firstDefined(po?.total, fallbackTotals.total)),
+  roundOff: roundCurrency(firstDefined(po?.round_off, fallbackTotals.roundOff)),
+  grandTotal: roundCurrency(firstDefined(po?.grand_total, fallbackTotals.grandTotal)),
+});
 
 const emptyItem = {
   name: "",
@@ -207,8 +287,7 @@ export default function PurchaseOrders() {
   const [notes, setNotes] = useState("");
   const [schemeDiscount, setSchemeDiscount] = useState(0);
   const [cashDiscount, setCashDiscount] = useState(0);
-  const [roundOff, setRoundOff] = useState(0);
-  const [isRoundOffManual, setIsRoundOffManual] = useState(false);
+  const [editBaselineSignature, setEditBaselineSignature] = useState(null);
   const [editingPO, setEditingPO] = useState(null);
   const [medicineSuggestions, setMedicineSuggestions] = useState([]);
   const [activeRow, setActiveRow] = useState(null);
@@ -399,36 +478,25 @@ export default function PurchaseOrders() {
     setItems(items.filter((_, idx) => idx !== i));
   };
 
-  const total = items.reduce((sum, i) => {
-    return sum + Number(i.quantity || 0) * Number(i.purchase_price || 0);
-  }, 0);
+  const calculatedTotals = calculatePurchaseOrderTotals(items, schemeDiscount, cashDiscount);
+  const currentCalculationSignature = getPurchaseOrderCalculationSignature(
+    items,
+    schemeDiscount,
+    cashDiscount
+  );
+  const shouldUseSavedTotals =
+    editingPO && editBaselineSignature === currentCalculationSignature;
+  const displayTotals = shouldUseSavedTotals
+    ? getSavedPurchaseOrderTotals(editingPO, calculatedTotals)
+    : calculatedTotals;
 
-  const subTotal = total;
-
-const totalGST = items.reduce((sum, i) => {
-  const qty = Number(i.quantity || 0);
-  const price = Number(i.purchase_price || 0);
-  const gst = Number(i.gst_rate || 0);
-
-  return sum + ((qty * price) * gst) / 100;
-}, 0);
-
-const totalCGST = totalGST / 2;
-const totalSGST = totalGST / 2;
-
-const rawGrandTotal =
-  subTotal -
-  Number(schemeDiscount || 0) -
-  Number(cashDiscount || 0) +
-  totalGST;
-
-const grandTotal = rawGrandTotal + Number(roundOff || 0);
-
-  useEffect(() => {
-    if (isRoundOffManual) return;
-
-    setRoundOff(roundCurrency(Math.round(rawGrandTotal) - rawGrandTotal));
-  }, [rawGrandTotal, isRoundOffManual]);
+  const subTotal = displayTotals.subTotal;
+  const taxableTotal = displayTotals.taxableTotal;
+  const totalCGST = displayTotals.totalCGST;
+  const totalSGST = displayTotals.totalSGST;
+  const total = displayTotals.total;
+  const roundOff = displayTotals.roundOff;
+  const grandTotal = displayTotals.grandTotal;
 
   const openNewPO = () => {
     setEditingPO(null);
@@ -438,8 +506,7 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
     setPoDate(new Date().toISOString().split("T")[0]);
     setSchemeDiscount(0);
     setCashDiscount(0);
-    setRoundOff(0);
-    setIsRoundOffManual(false);
+    setEditBaselineSignature(null);
     setItems([{ ...emptyItem }]);
     setMedicineSuggestions([]);
     setRowMedicines({});
@@ -457,10 +524,16 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
     setPoDate(po.po_date || new Date().toISOString().split("T")[0]);
     setSchemeDiscount(po.scheme_discount || 0);
     setCashDiscount(po.cash_discount || 0);
-    setRoundOff(po.round_off || 0);
-    setIsRoundOffManual(true);
+    const poItems = (po.items || []).map((i) => ({ ...emptyItem, ...i }));
 
-    setItems((po.items || []).map((i) => ({ ...emptyItem, ...i })));
+    setItems(poItems);
+    setEditBaselineSignature(
+      getPurchaseOrderCalculationSignature(
+        poItems,
+        po.scheme_discount || 0,
+        po.cash_discount || 0
+      )
+    );
     setRowMedicines({});
     setRowBatchOptions({});
     setActiveBatchRow(null);
@@ -501,12 +574,12 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
       po_date: poDate,
       scheme_discount: Number(schemeDiscount || 0),
       cash_discount: Number(cashDiscount || 0),
-      round_off: roundCurrency(roundOff),
+      round_off: roundOff,
 
       sub_total: subTotal,
       cgst: totalCGST,
       sgst: totalSGST,
-      grand_total: roundCurrency(grandTotal),
+      grand_total: grandTotal,
       items: validItems.map((i) => {
         const item = { ...i };
         delete item.low_stock_threshold;
@@ -546,8 +619,7 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
       setNotes("");
       setSchemeDiscount(0);
       setCashDiscount(0);
-      setRoundOff(0);
-      setIsRoundOffManual(false);
+      setEditBaselineSignature(null);
       setRowMedicines({});
       setRowBatchOptions({});
       setActiveBatchRow(null);
@@ -974,12 +1046,14 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
       <Input
         type="number"
         step="0.01"
-        value={roundOff}
-        onChange={(e) => {
-          setIsRoundOffManual(true);
-          setRoundOff(e.target.value);
-        }}
+        value={roundOff.toFixed(2)}
+        readOnly
       />
+    </div>
+
+    <div>
+      <Label>Taxable Total</Label>
+      <Input value={taxableTotal.toFixed(2)} readOnly />
     </div>
 
     <div>
@@ -990,6 +1064,11 @@ const grandTotal = rawGrandTotal + Number(roundOff || 0);
     <div>
       <Label>Total SGST</Label>
       <Input value={totalSGST.toFixed(2)} readOnly />
+    </div>
+
+    <div>
+      <Label>Total</Label>
+      <Input value={total.toFixed(2)} readOnly />
     </div>
 
     <div className="md:col-span-2">
