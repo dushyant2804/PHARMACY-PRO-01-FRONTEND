@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFont } from "@/contexts/FontContext";
 import { fonts } from "@/lib/fonts";
 import WelcomeScreen from "@/components/WelcomeScreen";
+import PasswordChangeForm from "@/components/PasswordChangeForm";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -208,6 +209,17 @@ export default function Settings() {
         <h1 className="font-heading text-3xl md:text-4xl font-bold">
           Settings
         </h1>
+      </div>
+
+      {/* ================= SECURITY ================= */}
+      <div className="bg-white border border-slate-200 rounded-sm p-5" data-testid="change-password-section">
+        <div className="font-heading font-semibold mb-1">Change Password</div>
+        <p className="text-sm text-slate-600 mb-4">
+          Update your own password. Password policy and authorization are enforced by the server.
+        </p>
+        <div className="max-w-md">
+          <PasswordChangeForm />
+        </div>
       </div>
 
       {/* ================= FONT SETTINGS (NEW SECTION) ================= */}

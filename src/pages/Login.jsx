@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,23 +9,28 @@ import { toast } from "sonner";
 import { formatApiError } from "@/lib/api";
 
 export default function Login() {
-  const { login, user } = useAuth();
+  const { login, user, passwordExpired } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("admin@pharmacy.com");
   const [password, setPassword] = useState("admin123");
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
-    if (user) navigate("/");
-  }, [user, navigate]);
+    if (user) navigate(passwordExpired ? "/password-expired" : "/");
+  }, [user, passwordExpired, navigate]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
-      toast.success("Welcome back");
-      navigate("/");
+      const result = await login(email, password);
+      if (result?.password_expired === true || result?.passwordExpired === true || (result?.user?.password_expired === true || result?.user?.passwordExpired === true)) {
+        toast.error("Your password has expired. Set a new password to continue.");
+        navigate("/password-expired", { replace: true });
+      } else {
+        toast.success("Welcome back");
+        navigate("/");
+      }
     } catch (err) {
       toast.error(formatApiError(err));
     } finally {
@@ -91,9 +96,14 @@ export default function Login() {
               />
             </div>
             <div>
-              <Label htmlFor="password" className="text-xs uppercase tracking-wider font-semibold text-slate-600">
-                Password
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-xs uppercase tracking-wider font-semibold text-slate-600">
+                  Password
+                </Label>
+                <Link to="/forgot-password" className="text-xs font-medium text-blue-600 hover:text-blue-700" data-testid="forgot-password-link">
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
@@ -114,8 +124,14 @@ export default function Login() {
             </Button>
           </form>
           <div className="mt-8 p-4 border border-slate-200 rounded-sm bg-slate-50 text-xs">
-            <div className="font-semibold text-slate-700 uppercase tracking-wider text-[10px] mb-2">Demo Credentials</div>
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="font-semibold text-slate-700 uppercase tracking-wider text-[10px]">Demo Credentials</div>
+              <button type="button" onClick={() => { setEmail("admin@pharmacy.com"); setPassword("admin123"); }} className="font-medium text-blue-600 hover:text-blue-700" data-testid="use-demo-login">
+                Use demo account
+              </button>
+            </div>
             <div className="font-mono text-slate-600">admin@pharmacy.com / admin123</div>
+            <div className="mt-2 text-slate-500">Demo mode uses sample data only.</div>
           </div>
         </div>
       </div>

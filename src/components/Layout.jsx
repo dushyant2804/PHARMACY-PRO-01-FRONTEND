@@ -32,7 +32,7 @@ const nav = [
   { to: "/distributors", label: "Distributors", icon: Truck, roles: ["admin", "pharmacist"] },
   { to: "/customers", label: "Customers", icon: Users, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "pharmacist"] },
-  { to: "/settings", label: "Settings", icon: SettingsIcon, roles: ["admin"] },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, roles: ["admin", "cashier", "pharmacist"] },
 ];
 
 export default function Layout({ children }) {
@@ -97,6 +97,11 @@ export default function Layout({ children }) {
           <div className="text-[10px] uppercase tracking-[0.15em] text-slate-400 mt-0.5">
             Pharmacy OS
           </div>
+          {user?.demo_mode && (
+            <div className="inline-flex mt-2 px-1.5 py-0.5 rounded-sm border border-amber-400/40 bg-amber-400/10 text-[9px] uppercase tracking-wider font-semibold text-amber-300" data-testid="demo-mode-badge">
+              Demo Mode
+            </div>
+          )}
         </div>
       </div>
 

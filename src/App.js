@@ -18,6 +18,8 @@ import { Toaster } from "sonner";
 import WelcomeScreen from "@/components/WelcomeScreen";
 
 import Login from "@/pages/Login";
+import ForgotPassword from "@/pages/ForgotPassword";
+import PasswordExpired from "@/pages/PasswordExpired";
 import Dashboard from "@/pages/Dashboard";
 import Inventory from "@/pages/Inventory";
 import Billing from "@/pages/Billing";
@@ -64,7 +66,7 @@ function NotFound() {
 }
 
 function Protected({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, passwordExpired } = useAuth();
   const location = useLocation();
 
   const [showWelcome, setShowWelcome] = useState(() => localStorage.getItem("welcomeEnabled") !== "false" && !sessionStorage.getItem("welcome-shown"));
@@ -103,7 +105,7 @@ function Protected({ children }) {
     }, 2500);
 
     return () => clearTimeout(t);
-  }, [location.pathname]);
+  }, [location.pathname, user]);
 
   if (loading) {
     return (
@@ -115,6 +117,10 @@ function Protected({ children }) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (passwordExpired) {
+    return <Navigate to="/password-expired" replace />;
   }
 
   if (showWelcome) {
@@ -140,6 +146,8 @@ function App() {
 
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/password-expired" element={<PasswordExpired />} />
 
             <Route
               path="/"
