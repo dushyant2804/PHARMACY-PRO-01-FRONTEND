@@ -672,16 +672,27 @@ export default function PurchaseReturns() {
     setBatchSearchOpen(false);
   };
 
+  const getSelectedBatchOption = () => batchOptions.find(
+    (option, index) => getBatchOptionKey(option, index) === selectedBatchKey
+  );
+
   const validateForm = () => {
+    const returnQuantity = Number(form.return_quantity);
+    const availableStock = Number(form.available_stock);
+    const purchaseRate = Number(form.purchase_rate);
+
     if (!form.return_date) return "Return date is required";
     if (!form.distributor_id) return "Distributor is required";
-    if (!form.medicine_name.trim()) return "Medicine name is required";
-    if (!selectedBatchKey || !form.batch_number.trim()) return "Select an exact medicine batch";
+    if (!form.medicine_name.trim()) return "Medicine is required";
+    if (!form.batch_number.trim()) return "Batch is required";
+    if (!selectedBatchKey) return "Select an exact medicine batch";
+    if (!getSelectedBatchOption()) return "Selected medicine batch was not found. Please select it again";
     if (!form.expiry_date) return "Expiry date is required";
-    if (!form.return_quantity || Number(form.return_quantity) <= 0) return "Return quantity must be greater than 0";
-    if (Number(form.return_quantity) > Number(form.available_stock || 0)) return "Return quantity cannot exceed available stock";
-    if (form.purchase_rate === "" || Number(form.purchase_rate) < 0) return "Purchase rate is required";
-    if (!form.reason) return "Reason is required";
+    if (form.return_quantity === "") return "Return quantity is required";
+    if (!Number.isFinite(returnQuantity) || returnQuantity <= 0) return "Return quantity must be greater than 0";
+    if (!Number.isFinite(availableStock) || returnQuantity > availableStock) return "Return quantity cannot exceed available stock";
+    if (form.purchase_rate === "" || !Number.isFinite(purchaseRate) || purchaseRate < 0) return "Purchase rate is required";
+    if (!form.reason?.trim()) return "Return reason is required";
     return "";
   };
 
@@ -694,7 +705,6 @@ export default function PurchaseReturns() {
       return;
     }
 
-    const selectedReturnData = getSelectedReturnData();
     const payload = {
       return_date: form.return_date,
       distributor_id: form.distributor_id,
@@ -1004,7 +1014,7 @@ export default function PurchaseReturns() {
             <DialogTitle className="font-heading">New Purchase Return</DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={submit} noValidate className="space-y-4">
             <div className="grid md:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs uppercase font-semibold text-slate-600">Return Date</Label>
