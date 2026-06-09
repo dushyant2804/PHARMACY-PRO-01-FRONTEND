@@ -14,6 +14,7 @@ import {
   Download,
   Upload,
   UserPlus,
+  Trash2,
   Image as ImageIcon,
   X,
 } from "lucide-react";
@@ -25,6 +26,7 @@ import { useFont } from "@/contexts/FontContext";
 import { fonts } from "@/lib/fonts";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import PasswordChangeForm from "@/components/PasswordChangeForm";
+import { getUserDeleteProtection, getUserId } from "@/lib/userDeletion";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -36,6 +38,7 @@ export default function Settings() {
   const sigRef = useRef();
 
   const [users, setUsers] = useState([]);
+  const [deletingUserId, setDeletingUserId] = useState(null);
 
   const [form, setForm] = useState({
     email: "",
@@ -163,6 +166,23 @@ export default function Settings() {
       loadUsers();
     } catch (e) {
       toast.error(formatApiError(e));
+    }
+  };
+
+  const deleteUser = async (account) => {
+    const userId = getUserId(account);
+    if (getUserDeleteProtection(account, user) || userId == null) return;
+    if (!window.confirm("Delete this user permanently?")) return;
+
+    setDeletingUserId(String(userId));
+    try {
+      await api.delete(`/users/${encodeURIComponent(userId)}`);
+      toast.success("User deleted");
+      loadUsers();
+    } catch (e) {
+      toast.error(formatApiError(e));
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -519,21 +539,42 @@ export default function Settings() {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Role</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.name}</td>
-                  <td className="font-mono text-xs">
-                    {u.email}
-                  </td>
-                  <td className="uppercase text-xs tracking-wider font-semibold">
-                    {u.role}
-                  </td>
-                </tr>
-              ))}
+              {users.map((u) => {
+                const userId = getUserId(u);
+                const deleteProtection = getUserDeleteProtection(u, user);
+                const isDeleting = deletingUserId === String(userId);
+
+                return (
+                  <tr key={userId ?? u.email}>
+                    <td>{u.name}</td>
+                    <td className="font-mono text-xs">
+                      {u.email}
+                    </td>
+                    <td className="uppercase text-xs tracking-wider font-semibold">
+                      {u.role}
+                    </td>
+                    <td className="text-right">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        disabled={Boolean(deleteProtection) || isDeleting}
+                        title={deleteProtection || `Delete ${u.name || u.email}`}
+                        aria-label={deleteProtection || `Delete ${u.name || u.email}`}
+                        onClick={() => deleteUser(u)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {isDeleting ? "Deleting..." : "Delete"}
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
