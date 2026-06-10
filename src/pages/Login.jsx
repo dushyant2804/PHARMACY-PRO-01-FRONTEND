@@ -12,7 +12,18 @@ import { formatApiError } from "@/lib/api";
 function Blister({ className, count = 8, dark = false }) {
   return (
     <div className={`login-blister ${dark ? "login-blister--dark" : ""} ${className}`}>
-      {Array.from({ length: count }).map((_, index) => <i key={index} />)}
+      {Array.from({ length: count }).map((_, index) => <i key={index}><b /></i>)}
+    </div>
+  );
+}
+
+function MedicineBox({ className, children }) {
+  return (
+    <div className={`medicine-box ${className}`}>
+      <div className="medicine-box__front">{children}</div>
+      <i className="medicine-box__top" />
+      <i className="medicine-box__side" />
+      <i className="medicine-box__shadow" />
     </div>
   );
 }
@@ -22,15 +33,16 @@ function MedicineScene() {
     <div className="medicine-workstation" aria-hidden="true">
       <div className="pharmacy-shelves"><i /><i /><i /><i /><i /><i /><i /><i /></div>
       <div className="counter-surface" />
-      <div className="medicine-box medicine-box--revital"><small>Rx</small><strong>REVITAL</strong><span>Multivitamin &amp; Minerals<br />Capsules for Daily Health</span><em>10 × 10 Capsules</em></div>
-      <div className="medicine-box medicine-box--azithro"><small>Rx</small><strong>Azithromycin</strong><span>Tablets IP 500 mg</span><em>10 × 3 Tablets</em></div>
-      <div className="medicine-box medicine-box--para"><small>Rx</small><strong>Paracetamol</strong><span>Tablets IP 650 mg</span><em>10 × 15 Tablets</em></div>
-      <div className="medicine-box medicine-box--amoxi"><small>Rx</small><strong>Amoxicillin &amp;<br />Potassium Clavulanate</strong><span>Tablets IP</span><em>625 mg</em></div>
+      <div className="counter-reflection" />
+      <MedicineBox className="medicine-box--revital"><small>Rx</small><strong>REVITAL</strong><span>Multivitamin &amp; Minerals<br />Capsules for Daily Health</span><em>10 × 10 Capsules</em></MedicineBox>
+      <MedicineBox className="medicine-box--azithro"><small>Rx</small><strong>Azithromycin</strong><span>Tablets IP 500 mg</span><em>10 × 3 Tablets</em></MedicineBox>
+      <MedicineBox className="medicine-box--para"><small>Rx</small><strong>Paracetamol</strong><span>Tablets IP 650 mg</span><em>10 × 15 Tablets</em></MedicineBox>
+      <MedicineBox className="medicine-box--amoxi"><small>Rx</small><strong>Amoxicillin &amp;<br />Potassium Clavulanate</strong><span>Tablets IP</span><em>625 mg</em></MedicineBox>
       <Blister className="blister-one" count={10} />
       <Blister className="blister-two" count={8} dark />
       <div className="medicine-bottle"><div className="bottle-label">PHARMACYOS<br /><small>TABLETS IP</small></div></div>
       <div className="bottle-cap" />
-      {Array.from({ length: 13 }).map((_, index) => <i key={`pill-${index}`} className={`loose-pill loose-pill--${index + 1}`} />)}
+      {Array.from({ length: 13 }).map((_, index) => <i key={`pill-${index}`} className={`loose-pill ${index > 9 ? "loose-pill--tablet" : "loose-pill--capsule"} loose-pill--${index + 1}`} />)}
     </div>
   );
 }
