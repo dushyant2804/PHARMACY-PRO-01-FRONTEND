@@ -53,9 +53,7 @@ export default function Login() {
   };
 
   return (
-    <main className="login-shell" style={{ "--login-hero-image": 'url("/login-pharmacy-hero.png")' }}>
-      <section className="login-visual-panel" aria-label="PharmacyOS pharmacy workspace" />
-
+    <main className="login-shell">
       <section className="login-form-panel">
         <div className="login-card">
           <header>
