@@ -290,3 +290,30 @@ body { background: #eef2ef; }
   .premium-panel, .app-canvas .bg-white { border-radius: 12px; }
   .data-table { min-width: 680px; }
 }
+
+/* PharmacyOS update center */
+.update-pill {
+  border: 1px solid rgba(253, 230, 138, .15);
+  background: linear-gradient(135deg, rgba(255, 255, 255, .07), rgba(52, 211, 153, .04));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .04);
+}
+.update-pill-available { border-color: rgba(252, 211, 77, .35); animation: updatePillGlow 2.8s ease-in-out infinite; }
+.update-status-dot { display: inline-block; width: .375rem; height: .375rem; border-radius: 999px; box-shadow: 0 0 10px currentColor; }
+.update-dialog { background: rgba(255, 255, 255, .98); box-shadow: 0 30px 90px rgba(3, 35, 28, .28); }
+.update-dialog-hero { position: relative; overflow: hidden; background: radial-gradient(circle at 90% 0%, rgba(251, 191, 36, .25), transparent 15rem), linear-gradient(135deg, #0b4337, #06271f); }
+.update-dialog-hero::after { content: ""; position: absolute; right: -35px; bottom: -75px; width: 180px; height: 180px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 50%; box-shadow: 0 0 0 28px rgba(255, 255, 255, .025), 0 0 0 56px rgba(255, 255, 255, .018); }
+.update-icon-shell { display: grid; width: 50px; height: 50px; place-items: center; border: 1px solid rgba(253, 230, 138, .25); border-radius: 16px; background: rgba(255, 255, 255, .09); color: #fde68a; box-shadow: inset 0 1px rgba(255, 255, 255, .13); }
+.update-type-badge { border: 1px solid rgba(167, 243, 208, .22); border-radius: 999px; background: rgba(52, 211, 153, .1); padding: 5px 9px; color: #a7f3d0; font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.update-lock-screen { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 20px; background: radial-gradient(circle at 50% 35%, rgba(16, 185, 129, .17), transparent 22rem), rgba(2, 18, 14, .94); backdrop-filter: blur(15px); animation: updateFadeIn .25s ease-out; }
+.update-progress-card { width: min(100%, 390px); padding: 40px 30px 34px; border: 1px solid rgba(253, 230, 138, .13); border-radius: 26px; background: linear-gradient(145deg, rgba(255, 255, 255, .085), rgba(255, 255, 255, .025)); box-shadow: 0 28px 100px rgba(0, 0, 0, .35), inset 0 1px rgba(255, 255, 255, .08); color: white; text-align: center; }
+.update-progress-card h2 { margin-top: 25px; color: #f7faf9; font-family: var(--font-heading); font-size: 24px; font-weight: 700; }
+.update-progress-card p { margin-top: 9px; color: rgba(209, 250, 229, .6); font-size: 13px; line-height: 1.7; }
+.update-orbit { position: relative; display: grid; width: 74px; height: 74px; margin: auto; place-items: center; border: 1px solid rgba(167, 243, 208, .13); border-radius: 50%; background: rgba(16, 185, 129, .07); }
+.update-orbit span { position: absolute; inset: -6px; border: 2px solid transparent; border-top-color: #fcd34d; border-right-color: rgba(52, 211, 153, .5); border-radius: 50%; animation: updateSpin 1.15s linear infinite; }
+.update-progress-line { height: 3px; margin-top: 28px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, .07); }
+.update-progress-line span { display: block; width: 45%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, transparent, #fcd34d, #34d399, transparent); animation: updateProgress 1.35s ease-in-out infinite; }
+@keyframes updateSpin { to { transform: rotate(360deg); } }
+@keyframes updateProgress { from { transform: translateX(-120%); } to { transform: translateX(280%); } }
+@keyframes updateFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes updatePillGlow { 50% { box-shadow: 0 0 24px rgba(251, 191, 36, .12), inset 0 1px rgba(255, 255, 255, .06); } }
+@media (prefers-reduced-motion: reduce) { .update-pill-available, .update-orbit span, .update-progress-line span { animation-duration: .001ms; animation-iteration-count: 1; } }
