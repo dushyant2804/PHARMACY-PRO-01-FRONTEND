@@ -42,7 +42,7 @@ function MedicineScene() {
       <Blister className="blister-two" count={8} dark />
       <div className="medicine-bottle"><div className="bottle-label">PHARMACYOS<br /><small>TABLETS IP</small></div></div>
       <div className="bottle-cap" />
-      {Array.from({ length: 13 }).map((_, index) => <i key={`pill-${index}`} className={`loose-pill ${index > 9 ? "loose-pill--tablet" : "loose-pill--capsule"} loose-pill--${index + 1}`} />)}
+      {Array.from({ length: 7 }).map((_, index) => <i key={`pill-${index}`} className={`loose-pill ${index > 4 ? "loose-pill--tablet" : "loose-pill--capsule"} loose-pill--${index + 1}`} />)}
     </div>
   );
 }
