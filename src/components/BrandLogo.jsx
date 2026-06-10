@@ -1,8 +1,8 @@
 import React from "react";
 
-export default function BrandLogo({ compact = false, light = false, hero = false, className = "" }) {
+export default function BrandLogo({ compact = false, light = false, className = "" }) {
   return (
-    <div className={`brand-logo ${compact ? "brand-logo--compact" : ""} ${hero ? "brand-logo--hero" : ""} ${light ? "brand-logo--light" : ""} ${className}`} aria-label="PharmacyOS — Manage, Bill, Grow">
+    <div className={`brand-logo ${compact ? "brand-logo--compact" : ""} ${light ? "brand-logo--light" : ""} ${className}`} aria-label="PharmacyOS — Manage, Bill, Grow">
       <img src="/pharmacyos-logo.svg" alt="" />
       <div className="brand-logo__type">
         <div className="brand-logo__name"><span>PHARMACY</span><strong>OS</strong></div>
