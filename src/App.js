@@ -40,6 +40,7 @@ import Onboarding from "@/pages/Onboarding";
 import Layout from "@/components/Layout";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import RouteLoader from "@/components/RouteLoader";
+import UpdateCenter from "@/components/UpdateCenter";
 import { useLocation } from "react-router-dom";
 
 function NotFound() {
@@ -141,6 +142,7 @@ return (
 function App() {
   return (
     <div className="App">
+      <UpdateCenter>
       <AuthProvider>
          <HashRouter>
           <Toaster position="top-right" richColors />
@@ -299,6 +301,7 @@ function App() {
           </Routes>
         </HashRouter>
       </AuthProvider>
+      </UpdateCenter>
     </div>
   );
 }

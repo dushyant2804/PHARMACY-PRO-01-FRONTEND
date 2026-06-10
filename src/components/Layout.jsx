@@ -17,12 +17,10 @@ import {
   PackagePlus,
   BookOpen,
   RotateCcw,
-  RefreshCw,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BrandLogo from "@/components/BrandLogo";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { UpdatePill } from "@/components/UpdateCenter";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "cashier", "pharmacist"] },
@@ -46,28 +44,6 @@ export default function Layout({ children }) {
   const [open, setOpen] = useState(false);
   const [loadingScreen, setLoadingScreen] = useState(false);
   const [loadingText, setLoadingText] = useState("Dashboard");
-  const [updateOpen, setUpdateOpen] = useState(false);
-  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
-  const currentVersion = process.env.REACT_APP_VERSION || "2.0";
-  const [deployedVersion, setDeployedVersion] = useState(currentVersion);
-  const appliedVersion = localStorage.getItem("pharmacyos_applied_version") || currentVersion;
-  const updateAvailable = deployedVersion !== currentVersion && appliedVersion !== deployedVersion;
-
-  useEffect(() => {
-    fetch(`/version.json?check=${Date.now()}`, { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
-      .then((metadata) => {
-        const version = metadata?.version || metadata?.app_version;
-        if (version) setDeployedVersion(String(version));
-      })
-      .catch(() => {});
-  }, []);
-
-  const applyUpdate = () => {
-    localStorage.setItem("pharmacyos_applied_version", deployedVersion);
-    window.location.reload();
-  };
-
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -154,11 +130,7 @@ export default function Layout({ children }) {
         })}
       </nav>
 
-      <div className="mx-3 mb-3 rounded-xl border border-amber-200/15 bg-gradient-to-br from-white/[.07] to-emerald-400/[.04] p-3 text-white shadow-inner">
-        <div className="flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-[.18em] text-amber-200">PharmacyOS</span><span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[9px] text-emerald-300">v{currentVersion}</span></div>
-        {updateAvailable ? <button onClick={() => setUpdateOpen(true)} className="mt-2 flex w-full items-center justify-between text-left text-[11px] text-slate-300"><span><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-300"/>Update available</span><RefreshCw className="h-3 w-3"/></button> : <div className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-300"><span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-300"/>You’re up to date</div>}
-        <button onClick={() => setWhatsNewOpen(true)} className="mt-2 text-[10px] font-semibold text-amber-200/80 hover:text-amber-200">What’s New →</button>
-      </div>
+      <UpdatePill />
 
       {/* FOOTER */}
       <div className="px-4 py-3 border-t border-slate-800">
@@ -206,8 +178,6 @@ export default function Layout({ children }) {
   </div>
 )}
 
-      <Dialog open={updateOpen} onOpenChange={setUpdateOpen}><DialogContent className="max-w-md rounded-2xl"><DialogHeader><DialogTitle className="flex items-center gap-2"><RefreshCw className="h-5 text-emerald-700"/>New update available</DialogTitle></DialogHeader><p className="text-sm leading-6 text-slate-600">Refresh to load latest features and improvements.<br/>Your pharmacy data will remain safe.</p><div className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800"><b>Refresh</b> reloads data. <b>Update</b> loads the newest deployed PharmacyOS frontend.</div><Button onClick={applyUpdate} className="bg-emerald-900 hover:bg-emerald-800">Update PharmacyOS</Button></DialogContent></Dialog>
-      <Dialog open={whatsNewOpen} onOpenChange={setWhatsNewOpen}><DialogContent className="max-w-md rounded-2xl"><DialogHeader><DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 text-amber-600"/>What’s new in PharmacyOS</DialogTitle></DialogHeader><div className="space-y-3 text-sm">{[["New features","Pharmacy intelligence reports, onboarding, and update center."],["Improvements","Premium workspace, responsive charts, and faster navigation."],["Fixes","Clearer refresh behavior and refined mobile layouts."]].map(([a,b])=><div key={a} className="rounded-xl border bg-slate-50 p-3"><b>{a}</b><p className="mt-1 text-xs text-slate-500">{b}</p></div>)}</div></DialogContent></Dialog>
       {/* DESKTOP SIDEBAR */}
       <aside className="hidden md:flex w-60 sidebar-premium flex-col fixed inset-y-0 left-0">
         {SidebarContent}
