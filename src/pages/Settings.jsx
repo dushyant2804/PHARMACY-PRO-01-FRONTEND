@@ -48,7 +48,7 @@ export default function Settings() {
   });
 
   const [settings, setSettings] = useState({
-    business_name: "MedStock Pharmacy",
+    business_name: "PharmacyOS",
     business_address: "",
     business_phone: "",
     business_gstin: "",

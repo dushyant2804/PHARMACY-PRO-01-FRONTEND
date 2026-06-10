@@ -86,7 +86,7 @@ export default function InvoiceDetail() {
       <div className="print-area bg-white border border-slate-200 rounded-sm p-6 md:p-10 max-w-4xl" ref={printRef}>
         <div className="flex justify-between items-start border-b border-slate-300 pb-4">
           <div>
-            <div className="font-heading text-2xl font-bold">{settings?.business_name || "MedStock Pharmacy"}</div>
+            <div className="font-heading text-2xl font-bold">{settings?.business_name || "PharmacyOS"}</div>
             {settings?.business_address && <div className="text-xs text-slate-600">{settings.business_address}</div>}
             {settings?.business_phone && <div className="text-xs text-slate-600">Ph: {settings.business_phone}</div>}
             {settings?.business_gstin && <div className="text-xs font-mono text-slate-600">GSTIN: {settings.business_gstin}</div>}

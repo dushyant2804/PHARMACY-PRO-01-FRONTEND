@@ -17,8 +17,12 @@ import {
   PackagePlus,
   BookOpen,
   RotateCcw,
+  RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import BrandLogo from "@/components/BrandLogo";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "cashier", "pharmacist"] },
@@ -42,6 +46,8 @@ export default function Layout({ children }) {
   const [open, setOpen] = useState(false);
   const [loadingScreen, setLoadingScreen] = useState(false);
   const [loadingText, setLoadingText] = useState("Dashboard");
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -86,23 +92,9 @@ export default function Layout({ children }) {
   const SidebarContent = (
     <>
       {/* BRAND */}
-      <div className="px-5 py-5 border-b border-slate-800 flex items-center gap-2">
-        <div className="w-8 h-8 bg-blue-600 flex items-center justify-center rounded-sm">
-          <Pill className="w-5 h-5 text-white" strokeWidth={1.75} />
-        </div>
-        <div>
-          <div className="font-heading font-bold text-white text-base leading-none">
-            MedStock
-          </div>
-          <div className="text-[10px] uppercase tracking-[0.15em] text-slate-400 mt-0.5">
-            Pharmacy OS
-          </div>
-          {user?.demo_mode && (
-            <div className="inline-flex mt-2 px-1.5 py-0.5 rounded-sm border border-amber-400/40 bg-amber-400/10 text-[9px] uppercase tracking-wider font-semibold text-amber-300" data-testid="demo-mode-badge">
-              Demo Mode
-            </div>
-          )}
-        </div>
+      <div className="px-5 py-5 border-b border-white/10">
+        <BrandLogo compact light />
+        {user?.demo_mode && <div className="mt-3 inline-flex rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-200" data-testid="demo-mode-badge">Demo Mode</div>}
       </div>
 
       {/* NAV */}
@@ -143,6 +135,12 @@ export default function Layout({ children }) {
         })}
       </nav>
 
+      <div className="mx-3 mb-3 rounded-xl border border-amber-200/15 bg-gradient-to-br from-white/[.07] to-emerald-400/[.04] p-3 text-white shadow-inner">
+        <div className="flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-[.18em] text-amber-200">PharmacyOS</span><span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[9px] text-emerald-300">v2.0</span></div>
+        <button onClick={() => setUpdateOpen(true)} className="mt-2 flex w-full items-center justify-between text-left text-[11px] text-slate-300"><span><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-300"/>Update available</span><RefreshCw className="h-3 w-3"/></button>
+        <button onClick={() => setWhatsNewOpen(true)} className="mt-2 text-[10px] font-semibold text-amber-200/80 hover:text-amber-200">What’s new →</button>
+      </div>
+
       {/* FOOTER */}
       <div className="px-4 py-3 border-t border-slate-800">
         <div className="text-xs text-slate-400">{user?.name}</div>
@@ -164,7 +162,7 @@ export default function Layout({ children }) {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen app-canvas flex">
       {loadingScreen && (
     <div className="fixed inset-0 z-[999] bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
 
@@ -188,8 +186,11 @@ export default function Layout({ children }) {
     </div>
   </div>
 )}
+
+      <Dialog open={updateOpen} onOpenChange={setUpdateOpen}><DialogContent className="max-w-md rounded-2xl"><DialogHeader><DialogTitle className="flex items-center gap-2"><RefreshCw className="h-5 text-emerald-700"/>New update available</DialogTitle></DialogHeader><p className="text-sm leading-6 text-slate-600">Refresh to load latest features and improvements.<br/>Your pharmacy data will remain safe.</p><div className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800"><b>Refresh</b> reloads data. <b>Update</b> loads the newest deployed PharmacyOS frontend.</div><Button onClick={() => window.location.reload()} className="bg-emerald-900 hover:bg-emerald-800">Update PharmacyOS</Button></DialogContent></Dialog>
+      <Dialog open={whatsNewOpen} onOpenChange={setWhatsNewOpen}><DialogContent className="max-w-md rounded-2xl"><DialogHeader><DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 text-amber-600"/>What’s new in PharmacyOS</DialogTitle></DialogHeader><div className="space-y-3 text-sm">{[["New features","Pharmacy intelligence reports, onboarding, and update center."],["Improvements","Premium workspace, responsive charts, and faster navigation."],["Fixes","Clearer refresh behavior and refined mobile layouts."]].map(([a,b])=><div key={a} className="rounded-xl border bg-slate-50 p-3"><b>{a}</b><p className="mt-1 text-xs text-slate-500">{b}</p></div>)}</div></DialogContent></Dialog>
       {/* DESKTOP SIDEBAR */}
-      <aside className="hidden md:flex w-60 bg-slate-900 flex-col fixed inset-y-0 left-0">
+      <aside className="hidden md:flex w-60 sidebar-premium flex-col fixed inset-y-0 left-0">
         {SidebarContent}
       </aside>
 
@@ -200,7 +201,7 @@ export default function Layout({ children }) {
             className="md:hidden fixed inset-0 bg-slate-900/50 z-40"
             onClick={() => setOpen(false)}
           />
-          <aside className="md:hidden fixed inset-y-0 left-0 w-60 bg-slate-900 z-50 flex flex-col">
+          <aside className="md:hidden fixed inset-y-0 left-0 w-60 sidebar-premium z-50 flex flex-col">
             {SidebarContent}
           </aside>
         </>
@@ -217,9 +218,7 @@ export default function Layout({ children }) {
             {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <div className="font-heading font-bold text-slate-900">
-            MedStock
-          </div>
+          <div className="font-heading font-bold text-emerald-950">PharmacyOS</div>
 
           <div className="w-7" />
         </header>

@@ -279,6 +279,8 @@ export default function PurchaseOrders() {
 
   const [pos, setPos] = useState([]);
   const [dists, setDists] = useState([]);
+  const [returnCredits, setReturnCredits] = useState([]);
+  const [selectedReturnCredit, setSelectedReturnCredit] = useState("");
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -305,13 +307,15 @@ export default function PurchaseOrders() {
 
   const load = async () => {
     try {
-      const [poRes, dRes] = await Promise.all([
+      const [poRes, dRes, returnRes] = await Promise.all([
         api.get("/purchase-orders"),
         api.get("/distributors"),
+        api.get("/purchase-returns").catch(() => ({ data: [] })),
       ]);
 
       setPos(poRes.data || []);
       setDists(dRes.data || []);
+      setReturnCredits(normalizeCollection(returnRes.data));
     } catch (e) {
       toast.error("Failed to load purchase orders");
     }
@@ -497,6 +501,9 @@ export default function PurchaseOrders() {
   const total = displayTotals.total;
   const roundOff = displayTotals.roundOff;
   const grandTotal = displayTotals.grandTotal;
+  const selectedCredit = returnCredits.find((credit) => String(credit.id) === String(selectedReturnCredit));
+  const purchaseReturnAdjustment = roundCurrency(firstDefined(selectedCredit?.grand_total, selectedCredit?.total, selectedCredit?.return_total, selectedCredit?.amount, 0));
+  const finalPayableTotal = roundCurrency(Math.max(0, grandTotal - purchaseReturnAdjustment));
 
   const openNewPO = () => {
     setEditingPO(null);
@@ -507,6 +514,7 @@ export default function PurchaseOrders() {
     setSchemeDiscount(0);
     setCashDiscount(0);
     setEditBaselineSignature(null);
+    setSelectedReturnCredit("");
     setItems([{ ...emptyItem }]);
     setMedicineSuggestions([]);
     setRowMedicines({});
@@ -1009,6 +1017,10 @@ export default function PurchaseOrders() {
 
 </div>
 
+  <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+    <div className="grid gap-3 md:grid-cols-[1.5fr_.5fr] md:items-end"><div><Label>Apply purchase return credit</Label><select value={selectedReturnCredit} onChange={(e)=>setSelectedReturnCredit(e.target.value)} className="mt-2 h-10 w-full rounded-md border bg-white px-3 text-sm"><option value="">No purchase return adjustment</option>{returnCredits.filter((credit)=>!distId||String(credit.distributor_id)===String(distId)).map((credit)=><option key={credit.id} value={credit.id}>{credit.return_no||credit.reference_no||'Purchase return'} · {credit.distributor_name||'Distributor'} · {fmtINR(firstDefined(credit.grand_total,credit.total,credit.return_total,credit.amount,0))}</option>)}</select><p className="mt-1 text-[11px] text-slate-500">Select a recorded return or batch credit—no manual retyping required.</p></div><div className="rounded-lg bg-white p-3 text-right"><div className="text-[10px] uppercase tracking-wider text-slate-500">Return adjustment</div><div className="mt-1 font-bold text-amber-700">− {fmtINR(purchaseReturnAdjustment)}</div></div></div>
+  </div>
+
   {/* BILL SUMMARY */}
 <div className="border-t bg-slate-50 p-4">
 
@@ -1072,12 +1084,12 @@ export default function PurchaseOrders() {
     </div>
 
     <div className="md:col-span-2">
-      <Label>Grand Total</Label>
+      <Label>Final Payable Total</Label>
 
       <Input
-        value={grandTotal.toFixed(2)}
+        value={finalPayableTotal.toFixed(2)}
         readOnly
-        className="text-xl font-bold text-blue-700"
+        className="text-xl font-bold text-emerald-700"
       />
     </div>
 
@@ -1091,11 +1103,11 @@ export default function PurchaseOrders() {
 
   <div className="space-y-1">
     <div className="text-xs text-slate-500 uppercase tracking-wide">
-      Grand Total
+      Final Payable · after return credit
     </div>
 
-    <div className="text-2xl font-bold text-blue-700">
-      {fmtINR(grandTotal)}
+    <div className="text-2xl font-bold text-emerald-700">
+      {fmtINR(finalPayableTotal)}
     </div>
   </div>
 
