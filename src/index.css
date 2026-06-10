@@ -128,3 +128,22 @@ html {
 body {
   overflow-x: hidden;
 }
+
+/* PharmacyOS premium workspace */
+body { background: #eef2ef; }
+.app-canvas { background: radial-gradient(circle at 85% 0%, rgba(212,167,44,.11), transparent 24rem), linear-gradient(145deg,#f5f7f4 0%,#edf2ef 45%,#f8f6ef 100%); }
+.app-canvas main { background-image: linear-gradient(rgba(15,118,110,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(15,118,110,.022) 1px,transparent 1px); background-size: 34px 34px; }
+.sidebar-premium { background: radial-gradient(circle at 0 0,rgba(212,167,44,.13),transparent 16rem),linear-gradient(180deg,#09241e,#061712 70%,#04100d); box-shadow: 16px 0 50px rgba(4,24,19,.15); }
+.premium-panel,.app-canvas .bg-white { border-radius: 16px; border-color: rgba(148,163,184,.24); background: rgba(255,255,255,.86); box-shadow: 0 12px 35px rgba(15,40,33,.055),inset 0 1px rgba(255,255,255,.8); backdrop-filter: blur(10px); }
+.premium-kicker { font-size:10px; font-weight:800; letter-spacing:.2em; text-transform:uppercase; color:#b08020; }
+.gold-text { color:#e8c66d; text-shadow:0 1px 0 #5f4313,0 8px 28px rgba(212,167,44,.18); }
+.field-label { font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#475569; }
+.premium-input { height:46px; border-radius:11px; border-color:#d7dfdb; background:rgba(255,255,255,.85); }
+.login-shell { background:#061512; }
+.login-shell>section:first-child { background:radial-gradient(circle at 70% 40%,rgba(18,133,96,.2),transparent 22rem),linear-gradient(140deg,#03100d,#08261f 60%,#0b1b18); }
+.login-grid { position:absolute;inset:0;opacity:.15;background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,#000,transparent 80%); }
+.login-paper { opacity:.4;background-image:radial-gradient(#0f766e 0.65px,transparent .65px);background-size:16px 16px;mask-image:linear-gradient(135deg,#000,transparent 65%); }
+.designer-credit { width:max-content;color:#d3ad53;font-size:10px;letter-spacing:.13em;text-transform:uppercase;text-shadow:0 1px 0 #684b16,0 3px 6px rgba(0,0,0,.4); }
+.designer-credit span { display:block;margin-top:4px;font-family:"Great Vibes",cursive;font-size:25px;letter-spacing:0;text-transform:none;color:#e6c56d;text-shadow:none;transform:rotate(-4deg); }
+.medicine-scene{position:absolute;inset:0;pointer-events:none;perspective:900px}.med-box{position:absolute;width:185px;height:108px;padding:20px;background:linear-gradient(145deg,#fff,#e6ece9);color:#0d4437;border-radius:5px;border-left:24px solid #0b795c;box-shadow:0 28px 45px #0008;transform:rotate(-12deg) rotateX(55deg);right:9%;top:24%;}.med-box span{display:block;margin-top:10px;font-size:9px;letter-spacing:.15em;color:#64748b}.box-b{width:155px;height:90px;right:29%;top:13%;border-left-color:#c69a35;transform:rotate(8deg) rotateX(58deg);opacity:.8}.blister{position:absolute;display:grid;grid-template-columns:repeat(4,28px);gap:8px;padding:12px;background:linear-gradient(145deg,#dce4e0,#77847f);border-radius:10px;box-shadow:0 25px 40px #0008;right:13%;top:45%;transform:rotate(17deg) rotateX(50deg)}.blister i{width:26px;height:16px;border-radius:50%;background:radial-gradient(circle at 40% 30%,#fff,#9ba8a3);box-shadow:inset -2px -3px 5px #4b5b55}.blister-b{right:37%;top:35%;grid-template-columns:repeat(3,24px);opacity:.65}.capsule{position:absolute;width:38px;height:15px;border-radius:20px;background:linear-gradient(90deg,#e2b449 50%,#eee 50%);box-shadow:0 12px 16px #0007;right:28%;top:55%;transform:rotate(28deg)}.cap-b{right:19%;top:62%;transform:rotate(-32deg);background:linear-gradient(90deg,#08785b 50%,#eee 50%)}.tablet{position:absolute;width:19px;height:19px;border-radius:50%;background:#f2eee3;box-shadow:0 9px 14px #0008,inset -3px -3px 5px #b8b6ae;right:40%;top:58%}.tab-b{right:25%;top:70%}
+@media(max-width:767px){.app-canvas main .page-transition{padding:1rem}.premium-panel,.app-canvas .bg-white{border-radius:12px}.data-table{min-width:680px}}

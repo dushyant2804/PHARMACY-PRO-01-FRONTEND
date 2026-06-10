@@ -8,7 +8,7 @@ const getStored = (key, fallback) =>
 
 const getWelcomeSettings = (overrides = {}) => ({
   text: getStored("welcomeText", "WELCOME TO YOUR PHARMACY"),
-  logo: getStored("welcomeLogo", "💊"),
+  logo: getStored("welcomeLogo", "✚"),
   effect: getStored("welcomeEffect", "typing"),
   textColor: getStored("welcomeTextColor", "#ffffff"),
   textSize: getStored("welcomeTextSize", "48"),
@@ -114,9 +114,9 @@ export default function WelcomeScreen({
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950/80 via-black/50 to-slate-900/80" />
 
       {/* GLOW EFFECTS */}
-      <div className="absolute w-[500px] h-[500px] rounded-full bg-blue-500/10 blur-3xl -top-40 -left-40 animate-pulse" />
+      <div className="absolute w-[500px] h-[500px] rounded-full bg-emerald-500/10 blur-3xl -top-40 -left-40 animate-pulse" />
 
-      <div className="absolute w-[400px] h-[400px] rounded-full bg-cyan-500/10 blur-3xl bottom-0 right-0 animate-pulse" />
+      <div className="absolute w-[400px] h-[400px] rounded-full bg-amber-500/10 blur-3xl bottom-0 right-0 animate-pulse" />
 
       {/* MAIN CONTENT */}
       <div className={`${preview ? "min-h-[260px] p-8" : "h-full w-full px-8 py-10 md:px-16 md:py-16"} relative flex flex-col justify-start items-start`}>
@@ -149,7 +149,7 @@ export default function WelcomeScreen({
                 : "") +
 
               (effect === "terminal"
-                ? " font-mono text-green-400"
+                ? " font-mono text-emerald-400"
                 : "") +
 
               (effect === "fade"
@@ -173,7 +173,7 @@ export default function WelcomeScreen({
         {!preview && (
           <>
             <div className="mt-6 text-slate-500 tracking-[0.35em] uppercase text-xs md:text-sm">
-              MedStock Pharmacy Operating System
+              PharmacyOS · Precision Pharmacy Operating System
             </div>
 
             {/* SYSTEM STATUS */}
@@ -182,7 +182,7 @@ export default function WelcomeScreen({
               <div>Connecting billing engine...</div>
               <div>Loading distributor database...</div>
               <div>Syncing pharmacy records...</div>
-              <div className="text-green-400">System ready ✓</div>
+              <div className="text-emerald-400">System ready ✓</div>
             </div>
           </>
         )}

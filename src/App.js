@@ -35,6 +35,7 @@ import PurchaseOrderDetail from "@/pages/PurchaseOrderDetail";
 import PurchaseReturns from "@/pages/PurchaseReturns";
 import DailySales from "@/pages/DailySales";
 import Patients from "@/pages/Patients";
+import Onboarding from "@/pages/Onboarding";
 
 import Layout from "@/components/Layout";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -146,6 +147,9 @@ function App() {
 
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Onboarding />} />
+            <Route path="/verify-otp" element={<Onboarding initialStep={2} />} />
+            <Route path="/pharmacy-setup" element={<Onboarding initialStep={3} />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/password-expired" element={<PasswordExpired />} />
 

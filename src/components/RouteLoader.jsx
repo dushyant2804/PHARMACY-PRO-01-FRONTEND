@@ -25,24 +25,24 @@ export default function RouteLoader({ onDone }) {
   }, [onDone]);
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-white/80 backdrop-blur-md">
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-emerald-950/90 backdrop-blur-md">
       
       <div className="text-center space-y-3">
         
         {/* animated pulse ring */}
         <div className="relative flex items-center justify-center">
-          <div className="w-16 h-16 rounded-full border-4 border-blue-500 animate-ping opacity-30 absolute" />
-          <div className="w-10 h-10 rounded-full bg-blue-600 animate-pulse" />
+          <div className="w-16 h-16 rounded-full border-4 border-amber-400 animate-ping opacity-30 absolute" />
+          <div className="w-10 h-10 rounded-full bg-emerald-500 animate-pulse" />
         </div>
 
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-emerald-100">
           Loading module...
         </p>
 
         {/* progress */}
         <div className="w-48 h-1 bg-slate-200 rounded-full overflow-hidden">
           <div
-            className="h-full bg-blue-500 transition-all"
+            className="h-full bg-amber-400 transition-all"
             style={{ width: `${progress}%` }}
           />
         </div>

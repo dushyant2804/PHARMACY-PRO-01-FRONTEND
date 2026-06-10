@@ -85,3 +85,8 @@
   color: #475569;
   border: 1px solid #e2e8f0;
 }
+.sidebar-link.active { background: linear-gradient(90deg,#0f766e,#0d5e50); }
+.kpi-card { border-radius:16px; background:rgba(255,255,255,.88); box-shadow:0 10px 30px rgba(15,40,33,.05); }
+.data-table thead th { background:#f0f5f2; color:#426158; }
+.data-table tbody tr:nth-child(even){background:rgba(244,248,246,.65)}
+.data-table tbody tr:hover{background:#edf6f1}

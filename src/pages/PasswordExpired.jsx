@@ -25,7 +25,7 @@ export default function PasswordExpired() {
         </div>
         <h1 className="font-heading text-2xl font-bold text-slate-900">Password change required</h1>
         <p className="text-sm text-slate-600 mt-2 mb-6">
-          Your password has expired. Set a new password before continuing to MedStock.
+          Your password has expired. Set a new password before continuing to PharmacyOS.
         </p>
         <PasswordChangeForm mandatory onSuccess={completed} />
       </div>
