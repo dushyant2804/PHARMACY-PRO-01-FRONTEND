@@ -563,3 +563,168 @@ body { background: #eef2ef; }
   .login-card { padding: 34px; }
   .login-input-wrap input, .login-primary-button { height: 60px !important; }
 }
+
+/* Login-only scene composition: grounded dimensional pharmacy objects */
+@media (min-width: 851px) {
+  .login-hero-logo {
+    top: 4.5%;
+    width: 270px;
+    gap: 2px;
+    transform: translateX(-50%);
+    filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .58));
+  }
+
+  .login-hero-logo.brand-logo--hero img { width: 88px; height: 88px; opacity: .94; }
+  .login-hero-logo.brand-logo--hero .brand-logo__name { font-size: 31px; }
+  .login-hero-logo.brand-logo--hero .brand-logo__tagline { margin-top: 5px; font-size: 8px; letter-spacing: .18em; }
+  .login-hero-logo.brand-logo--hero .brand-logo__tagline i { width: 32px; }
+  .login-hero-logo.brand-logo--hero .brand-logo__pulse { height: 12px; margin-top: 3px; }
+  .login-hero-logo.brand-logo--light .brand-logo__name span { text-shadow: 0 2px 1px #3c260b, 0 4px 7px rgba(0, 0, 0, .46); }
+
+  .login-hero-copy { top: 31%; left: 10.5%; max-width: min(600px, 76%); }
+  .login-hero-copy h1 { font-size: clamp(34px, 2.75vw, 51px); line-height: 1.08; }
+  .login-hero-copy p { margin-top: 24px; max-width: 520px; }
+
+  .counter-surface {
+    background:
+      radial-gradient(ellipse at 38% 8%, rgba(211, 151, 72, .3), transparent 27%),
+      radial-gradient(ellipse at 78% 14%, rgba(113, 73, 35, .2), transparent 24%),
+      linear-gradient(128deg, #30271b, #11130e 60%, #070a08);
+    border-top: 2px solid rgba(229, 177, 91, .31);
+    box-shadow: 0 -24px 62px rgba(0, 0, 0, .68), inset 0 3px rgba(255, 218, 143, .04), inset 0 25px 45px rgba(194, 130, 49, .04);
+  }
+
+  .counter-reflection {
+    position: absolute;
+    z-index: 3;
+    right: 1%;
+    bottom: 0;
+    width: 80%;
+    height: 22%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(196, 135, 61, .16), rgba(85, 59, 31, .06) 40%, transparent 70%);
+    filter: blur(16px);
+    transform: scaleY(.35);
+    pointer-events: none;
+  }
+
+  .medicine-box {
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 3px;
+    background: none;
+    box-shadow: none;
+    transform-style: preserve-3d;
+    filter: saturate(.9) contrast(1.06);
+  }
+
+  .medicine-box__front {
+    position: absolute;
+    z-index: 3;
+    inset: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    padding: 12px 16px;
+    border: 1px solid rgba(91, 76, 54, .8);
+    border-radius: 3px 2px 2px 3px;
+    background:
+      repeating-linear-gradient(105deg, transparent 0 17px, rgba(74, 60, 40, .025) 18px 19px),
+      radial-gradient(circle at 20% 5%, rgba(255, 255, 255, .7), transparent 34%),
+      linear-gradient(150deg, #f2ead7, #c9bda4 76%, #aa9b81);
+    box-shadow: inset 0 1px rgba(255, 255, 255, .95), inset -12px 0 20px rgba(70, 54, 34, .12), 0 2px 1px rgba(255, 255, 255, .14);
+  }
+
+  .medicine-box__front:before { content: ""; position: absolute; inset: 0; background: linear-gradient(112deg, rgba(255,255,255,.25), transparent 24%, transparent 68%, rgba(64,44,25,.11)); pointer-events: none; }
+  .medicine-box__front:after { content: ""; position: absolute; right: 8%; top: 10%; width: 1px; height: 64%; background: rgba(65, 48, 28, .13); box-shadow: 3px 0 rgba(255,255,255,.35); }
+
+  .medicine-box__top {
+    position: absolute;
+    z-index: 2;
+    left: 2px;
+    right: -14px;
+    top: -13px;
+    height: 14px;
+    border: 1px solid rgba(93, 74, 47, .76);
+    background: linear-gradient(170deg, #fff8e8, #b9aa8d 78%);
+    clip-path: polygon(0 100%, 6% 0, 100% 0, 94% 100%);
+    box-shadow: inset 0 2px rgba(255,255,255,.72);
+  }
+
+  .medicine-box__side {
+    position: absolute;
+    z-index: 1;
+    top: -7px;
+    right: -20px;
+    width: 21px;
+    height: calc(100% + 1px);
+    border: 1px solid rgba(67, 53, 34, .85);
+    background: linear-gradient(90deg, #aa9a7e, #6f624e);
+    clip-path: polygon(0 7px, 100% 0, 100% calc(100% - 8px), 0 100%);
+    box-shadow: inset 4px 0 8px rgba(255,255,255,.12), inset -5px 0 8px rgba(38,29,18,.25);
+  }
+
+  .medicine-box__shadow {
+    position: absolute;
+    z-index: -1;
+    left: 5%;
+    right: -14%;
+    bottom: -18px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .76);
+    filter: blur(9px);
+    transform: skewX(-13deg) scaleY(.45);
+  }
+
+  .medicine-box:after { display: none; }
+  .medicine-box small, .medicine-box strong, .medicine-box span, .medicine-box em { position: relative; z-index: 2; }
+  .medicine-box em { position: absolute; }
+  .medicine-box__front > em:before { content: ""; position: absolute; z-index: -1; left: -18px; right: -240px; top: -5px; bottom: -8px; background: #174b32; }
+  .medicine-box--azithro .medicine-box__front > em:before { background: #245c69; }
+  .medicine-box--para .medicine-box__front > em:before { background: #68231c; }
+  .medicine-box--amoxi .medicine-box__front > em:before { left: -5px; right: -6px; top: -2px; bottom: -2px; background: #557718; }
+
+  .medicine-box--revital { transform: perspective(700px) rotateY(4deg) rotateZ(-2deg); }
+  .medicine-box--azithro { border-bottom: 0; transform: perspective(700px) rotateY(-4deg) rotateZ(.5deg); }
+  .medicine-box--para { border-bottom: 0; transform: perspective(700px) rotateY(5deg) rotateZ(-1deg); }
+  .medicine-box--amoxi { transform: perspective(700px) rotateY(-7deg) rotateZ(2deg); }
+
+  .login-blister {
+    grid-template-columns: repeat(5, 28px);
+    gap: 9px 8px;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,.42);
+    border-radius: 11px;
+    background:
+      linear-gradient(115deg, transparent 0 18%, rgba(255,255,255,.48) 21%, transparent 26% 72%, rgba(255,255,255,.22) 76%, transparent 80%),
+      repeating-linear-gradient(20deg, rgba(255,255,255,.06) 0 1px, transparent 1px 5px),
+      linear-gradient(145deg, #d8d7d2, #777b78 56%, #b9b6ac);
+    box-shadow: 0 28px 26px rgba(0,0,0,.88), 0 8px 10px rgba(0,0,0,.82), inset 0 1px rgba(255,255,255,.8), inset 0 -2px 5px rgba(20,24,22,.5);
+    transform: perspective(420px) rotateX(55deg) rotateZ(-8deg);
+  }
+
+  .login-blister:before { content: ""; position: absolute; inset: 5px; border: 1px dashed rgba(45,49,46,.22); border-radius: 7px; pointer-events: none; }
+  .login-blister i { position: relative; width: 28px; height: 20px; border: 1px solid rgba(255,255,255,.5); border-radius: 50%; background: radial-gradient(circle at 35% 22%, #f7f6f0, #aaaead 46%, #666b69 75%, #d2d0c8); box-shadow: inset -4px -5px 7px rgba(38,43,41,.52), inset 3px 3px 4px rgba(255,255,255,.78), 0 2px 2px rgba(28,31,29,.55); }
+  .login-blister i:after { content: ""; position: absolute; inset: 3px 5px 8px 4px; border-radius: 50%; background: rgba(255,255,255,.52); filter: blur(1px); }
+  .login-blister i b { position: absolute; inset: 5px 7px; border-radius: 50%; background: #e1ded2; box-shadow: inset 0 1px 2px #fff, 0 1px 2px rgba(0,0,0,.35); opacity: .72; }
+  .login-blister--dark i b { background: linear-gradient(90deg, #a52c1d 50%, #2a211a 50%); }
+  .blister-two { transform: perspective(420px) rotateX(58deg) rotateZ(11deg); }
+
+  .loose-pill { overflow: hidden; border: 1px solid rgba(55,46,34,.45); box-shadow: 0 13px 11px rgba(0,0,0,.9), 0 4px 4px rgba(0,0,0,.72), inset 0 2px 2px rgba(255,255,255,.62), inset 0 -2px 3px rgba(54,35,27,.38); }
+  .loose-pill--capsule:before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(53,39,29,.4); box-shadow: 1px 0 rgba(255,255,255,.28); }
+  .loose-pill--capsule:after { content: ""; position: absolute; left: 17%; right: 18%; top: 2px; height: 2px; border-radius: 50%; background: rgba(255,255,255,.72); filter: blur(.4px); }
+  .loose-pill--tablet { border-radius: 50%; background: radial-gradient(circle at 35% 25%, #fff9e9, #d4cab4 62%, #8f846f); box-shadow: 0 11px 9px rgba(0,0,0,.9), 0 3px 3px rgba(0,0,0,.7), inset 1px 2px 3px rgba(255,255,255,.8), inset -2px -3px 4px rgba(80,67,48,.3); }
+  .loose-pill--tablet:after { content: ""; position: absolute; left: 22%; right: 22%; top: 48%; height: 1px; background: rgba(102,91,72,.45); }
+}
+
+@media (min-width: 851px) and (max-width: 1250px) {
+  .login-hero-logo { top: 3.5%; transform: translateX(-50%) scale(.78); }
+  .login-hero-copy { top: 27%; left: 6%; max-width: 76%; }
+  .login-hero-copy h1 { font-size: clamp(34px, 3.6vw, 48px); }
+}
+
+@media (min-width: 851px) {
+  .loose-pill--2, .loose-pill--5, .loose-pill--8 { background: linear-gradient(90deg, #f1ead8 50%, #315b20 50%); }
+  .loose-pill--3, .loose-pill--7 { background: linear-gradient(90deg, #e9ddc9 50%, #b77b22 50%); }
+}
