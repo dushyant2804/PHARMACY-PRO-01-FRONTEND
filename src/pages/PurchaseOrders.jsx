@@ -124,6 +124,20 @@ const getSavedPurchaseOrderTotals = (po, fallbackTotals) => ({
   grandTotal: roundCurrency(firstDefined(po?.grand_total, fallbackTotals.grandTotal)),
 });
 
+const emptyReturnItem = {
+  medicine_id: "",
+  medicine_name: "",
+  batch_no: "",
+  expiry_date: "",
+  manufacturer: "",
+  category: "",
+  purchase_price: 0,
+  mrp: 0,
+  gst_rate: 0,
+  available_quantity: 0,
+  return_quantity: "",
+};
+
 const emptyItem = {
   name: "",
   batch_no: "",
@@ -189,7 +203,9 @@ const normalizeBatchOption = (medicine = {}, batch = {}) => ({
   gst_rate: getBatchGstRate(batch),
   manufacturer: getBatchManufacturer(batch, medicine),
   category: getBatchCategory(batch, medicine),
+  distributor_id: firstDefined(batch.distributor_id, medicine.distributor_id, ""),
   distributor_name: getBatchDistributor(batch, medicine),
+  available_quantity: Number(firstDefined(batch.available_return_quantity, batch.returnable_quantity, batch.available_quantity, batch.available_stock, batch.quantity, batch.stock, 0)),
 });
 
 const buildBatchOptionsForMedicine = (medicine = {}) => {
@@ -279,8 +295,11 @@ export default function PurchaseOrders() {
 
   const [pos, setPos] = useState([]);
   const [dists, setDists] = useState([]);
-  const [returnCredits, setReturnCredits] = useState([]);
-  const [selectedReturnCredit, setSelectedReturnCredit] = useState("");
+  const [returnItems, setReturnItems] = useState([]);
+  const [returnMedicineSuggestions, setReturnMedicineSuggestions] = useState({});
+  const [returnBatchOptions, setReturnBatchOptions] = useState({});
+  const [activeReturnMedicineRow, setActiveReturnMedicineRow] = useState(null);
+  const [activeReturnBatchRow, setActiveReturnBatchRow] = useState(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -307,15 +326,13 @@ export default function PurchaseOrders() {
 
   const load = async () => {
     try {
-      const [poRes, dRes, returnRes] = await Promise.all([
+      const [poRes, dRes] = await Promise.all([
         api.get("/purchase-orders"),
         api.get("/distributors"),
-        api.get("/purchase-returns").catch(() => ({ data: [] })),
       ]);
 
       setPos(poRes.data || []);
       setDists(dRes.data || []);
-      setReturnCredits(normalizeCollection(returnRes.data));
     } catch (e) {
       toast.error("Failed to load purchase orders");
     }
@@ -482,6 +499,63 @@ export default function PurchaseOrders() {
     setItems(items.filter((_, idx) => idx !== i));
   };
 
+
+  const addReturnRow = () => setReturnItems((prev) => [...prev, { ...emptyReturnItem }]);
+
+  const removeReturnRow = (rowIndex) => {
+    setReturnItems((prev) => prev.filter((_, index) => index !== rowIndex));
+    setReturnMedicineSuggestions((prev) => ({ ...prev, [rowIndex]: [] }));
+    setReturnBatchOptions((prev) => ({ ...prev, [rowIndex]: [] }));
+  };
+
+  const updateReturnItem = (rowIndex, field, value) => setReturnItems((prev) => prev.map((row, index) => index === rowIndex ? { ...row, [field]: value } : row));
+
+  const selectedDistributor = dists.find((distributor) => String(distributor.id) === String(distId));
+  const batchBelongsToSelectedDistributor = (batch) => {
+    if (!distId) return false;
+    if (batch.distributor_id) return String(batch.distributor_id) === String(distId);
+    return normalizeMatchValue(batch.distributor_name) === normalizeMatchValue(selectedDistributor?.name);
+  };
+
+  const searchReturnMedicines = async (rowIndex, value) => {
+    updateReturnItem(rowIndex, "medicine_name", value);
+    updateReturnItem(rowIndex, "batch_no", "");
+    setActiveReturnMedicineRow(rowIndex);
+    if (String(value).trim().length < 2 || !distId) return setReturnMedicineSuggestions((prev) => ({ ...prev, [rowIndex]: [] }));
+    try {
+      const { data } = await api.get(`/medicines?search=${encodeURIComponent(value)}`);
+      const eligible = normalizeCollection(data).filter((medicine) => buildBatchOptionsForMedicine(medicine).some(batchBelongsToSelectedDistributor));
+      setReturnMedicineSuggestions((prev) => ({ ...prev, [rowIndex]: eligible }));
+    } catch (error) {
+      setReturnMedicineSuggestions((prev) => ({ ...prev, [rowIndex]: [] }));
+    }
+  };
+
+  const applyReturnMedicine = (rowIndex, medicine) => {
+    const batches = buildBatchOptionsForMedicine(medicine).filter(batchBelongsToSelectedDistributor);
+    setReturnItems((prev) => prev.map((row, index) => index === rowIndex ? { ...emptyReturnItem, medicine_id: getMedicineId(medicine), medicine_name: getMedicineName(medicine) } : row));
+    setReturnBatchOptions((prev) => ({ ...prev, [rowIndex]: batches }));
+    setReturnMedicineSuggestions((prev) => ({ ...prev, [rowIndex]: [] }));
+    setActiveReturnMedicineRow(null);
+  };
+
+  const applyReturnBatch = (rowIndex, batch) => {
+    setReturnItems((prev) => prev.map((row, index) => index === rowIndex ? {
+      ...row,
+      medicine_id: batch.medicine_id || row.medicine_id,
+      batch_no: batch.batch_no,
+      expiry_date: batch.expiry_date,
+      manufacturer: batch.manufacturer,
+      category: batch.category,
+      purchase_price: Number(batch.purchase_price || 0),
+      mrp: Number(batch.mrp || 0),
+      gst_rate: Number(batch.gst_rate || 0),
+      available_quantity: Number(batch.available_quantity || 0),
+      return_quantity: "",
+    } : row));
+    setActiveReturnBatchRow(null);
+  };
+
   const calculatedTotals = calculatePurchaseOrderTotals(items, schemeDiscount, cashDiscount);
   const currentCalculationSignature = getPurchaseOrderCalculationSignature(
     items,
@@ -501,8 +575,8 @@ export default function PurchaseOrders() {
   const total = displayTotals.total;
   const roundOff = displayTotals.roundOff;
   const grandTotal = displayTotals.grandTotal;
-  const selectedCredit = returnCredits.find((credit) => String(credit.id) === String(selectedReturnCredit));
-  const purchaseReturnAdjustment = roundCurrency(firstDefined(selectedCredit?.grand_total, selectedCredit?.total, selectedCredit?.return_total, selectedCredit?.amount, 0));
+  const validReturnItems = returnItems.filter((item) => item.medicine_name && item.batch_no && Number(item.return_quantity) > 0);
+  const purchaseReturnAdjustment = roundCurrency(validReturnItems.reduce((sum, item) => sum + (Number(item.return_quantity) * Number(item.purchase_price)), 0));
   const finalPayableTotal = roundCurrency(Math.max(0, grandTotal - purchaseReturnAdjustment));
 
   const openNewPO = () => {
@@ -514,7 +588,9 @@ export default function PurchaseOrders() {
     setSchemeDiscount(0);
     setCashDiscount(0);
     setEditBaselineSignature(null);
-    setSelectedReturnCredit("");
+    setReturnItems([]);
+    setReturnMedicineSuggestions({});
+    setReturnBatchOptions({});
     setItems([{ ...emptyItem }]);
     setMedicineSuggestions([]);
     setRowMedicines({});
@@ -544,6 +620,9 @@ export default function PurchaseOrders() {
     );
     setRowMedicines({});
     setRowBatchOptions({});
+    setReturnItems((po.purchase_returns || po.return_items || []).map((item) => ({ ...emptyReturnItem, ...item })));
+    setReturnMedicineSuggestions({});
+    setReturnBatchOptions({});
     setActiveBatchRow(null);
 
     setOpen(true);
@@ -574,6 +653,9 @@ export default function PurchaseOrders() {
     if (!validItems.length)
       return toast.error("Add at least one item");
 
+    const invalidReturn = returnItems.find((item) => Number(item.return_quantity) > Number(item.available_quantity));
+    if (invalidReturn) return toast.error(`Return quantity for ${invalidReturn.medicine_name} exceeds available quantity`);
+
     const payload = {
       distributor_id: d.id,
       distributor_name: d.name,
@@ -588,6 +670,22 @@ export default function PurchaseOrders() {
       cgst: totalCGST,
       sgst: totalSGST,
       grand_total: grandTotal,
+      purchase_return_credit: purchaseReturnAdjustment,
+      final_payable_total: finalPayableTotal,
+      purchase_returns: validReturnItems.map((item) => ({
+        medicine_id: item.medicine_id,
+        medicine_name: item.medicine_name,
+        batch_no: item.batch_no,
+        expiry_date: item.expiry_date,
+        manufacturer: item.manufacturer,
+        category: item.category,
+        purchase_price: Number(item.purchase_price || 0),
+        mrp: Number(item.mrp || 0),
+        gst_rate: Number(item.gst_rate || 0),
+        available_quantity: Number(item.available_quantity || 0),
+        return_quantity: Number(item.return_quantity || 0),
+        return_credit: roundCurrency(Number(item.return_quantity || 0) * Number(item.purchase_price || 0)),
+      })),
       items: validItems.map((i) => {
         const item = { ...i };
         delete item.low_stock_threshold;
@@ -628,6 +726,9 @@ export default function PurchaseOrders() {
       setSchemeDiscount(0);
       setCashDiscount(0);
       setEditBaselineSignature(null);
+      setReturnItems([]);
+      setReturnMedicineSuggestions({});
+      setReturnBatchOptions({});
       setRowMedicines({});
       setRowBatchOptions({});
       setActiveBatchRow(null);
@@ -720,7 +821,7 @@ export default function PurchaseOrders() {
                 <select
                   className="border p-2 w-full"
                   value={distId}
-                  onChange={(e) => setDistId(e.target.value)}
+                  onChange={(e) => { setDistId(e.target.value); setReturnItems([]); setReturnMedicineSuggestions({}); setReturnBatchOptions({}); }}
                 >
                   <option value="">Select</option>
                   {dists.map((d) => (
@@ -1008,17 +1109,18 @@ export default function PurchaseOrders() {
   </table>
 
    {/* TABLE CONTROLS */}
-<div className="flex justify-start p-3 border-t bg-slate-50">
-
-  <Button type="button" onClick={addRow}>
-    <Plus className="w-4 h-4 mr-1" />
-    Add Row
-  </Button>
-
+<div className="flex flex-wrap justify-start gap-2 p-3 border-t bg-slate-50">
+  <Button type="button" onClick={addRow}><Plus className="w-4 h-4 mr-1" />Add Row</Button>
+  <Button type="button" variant="outline" onClick={addReturnRow} disabled={!distId}><Plus className="w-4 h-4 mr-1" />Add Purchase Return</Button>
 </div>
 
-  <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-    <div className="grid gap-3 md:grid-cols-[1.5fr_.5fr] md:items-end"><div><Label>Apply purchase return credit</Label><select value={selectedReturnCredit} onChange={(e)=>setSelectedReturnCredit(e.target.value)} className="mt-2 h-10 w-full rounded-md border bg-white px-3 text-sm"><option value="">No purchase return adjustment</option>{returnCredits.filter((credit)=>!distId||String(credit.distributor_id)===String(distId)).map((credit)=><option key={credit.id} value={credit.id}>{credit.return_no||credit.reference_no||'Purchase return'} · {credit.distributor_name||'Distributor'} · {fmtINR(firstDefined(credit.grand_total,credit.total,credit.return_total,credit.amount,0))}</option>)}</select><p className="mt-1 text-[11px] text-slate-500">Select a recorded return or batch credit—no manual retyping required.</p></div><div className="rounded-lg bg-white p-3 text-right"><div className="text-[10px] uppercase tracking-wider text-slate-500">Return adjustment</div><div className="mt-1 font-bold text-amber-700">− {fmtINR(purchaseReturnAdjustment)}</div></div></div>
+{!distId && <p className="border-t bg-amber-50 px-4 py-2 text-xs text-amber-800">Select a distributor before adding a purchase return.</p>}
+{returnItems.length > 0 && <div className="border-t border-amber-200 bg-amber-50/50 p-4"><div className="mb-3"><h3 className="font-bold text-amber-950">Purchase return credit</h3><p className="text-xs text-amber-800">Select only eligible batches supplied by the selected distributor. Credit is calculated from return quantity × purchase rate.</p></div><div className="overflow-x-auto"><table className="min-w-[1180px] w-full text-xs"><thead><tr className="text-left text-slate-500"><th className="p-2">Medicine Name</th><th className="p-2">Batch No</th><th className="p-2">Expiry</th><th className="p-2">Manufacturer</th><th className="p-2">Category</th><th className="p-2">Purchase Rate</th><th className="p-2">MRP</th><th className="p-2">GST</th><th className="p-2">Available</th><th className="p-2">Return Qty</th><th className="p-2">Return Credit</th><th /></tr></thead><tbody>{returnItems.map((item, rowIndex) => <tr key={rowIndex} className="border-t border-amber-200 align-top"><td className="relative p-2"><Input value={item.medicine_name} placeholder="Type medicine" onChange={(event) => searchReturnMedicines(rowIndex, event.target.value)} onFocus={() => setActiveReturnMedicineRow(rowIndex)} onBlur={() => setTimeout(() => setActiveReturnMedicineRow(null), 120)} />{activeReturnMedicineRow === rowIndex && (returnMedicineSuggestions[rowIndex] || []).length > 0 && <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded border bg-white shadow">{returnMedicineSuggestions[rowIndex].map((medicine) => <button type="button" key={getMedicineId(medicine)} className="block w-full p-2 text-left hover:bg-slate-50" onMouseDown={(event) => event.preventDefault()} onClick={() => applyReturnMedicine(rowIndex, medicine)}>{getMedicineName(medicine)}</button>)}</div>}</td><td className="relative p-2"><Input value={item.batch_no} readOnly placeholder="Select batch" onFocus={() => setActiveReturnBatchRow(rowIndex)} />{activeReturnBatchRow === rowIndex && (returnBatchOptions[rowIndex] || []).length > 0 && <div className="absolute z-50 mt-1 max-h-52 min-w-[320px] overflow-y-auto rounded border bg-white shadow">{returnBatchOptions[rowIndex].map((batch, index) => <button type="button" key={`${batch.batch_no}-${index}`} className="block w-full p-2 text-left hover:bg-slate-50" onMouseDown={(event) => event.preventDefault()} onClick={() => applyReturnBatch(rowIndex, batch)}>{batchOptionLabel(batch)}</button>)}</div>}</td><td className="p-2"><Input value={item.expiry_date} readOnly /></td><td className="p-2"><Input value={item.manufacturer} readOnly /></td><td className="p-2"><Input value={item.category} readOnly /></td><td className="p-2"><Input value={item.purchase_price} readOnly /></td><td className="p-2"><Input value={item.mrp} readOnly /></td><td className="p-2"><Input value={item.gst_rate} readOnly /></td><td className="p-2"><Input value={item.available_quantity} readOnly /></td><td className="p-2"><Input type="number" min="0" max={item.available_quantity} value={item.return_quantity} onChange={(event) => updateReturnItem(rowIndex, "return_quantity", event.target.value)} /></td><td className="p-2 font-bold text-amber-800">{fmtINR(Number(item.return_quantity || 0) * Number(item.purchase_price || 0))}</td><td className="p-2"><button type="button" onClick={() => removeReturnRow(rowIndex)} className="text-red-600"><Trash2 className="h-4 w-4" /></button></td></tr>)}</tbody></table></div></div>}
+
+  <div className="grid gap-3 border-t bg-white p-4 sm:grid-cols-3">
+    <div className="rounded-lg border p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">PO subtotal</div><div className="mt-1 text-lg font-bold">{fmtINR(grandTotal)}</div></div>
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Purchase return credit</div><div className="mt-1 text-lg font-bold text-amber-800">− {fmtINR(purchaseReturnAdjustment)}</div></div>
+    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Final payable total</div><div className="mt-1 text-lg font-bold text-emerald-800">{fmtINR(finalPayableTotal)}</div></div>
   </div>
 
   {/* BILL SUMMARY */}
