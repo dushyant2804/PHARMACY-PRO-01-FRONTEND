@@ -28,7 +28,6 @@ export default function WelcomeScreen({
 }) {
   const config = getWelcomeSettings(settings);
   const fullText = config.text;
-  const logo = config.logo;
   const effect = config.effect;
 
   const [typedText, setTypedText] = useState(
@@ -123,12 +122,12 @@ export default function WelcomeScreen({
 
         {/* LOGO */}
         {config.showLogo && (
-          <div
-            className={`${effect === "pulse" ? "animate-pulse" : ""} mb-8`}
-            style={{ fontSize: `${logoSize}px`, lineHeight: 1 }}
-          >
-            {logo}
-          </div>
+          <img
+            src="/pharmacyos-logo.svg"
+            alt="PharmacyOS"
+            className={`${effect === "pulse" ? "animate-pulse" : ""} mb-8 drop-shadow-2xl`}
+            style={{ width: `${logoSize}px`, height: `${logoSize}px` }}
+          />
         )}
 
         {/* TITLE */}
