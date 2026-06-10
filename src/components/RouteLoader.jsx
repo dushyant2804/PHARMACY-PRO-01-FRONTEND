@@ -1,3 +1,4 @@
+import BrandLogo from "@/components/BrandLogo";
 import { useEffect, useState } from "react";
 
 export default function RouteLoader({ onDone }) {
@@ -29,10 +30,8 @@ export default function RouteLoader({ onDone }) {
       
       <div className="text-center space-y-3">
         
-        {/* animated pulse ring */}
-        <div className="relative flex items-center justify-center">
-          <div className="w-16 h-16 rounded-full border-4 border-amber-400 animate-ping opacity-30 absolute" />
-          <div className="w-10 h-10 rounded-full bg-emerald-500 animate-pulse" />
+        <div className="flex justify-center animate-pulse">
+          <BrandLogo compact light />
         </div>
 
         <p className="text-sm text-emerald-100">
