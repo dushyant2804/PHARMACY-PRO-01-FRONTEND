@@ -150,3 +150,176 @@ body { background: #eef2ef; }
 @media(max-width:850px){.login-shell{display:block;min-height:100svh}.login-visual-panel{display:none}.login-form-panel{min-height:100svh;padding:24px 16px 36px;flex-direction:column}.login-mobile-brand{display:block;margin:6px auto 22px}.login-mobile-brand .brand-logo--hero{width:240px;transform:scale(.78);transform-origin:center}.login-mobile-brand .brand-logo--hero img{width:86px;height:86px}.login-mobile-brand .brand-logo__name{font-size:29px}.login-card{max-width:520px;padding:28px 22px;border-radius:21px}.login-card form{margin-top:28px}.login-input-wrap input{height:56px}.login-field+.login-field{margin-top:20px}.login-options{margin:22px 0}.login-primary-button{height:56px!important}}
 @media(max-width:390px){.login-form-panel{padding-inline:10px}.login-card{padding-inline:17px}.login-options{font-size:11px}.login-card header h2{font-size:25px}}
 @media(max-width:767px){.app-canvas main .page-transition{padding:1rem}.premium-panel,.app-canvas .bg-white{border-radius:12px}.data-table{min-width:680px}}
+
+/* Login visual refinement: tighter, brighter, and more cinematic without changing the layout */
+.login-visual-panel {
+  background:
+    radial-gradient(ellipse at 42% 74%, rgba(167, 113, 40, .2), transparent 34%),
+    radial-gradient(circle at 34% 11%, rgba(190, 130, 48, .32), transparent 29%),
+    radial-gradient(circle at 75% 48%, rgba(49, 91, 47, .15), transparent 34%),
+    linear-gradient(122deg, #1b190f 0%, #09130e 48%, #020504 100%);
+  box-shadow: inset -42px 0 90px rgba(0, 0, 0, .72);
+}
+.login-visual-panel:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background:
+    linear-gradient(110deg, rgba(255, 220, 139, .055), transparent 28%),
+    radial-gradient(ellipse at 47% 82%, rgba(235, 178, 78, .1), transparent 33%);
+  mix-blend-mode: screen;
+}
+.login-visual-panel:after {
+  background:
+    linear-gradient(90deg, transparent 65%, rgba(0, 0, 0, .68)),
+    linear-gradient(0deg, rgba(0, 0, 0, .48), transparent 34%, rgba(0, 0, 0, .08));
+  box-shadow: inset -30px 0 75px rgba(0, 0, 0, .76), inset 0 -35px 80px rgba(0, 0, 0, .25);
+}
+.login-ambient-light {
+  top: -19%;
+  left: -5%;
+  width: 83%;
+  height: 88%;
+  background: radial-gradient(circle, rgba(210, 147, 56, .3), rgba(100, 71, 31, .08) 40%, transparent 69%);
+  filter: blur(16px);
+}
+.login-hero-logo {
+  top: 2.4%;
+  width: 390px;
+  gap: 5px;
+  filter: drop-shadow(0 20px 28px rgba(0, 0, 0, .76)) drop-shadow(0 0 25px rgba(190, 130, 42, .13));
+}
+.login-hero-logo.brand-logo--hero img {
+  width: 150px;
+  height: 150px;
+}
+.login-hero-logo.brand-logo--hero .brand-logo__name {
+  font-size: 45px;
+  letter-spacing: .01em;
+}
+.login-hero-logo.brand-logo--hero .brand-logo__tagline {
+  margin-top: 7px;
+  font-size: 11px;
+  letter-spacing: .22em;
+}
+.login-hero-logo.brand-logo--hero .brand-logo__pulse {
+  height: 17px;
+  margin-top: 6px;
+}
+.login-hero-copy {
+  top: 36.5%;
+  left: 10.5%;
+  max-width: 610px;
+}
+.login-hero-copy h1 {
+  font-size: clamp(36px, 3.05vw, 56px);
+  font-weight: 600;
+  line-height: 1.03;
+  letter-spacing: -.035em;
+  color: #f1e5ca;
+  text-shadow: 0 3px 1px rgba(0, 0, 0, .45), 0 12px 30px rgba(0, 0, 0, .82);
+}
+.login-hero-copy h1 span {
+  color: #83b93e;
+  text-shadow: 0 2px 1px rgba(17, 45, 12, .8), 0 0 24px rgba(112, 166, 42, .18);
+}
+.login-hero-copy p {
+  margin-top: 22px;
+  color: #f0e5d0;
+  font-size: clamp(13px, 1vw, 17px);
+  line-height: 1.7;
+  letter-spacing: .005em;
+  text-shadow: 0 3px 9px rgba(0, 0, 0, .9);
+}
+.login-hero-copy p strong { color: #91c44c; font-weight: 700; }
+
+.medicine-workstation:before {
+  content: "";
+  position: absolute;
+  z-index: 4;
+  left: 1%;
+  right: -2%;
+  bottom: 4%;
+  height: 28%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, .74), rgba(0, 0, 0, .2) 48%, transparent 70%);
+  filter: blur(14px);
+  transform: scaleY(.42);
+  transform-origin: bottom;
+}
+.counter-surface {
+  bottom: -10%;
+  height: 51%;
+  background:
+    radial-gradient(ellipse at 44% 8%, rgba(150, 104, 49, .37), transparent 31%),
+    linear-gradient(130deg, #292319, #0a0d0a 64%);
+  border-top-color: rgba(221, 170, 78, .3);
+  box-shadow: 0 -22px 62px rgba(0, 0, 0, .62), inset 0 2px rgba(255, 220, 143, .035);
+}
+.medicine-box {
+  box-shadow: 0 25px 30px rgba(0, 0, 0, .82), 0 8px 10px rgba(0, 0, 0, .68), inset 0 1px rgba(255, 255, 255, .82);
+  filter: saturate(.92) contrast(1.04);
+}
+.medicine-box--revital { bottom: 10%; left: 5%; width: 32%; height: 23%; }
+.medicine-box--azithro { bottom: 24%; left: 35%; width: 33%; height: 21%; }
+.medicine-box--para { bottom: 8%; left: 31%; width: 35%; height: 22%; }
+.medicine-box--amoxi { right: 3%; bottom: 13%; width: 30%; height: 27%; }
+.login-blister { box-shadow: 0 24px 25px rgba(0, 0, 0, .86), 0 7px 9px rgba(0, 0, 0, .75); }
+.blister-one { bottom: 1.5%; left: 5%; }
+.blister-two { bottom: 0; left: 43%; }
+.medicine-bottle { right: 4%; bottom: 1%; box-shadow: 0 28px 32px rgba(0, 0, 0, .9), 0 8px 10px #000; }
+.loose-pill { box-shadow: 0 10px 11px rgba(0, 0, 0, .9), 0 3px 4px rgba(0, 0, 0, .7); }
+.pharmacy-shelves { opacity: .8; filter: blur(1.6px); }
+
+.login-form-panel {
+  background:
+    radial-gradient(circle at 8% 50%, rgba(62, 105, 59, .16), transparent 38%),
+    radial-gradient(circle at 78% 14%, rgba(154, 108, 40, .06), transparent 30%),
+    linear-gradient(145deg, #0b120f, #020504);
+  box-shadow: inset 24px 0 64px rgba(0, 0, 0, .66);
+}
+.login-form-panel:before { opacity: .25; }
+.login-card {
+  width: min(100%, 610px);
+  padding: clamp(34px, 4.4vw, 60px);
+  border-color: rgba(214, 180, 109, .34);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, .035), transparent 35%),
+    linear-gradient(145deg, rgba(24, 31, 27, .96), rgba(7, 12, 9, .95));
+  box-shadow: 0 38px 85px rgba(0, 0, 0, .66), 0 0 0 1px rgba(87, 127, 69, .06), inset 0 1px rgba(255, 245, 220, .08);
+  backdrop-filter: blur(22px);
+}
+.login-card header h2 { color: #fffdf7; font-size: clamp(29px, 2.15vw, 36px); font-weight: 650; }
+.login-card header p { color: #d0c7b8; }
+.login-field label { color: #f5f0e7; font-weight: 600; letter-spacing: .015em; }
+.login-input-wrap input {
+  border-color: rgba(218, 196, 151, .29);
+  background: rgba(0, 0, 0, .3);
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, .42), 0 1px rgba(255, 255, 255, .025);
+  transition: border-color .2s, box-shadow .2s, background-color .2s;
+}
+.login-input-wrap input:hover { border-color: rgba(218, 196, 151, .4); background: rgba(0, 0, 0, .35); }
+.login-input-wrap input:focus { border-color: rgba(126, 181, 57, .85); box-shadow: 0 0 0 3px rgba(104, 157, 39, .13), inset 0 2px 10px rgba(0, 0, 0, .35); }
+.login-primary-button {
+  border-color: rgba(205, 231, 151, .28) !important;
+  background: linear-gradient(105deg, #78b734 0%, #4c8b29 50%, #2f6c24 100%) !important;
+  box-shadow: 0 16px 32px rgba(46, 112, 30, .36), 0 3px 8px rgba(0, 0, 0, .35), inset 0 1px rgba(255, 255, 255, .25) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+  transition: filter .2s, transform .2s, box-shadow .2s !important;
+}
+.login-primary-button:hover { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 19px 37px rgba(46, 112, 30, .42), 0 4px 9px rgba(0, 0, 0, .38), inset 0 1px rgba(255, 255, 255, .28) !important; }
+.login-demo-button { border-color: rgba(214, 190, 143, .28); background: rgba(255, 255, 255, .018); }
+.login-demo-button:hover { border-color: rgba(128, 184, 58, .65); background: rgba(95, 145, 34, .11); }
+.login-signup { color: #aaa296; }
+
+@media (max-width: 1250px) and (min-width: 851px) {
+  .login-hero-logo { top: 3.5%; transform: translateX(-50%) scale(.82); transform-origin: top center; }
+  .login-hero-copy { top: 35%; left: 8%; }
+  .login-card { padding: 38px; }
+}
+@media (max-width: 850px) {
+  .login-mobile-brand .brand-logo--hero { filter: drop-shadow(0 13px 20px rgba(0, 0, 0, .65)); }
+  .login-card { border-color: rgba(214, 180, 109, .32); background: linear-gradient(145deg, rgba(24, 31, 27, .97), rgba(7, 12, 9, .96)); }
+}
