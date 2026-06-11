@@ -57,11 +57,11 @@ export default function Login() {
     <main className="login-shell">
       <section className="login-visual" aria-label="PharmacyOS — smart pharmacy management simplified">
         <div className="login-visual-glow" aria-hidden="true" />
+        <div className="login-developer-credit">
+          <span>Designed &amp; Developed By</span>
+          <strong>Dushyant Bishnoi</strong>
+        </div>
         <div className="login-visual-footer">
-          <div className="login-developer-credit">
-            <span>Designed &amp; Developed By</span>
-            <strong>Dushyant Bishnoi</strong>
-          </div>
           <div className="login-visual-note">
             <span><ShieldCheck aria-hidden="true" /> Secure pharmacy workspace</span>
             <p>Manage inventory, billing, and patient care with confidence.</p>

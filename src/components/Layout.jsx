@@ -87,8 +87,8 @@ export default function Layout({ children }) {
   const SidebarContent = (
     <>
       {/* BRAND */}
-      <div className="px-5 py-5 border-b border-white/10">
-        <BrandLogo compact light />
+      <div className="sidebar-branding px-5 py-5">
+        <BrandLogo compact light className="sidebar-brand-logo" />
         {user?.demo_mode && <div className="mt-3 inline-flex rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-200" data-testid="demo-mode-badge">Demo Mode</div>}
       </div>
 
@@ -107,23 +107,13 @@ export default function Layout({ children }) {
              to={n.to}
              onClick={() => setOpen(false)}
              data-testid={`nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
-             className={`
-              relative flex items-center gap-3 px-3 py-2 rounded-sm
-              transition-all duration-300 ease-out
-              text-sm
-
-              ${
-               active
-                ? "bg-slate-800 text-white font-medium shadow-[0_0_12px_rgba(59,130,246,0.15)] border-l-2 border-blue-500"
-                : "text-slate-400 hover:text-white hover:bg-slate-800/40"
-              }
-            `}
+             className={`sidebar-nav-link ${active ? "sidebar-nav-link--active" : ""}`}
             >
              <Icon className="w-4 h-4" strokeWidth={1.75} />
              <span>{n.label}</span>
 
              {active && (
-              <span className="absolute right-3 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+              <span className="sidebar-nav-indicator" />
              )}
             </Link>
           );
