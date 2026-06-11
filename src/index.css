@@ -334,3 +334,72 @@ body { background: #eef2ef; }
 @keyframes updateFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes updatePillGlow { 50% { box-shadow: 0 0 24px rgba(251, 191, 36, .12), inset 0 1px rgba(255, 255, 255, .06); } }
 @media (prefers-reduced-motion: reduce) { .update-pill-available, .update-orbit span, .update-progress-line span { animation-duration: .001ms; animation-iteration-count: 1; } }
+
+/* Refined login and sidebar visual balance */
+.sidebar-premium {
+  border-right: 1px solid rgba(240, 213, 143, .1);
+  background: radial-gradient(circle at 22% 0, rgba(224, 184, 90, .2), transparent 17rem), linear-gradient(180deg, #0d3027, #071c17 68%, #04120f);
+  box-shadow: 16px 0 50px rgba(4, 24, 19, .18), inset -1px 0 rgba(255, 255, 255, .025);
+}
+.sidebar-branding {
+  position: relative;
+  border-bottom: 1px solid rgba(240, 213, 143, .14);
+  background: linear-gradient(135deg, rgba(255, 255, 255, .055), rgba(224, 184, 90, .035));
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .13), inset 0 1px rgba(255, 255, 255, .045);
+}
+.sidebar-branding::after {
+  position: absolute;
+  right: 20px;
+  bottom: -1px;
+  left: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(224, 184, 90, .4), transparent);
+  content: "";
+}
+.sidebar-brand-logo { filter: brightness(1.14) saturate(1.08); }
+.sidebar-brand-logo.brand-logo--light .brand-logo__name span { background: linear-gradient(180deg, #fff0b7, #ddb45a 64%, #b77d25); background-clip: text; color: transparent; text-shadow: 0 2px 1px #3c260b, 0 5px 12px rgba(0, 0, 0, .6), 0 0 18px rgba(224, 184, 90, .2); }
+.sidebar-brand-logo.brand-logo--light .brand-logo__name strong { color: #91c956; text-shadow: 0 1px #c2dc78, 0 0 14px rgba(145, 201, 86, .28); }
+.sidebar-brand-logo.brand-logo--light .brand-logo__tagline { color: #efc978; }
+.sidebar-nav-link { position: relative; display: flex; min-height: 36px; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid transparent; border-radius: 8px; color: #aebdb7; font-size: 14px; transition: color .22s ease, background-color .22s ease, border-color .22s ease, box-shadow .22s ease, transform .22s ease; }
+.sidebar-nav-link:hover { border-color: rgba(255, 255, 255, .06); background: rgba(255, 255, 255, .055); color: #f5faf7; transform: translateX(1px); }
+.sidebar-nav-link--active { border-color: rgba(240, 213, 143, .2); background: linear-gradient(90deg, rgba(39, 116, 89, .74), rgba(27, 80, 64, .52)); color: #fffdf7; font-weight: 600; box-shadow: 0 8px 22px rgba(0, 0, 0, .16), inset 2px 0 #dfb75b, inset 0 1px rgba(255, 255, 255, .08), 0 0 18px rgba(72, 166, 126, .08); }
+.sidebar-nav-link--active svg { color: #f0cf80; filter: drop-shadow(0 0 7px rgba(224, 184, 90, .28)); }
+.sidebar-nav-indicator { position: absolute; right: 12px; width: 5px; height: 5px; border-radius: 999px; background: #efcf7e; box-shadow: 0 0 9px rgba(239, 207, 126, .7); }
+
+.login-visual { background-image: linear-gradient(rgba(255, 249, 230, .035), rgba(255, 249, 230, .035)), var(--login-background-image); }
+.login-visual::before { background: radial-gradient(circle at 34% 38%, rgba(230, 199, 125, .055), transparent 36%), linear-gradient(90deg, rgba(2, 12, 8, .025) 42%, rgba(2, 12, 8, .31) 100%), linear-gradient(180deg, transparent 60%, rgba(2, 12, 8, .57) 100%); }
+.login-developer-credit {
+  position: absolute;
+  z-index: 3;
+  right: clamp(24px, 4vw, 64px);
+  bottom: clamp(154px, 19vh, 210px);
+  left: clamp(24px, 4vw, 64px);
+  width: max-content;
+  max-width: calc(100% - 48px);
+  margin-inline: auto;
+  padding: 9px 18px 10px;
+  border: 1px solid rgba(242, 216, 151, .12);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(5, 17, 12, .48), rgba(8, 23, 17, .27));
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .24), inset 0 1px rgba(255, 255, 255, .05);
+  backdrop-filter: blur(9px);
+  text-align: center;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .7);
+}
+.login-visual-footer { bottom: clamp(30px, 4.5vh, 54px); gap: 0; }
+
+@media (max-height: 760px) and (min-width: 901px) {
+  .login-developer-credit { bottom: 142px; padding-block: 7px 8px; }
+  .login-visual-footer { bottom: 24px; }
+  .login-visual-note { padding-block: 12px 11px; }
+}
+
+@media (max-width: 900px) {
+  .login-developer-credit { right: 18px; bottom: 106px; left: 18px; padding: 6px 14px 7px; }
+  .login-visual-footer { bottom: 16px; gap: 0; }
+}
+
+@media (max-width: 480px) {
+  .login-developer-credit { right: 12px; bottom: 94px; left: 12px; }
+  .login-visual-footer { bottom: 14px; }
+}
