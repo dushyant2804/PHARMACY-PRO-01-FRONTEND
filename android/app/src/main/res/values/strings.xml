@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PharmacyOS</string>
+    <string name="title_activity_main">PharmacyOS</string>
+    <string name="package_name">com.pharmacyos.app</string>
+    <string name="custom_url_scheme">com.pharmacyos.app</string>
+</resources>
