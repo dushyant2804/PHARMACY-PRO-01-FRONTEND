@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
 import { toast } from "sonner";
+import BrandLogo from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,44 +55,59 @@ export default function Login() {
 
   return (
     <main className="login-shell">
+      <section className="login-visual" aria-label="PharmacyOS — smart pharmacy management simplified">
+        <div className="login-visual-glow" aria-hidden="true" />
+        <div className="login-visual-note">
+          <span><ShieldCheck aria-hidden="true" /> Secure pharmacy workspace</span>
+          <p>Manage inventory, billing, and patient care with confidence.</p>
+        </div>
+      </section>
+
       <section className="login-form-panel">
-        <div className="login-card">
-          <header>
-            <h2>Welcome Back <span role="img" aria-label="wave">👋</span></h2>
-            <p>Login to your account</p>
-          </header>
+        <div className="login-panel-inner">
+          <BrandLogo className="login-brand" />
 
-          <form onSubmit={onSubmit} data-testid="login-form">
-            <div className="login-field">
-              <Label htmlFor="email">Username</Label>
-              <div className="login-input-wrap">
-                <UserRound aria-hidden="true" />
-                <Input id="email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Enter your username" data-testid="login-email" />
+          <div className="login-card">
+            <header>
+              <span className="login-eyebrow">Welcome back</span>
+              <h1>Sign in to PharmacyOS</h1>
+              <p>Enter your credentials to access your pharmacy workspace.</p>
+            </header>
+
+            <form onSubmit={onSubmit} data-testid="login-form">
+              <div className="login-field">
+                <Label htmlFor="email">Username</Label>
+                <div className="login-input-wrap">
+                  <UserRound aria-hidden="true" />
+                  <Input id="email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Enter your username" data-testid="login-email" />
+                </div>
               </div>
-            </div>
 
-            <div className="login-field">
-              <Label htmlFor="password">Password</Label>
-              <div className="login-input-wrap">
-                <LockKeyhole aria-hidden="true" />
-                <Input id="password" type={showPassword ? "text" : "password"} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" data-testid="login-password" />
-                <button type="button" className="password-visibility" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? "Hide password" : "Show password"}>
-                  {showPassword ? <EyeOff /> : <Eye />}
-                </button>
+              <div className="login-field">
+                <Label htmlFor="password">Password</Label>
+                <div className="login-input-wrap">
+                  <LockKeyhole aria-hidden="true" />
+                  <Input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" data-testid="login-password" />
+                  <button type="button" className="password-visibility" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? "Hide password" : "Show password"}>
+                    {showPassword ? <EyeOff /> : <Eye />}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="login-options">
-              <label><input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} /><span>Remember me</span></label>
-              <Link to="/forgot-password" data-testid="forgot-password-link">Forgot password?</Link>
-            </div>
+              <div className="login-options">
+                <label><input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} /><span>Remember me</span></label>
+                <Link to="/forgot-password" data-testid="forgot-password-link">Forgot password?</Link>
+              </div>
 
-            <Button type="submit" disabled={loading} className="login-primary-button" data-testid="login-submit">{loading ? "Signing in…" : "Login"}</Button>
-          </form>
+              <Button type="submit" disabled={loading} className="login-primary-button" data-testid="login-submit">{loading ? "Signing in…" : "Sign in"}</Button>
+            </form>
 
-          <div className="login-divider"><span>or</span></div>
-          <button type="button" onClick={onDemoLogin} disabled={loading} className="login-demo-button" data-testid="use-demo-login"><UserRound />{loading ? "Signing in…" : "Login with Demo Account"}</button>
-          <p className="login-signup">New to PharmacyOS? <Link to="/signup">Create Account</Link></p>
+            <div className="login-divider"><span>or continue with</span></div>
+            <button type="button" onClick={onDemoLogin} disabled={loading} className="login-demo-button" data-testid="use-demo-login"><UserRound />{loading ? "Signing in…" : "Demo account"}</button>
+            <p className="login-signup">New to PharmacyOS? <Link to="/signup">Create account</Link></p>
+          </div>
+
+          <p className="login-panel-footer"><ShieldCheck aria-hidden="true" /> Your data is protected with enterprise-grade security.</p>
         </div>
       </section>
     </main>
