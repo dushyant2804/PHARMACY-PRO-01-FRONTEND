@@ -187,15 +187,16 @@ body { background: #eef2ef; }
   position: absolute;
   z-index: 2;
   right: clamp(28px, 4vw, 64px);
-  bottom: clamp(28px, 5vh, 64px);
+  bottom: clamp(48px, 8vh, 96px);
   left: clamp(28px, 4vw, 64px);
   max-width: 430px;
+  padding-bottom: clamp(8px, 1.5vh, 18px);
   color: white;
   text-shadow: 0 2px 18px rgba(0, 0, 0, .4);
 }
-.login-visual-note span { display: flex; align-items: center; gap: 9px; color: #e3c77b; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.login-visual-note svg { width: 17px; }
-.login-visual-note p { margin: 12px 0 0; color: rgba(255, 255, 255, .76); font-size: 14px; line-height: 1.65; }
+.login-visual-note span { display: flex; align-items: center; gap: 10px; color: #ecd38f; font-size: 13px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.login-visual-note svg { width: 18px; }
+.login-visual-note p { max-width: 390px; margin: 14px 0 0; color: rgba(255, 255, 255, .7); font-size: 14px; line-height: 1.7; }
 
 .login-form-panel {
   display: flex;
