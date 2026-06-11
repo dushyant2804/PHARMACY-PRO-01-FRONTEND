@@ -12,8 +12,8 @@ import { formatApiError } from "@/lib/api";
 export default function Login() {
   const { login, user, passwordExpired } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("admin@pharmacy.com");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -48,8 +48,6 @@ export default function Login() {
   const onDemoLogin = () => {
     const demoEmail = "admin@pharmacy.com";
     const demoPassword = "admin123";
-    setEmail(demoEmail);
-    setPassword(demoPassword);
     signIn(demoEmail, demoPassword);
   };
 
@@ -85,7 +83,7 @@ export default function Login() {
                 <Label htmlFor="email">Username</Label>
                 <div className="login-input-wrap">
                   <UserRound aria-hidden="true" />
-                  <Input id="email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Enter your username" data-testid="login-email" />
+                  <Input id="email" name="username" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Enter your username" data-testid="login-email" />
                 </div>
               </div>
 
@@ -93,7 +91,7 @@ export default function Login() {
                 <Label htmlFor="password">Password</Label>
                 <div className="login-input-wrap">
                   <LockKeyhole aria-hidden="true" />
-                  <Input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" data-testid="login-password" />
+                  <Input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" data-testid="login-password" />
                   <button type="button" className="password-visibility" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? "Hide password" : "Show password"}>
                     {showPassword ? <EyeOff /> : <Eye />}
                   </button>
