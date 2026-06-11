@@ -1,7 +1,7 @@
 {
-  "version": "0.1.0+20260611-2f2c7d7",
-  "date": "2026-06-11T08:49:43.593Z",
+  "version": "0.1.0+20260611-dd308de",
+  "date": "2026-06-11T09:56:04.308Z",
   "notes": [
-    "Latest PharmacyOS improvements are ready."
+    "Remove binary Gradle wrapper jar"
   ]
 }
