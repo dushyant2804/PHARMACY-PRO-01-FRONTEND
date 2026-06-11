@@ -13,6 +13,16 @@ import {
 import { Eye, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
+const getAvailableQty = (item) =>
+  Number(
+    item?.available_stock ??
+    item?.available_units ??
+    item?.available_quantity ??
+    item?.quantity_units ??
+    item?.total_stock ??
+    0
+  );
+
 export default function Inventory() {
   const [meds, setMeds] = useState([]);
   const [thresholdValue, setThresholdValue] = useState("");
@@ -135,7 +145,7 @@ export default function Inventory() {
               const low =
                m.low_stock_threshold !== null &&
                m.low_stock_threshold !== undefined &&
-               m.total_stock <= m.low_stock_threshold;      
+               getAvailableQty(m) <= m.low_stock_threshold;
               const batchStatus = (m.batches || []).map((b) =>
                 getExpiryStatus(b.expiry_date, b.expiry_status)
               );
@@ -171,7 +181,7 @@ export default function Inventory() {
                       low ? "text-red-600" : ""
                     }`}
                   >
-                    {m.total_stock}
+                    {getAvailableQty(m)}
                   </td>
 
                   <td className="p-3 text-center">
@@ -222,7 +232,7 @@ export default function Inventory() {
                 </div>
 
                 <div className="mt-2 text-sm">
-                  <div><b>Total Stock:</b> {selected.total_stock}</div>
+                  <div><b>Total Stock:</b> {getAvailableQty(selected)}</div>
                 </div>
               </div>
 
@@ -236,7 +246,7 @@ export default function Inventory() {
                   const status = getExpiryStatus(b.expiry_date, b.expiry_status);
                   const isExpired = status === "expired";
                   const isNearExpiry = status === "expiring_soon";
-                  const isEmptyBatch = Number(b.quantity_units || 0) === 0;
+                  const isEmptyBatch = getAvailableQty(b) === 0;
 
                   return (
                     <div
@@ -281,7 +291,7 @@ export default function Inventory() {
                       <div>
                         <b>Available:</b>{" "}
                         <span className={isEmptyBatch ? "text-red-600 font-bold" : ""}>
-                          {b.quantity_units}
+                          {getAvailableQty(b)}
                         </span>
                       </div>
 

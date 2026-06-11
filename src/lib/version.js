@@ -1,4 +1,4 @@
-export const FRONTEND_VERSION = process.env.REACT_APP_VERSION || "2.0";
+export const FRONTEND_VERSION = process.env.REACT_APP_VERSION || "3.0";
 export const ACKNOWLEDGED_VERSION_KEY = "pharmacyos_acknowledged_version";
 export const UPDATE_COMPLETED_KEY = "pharmacyos_update_completed";
 

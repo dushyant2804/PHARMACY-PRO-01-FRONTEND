@@ -104,12 +104,14 @@ const toOptionalNumber = (value) => {
 const getAvailableStock = (item) => {
   const directStock = [
     item.available_stock,
+    item.available_units,
     item.available_quantity,
     item.remaining_quantity,
+    item.quantity_units,
+    item.total_stock,
     item.stock,
     item.quantity,
     item.qty,
-    item.quantity_units,
   ].map(toOptionalNumber).find((value) => value !== undefined);
 
   if (directStock !== undefined) return directStock;
@@ -129,21 +131,22 @@ const getAvailableStock = (item) => {
   return undefined;
 };
 
-const getOriginalBatchQuantity = (item) => toNumber(firstDefined(
-  item.original_quantity,
-  item.original_batch_quantity,
-  item.batch_quantity,
-  item.purchased_units,
-  item.total_units,
-  item.purchased_quantity,
-  item.total_quantity,
-  item.quantity_units,
-  item.quantity,
-  item.qty,
-  item.stock,
-  item.available_stock,
-  0
-));
+const getRemainingNonSoldQuantity = (item) => {
+  const originalQuantity = toOptionalNumber(firstDefined(
+    item.original_quantity,
+    item.original_batch_quantity,
+    item.batch_quantity,
+    item.purchased_units,
+    item.total_units,
+    item.purchased_quantity,
+    item.total_quantity
+  ));
+  const soldQuantity = toOptionalNumber(firstDefined(item.sold_units, item.sold_quantity));
+
+  if (originalQuantity === undefined || soldQuantity === undefined) return undefined;
+
+  return Math.max(originalQuantity - soldQuantity, 0);
+};
 
 const getItemReturnedQuantity = (item) => toNumber(firstDefined(
   item.returned_quantity,
@@ -188,7 +191,13 @@ const buildInventoryBatchRecords = (medicines) => medicines.flatMap((medicine) =
       medicine_key: firstDefined(medicine.medicine_key, medicine.key, medicine.sku),
       medicine_name: firstDefined(medicine.medicine_name, medicine.name),
       distributor_name: firstDefined(medicine.distributor_name, medicine.distributor),
-      available_stock: firstDefined(medicine.available_stock, medicine.total_stock),
+      available_stock: firstDefined(
+        medicine.available_stock,
+        medicine.available_units,
+        medicine.available_quantity,
+        medicine.quantity_units,
+        medicine.total_stock
+      ),
     }];
   }
 
@@ -256,47 +265,38 @@ const findInventoryBatchForExpiryItem = (item, inventoryBatches) => {
   return inventoryBatches.find((batch) => recordsMatchExpiryItem(item, batch));
 };
 
-const getExplicitReturnableQuantity = (item) => toOptionalNumber(firstDefined(
-  item.returnable_quantity,
-  item.expired_returnable_quantity,
-  item.expiring_returnable_quantity,
-  item.expired_quantity,
-  item.expiring_quantity,
-  item.remaining_expired_quantity,
-  item.remaining_expiring_quantity
-));
-
-const getReturnableQuantity = (item, availableStock, returnedQuantity) => {
-  const explicitReturnableQuantity = getExplicitReturnableQuantity(item);
-
-  if (explicitReturnableQuantity !== undefined) return explicitReturnableQuantity;
-
-  if (availableStock !== undefined) {
-    return Math.max(availableStock, 0) + returnedQuantity;
-  }
-
-  const originalQuantity = getOriginalBatchQuantity(item);
-  if (originalQuantity > 0) return originalQuantity;
-
-  return returnedQuantity;
-};
-
 const getReturnStatus = (item, purchaseReturns, inventoryBatches) => {
   const inventoryBatch = findInventoryBatchForExpiryItem(item, inventoryBatches);
-  const availableStock = firstDefined(getAvailableStock(inventoryBatch || {}), getAvailableStock(item));
-  const matchedReturns = purchaseReturns.filter((record) => recordsMatchExpiryItem(item, record));
-  const returnedQuantity = matchedReturns.reduce(
-    (sum, record) => sum + getPurchaseReturnQuantity(record),
-    getItemReturnedQuantity(item)
-  );
-  const returnableQuantity = getReturnableQuantity(
-    { ...(inventoryBatch || {}), ...item },
-    availableStock,
-    returnedQuantity
+  const backendStatus = firstDefined(
+    item.return_status,
+    item.status,
+    inventoryBatch?.return_status,
+    inventoryBatch?.status
   );
 
-  if (returnedQuantity > 0 && returnableQuantity > 0 && returnedQuantity >= returnableQuantity) return "Returned";
-  if (returnedQuantity > 0) return "Partially Returned";
+  if (backendStatus !== undefined && backendStatus !== "") return String(backendStatus);
+
+  const batchData = { ...item, ...(inventoryBatch || {}) };
+  const availableStock = firstDefined(getAvailableStock(inventoryBatch || {}), getAvailableStock(item));
+  const matchedReturns = purchaseReturns.filter((record) => recordsMatchExpiryItem(item, record));
+  const matchedReturnedQuantity = matchedReturns.reduce(
+    (sum, record) => sum + getPurchaseReturnQuantity(record),
+    0
+  );
+  const returnedQuantity = matchedReturnedQuantity > 0
+    ? matchedReturnedQuantity
+    : getItemReturnedQuantity(batchData);
+  const hasPurchaseReturn = matchedReturns.length > 0 || returnedQuantity > 0;
+
+  if (hasPurchaseReturn) {
+    const remainingNonSoldQuantity = getRemainingNonSoldQuantity(batchData);
+
+    if (availableStock !== undefined && availableStock <= 0) return "Returned";
+    if (remainingNonSoldQuantity !== undefined && returnedQuantity >= remainingNonSoldQuantity) return "Returned";
+
+    return "Partially Returned";
+  }
+
   if (availableStock !== undefined && availableStock <= 0) return "Sold Out";
 
   return "Not Returned";
