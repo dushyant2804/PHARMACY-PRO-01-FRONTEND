@@ -299,6 +299,9 @@ body { background: #eef2ef; }
 }
 .update-pill-available { border-color: rgba(252, 211, 77, .35); animation: updatePillGlow 2.8s ease-in-out infinite; }
 .update-status-dot { display: inline-block; width: .375rem; height: .375rem; border-radius: 999px; box-shadow: 0 0 10px currentColor; }
+.update-pill-action { display: inline-flex; min-width: 0; align-items: center; justify-content: center; gap: .25rem; border: 1px solid rgba(167, 243, 208, .12); border-radius: .5rem; background: rgba(255, 255, 255, .045); padding: .375rem .25rem; color: rgba(209, 250, 229, .78); font-size: 9px; font-weight: 700; transition: border-color .2s ease, background-color .2s ease, color .2s ease; }
+.update-pill-action:hover { border-color: rgba(253, 230, 138, .24); background: rgba(255, 255, 255, .08); color: #fef3c7; }
+.update-pill-action:disabled { cursor: wait; opacity: .65; }
 .update-dialog { background: rgba(255, 255, 255, .98); box-shadow: 0 30px 90px rgba(3, 35, 28, .28); }
 .update-dialog-hero { position: relative; overflow: hidden; background: radial-gradient(circle at 90% 0%, rgba(251, 191, 36, .25), transparent 15rem), linear-gradient(135deg, #0b4337, #06271f); }
 .update-dialog-hero::after { content: ""; position: absolute; right: -35px; bottom: -75px; width: 180px; height: 180px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 50%; box-shadow: 0 0 0 28px rgba(255, 255, 255, .025), 0 0 0 56px rgba(255, 255, 255, .018); }

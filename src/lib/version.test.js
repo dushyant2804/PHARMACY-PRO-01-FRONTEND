@@ -5,6 +5,8 @@ describe("version helpers", () => {
     expect(compareVersions("2.10.0", "2.9.9")).toBe(1);
     expect(compareVersions("2.0", "2.0.0")).toBe(0);
     expect(compareVersions("1.9.9", "2.0")).toBe(-1);
+    expect(compareVersions("0.1.0+20260611-abc1234", "0.1.0+20260610-def5678")).toBe(1);
+    expect(compareVersions("0.1.0+20260611-abc1234", "0.1.0+20260611-abc1234")).toBe(0);
   });
 
   test.each([
@@ -18,6 +20,7 @@ describe("version helpers", () => {
   test("normalizes backend version metadata", () => {
     expect(normalizeVersionMetadata({ app_version: "v2.1", update_message: "Ready", notes: "Faster\nSafer" })).toEqual({
       version: "2.1",
+      date: null,
       message: "Ready",
       releaseNotes: ["Faster", "Safer"],
     });

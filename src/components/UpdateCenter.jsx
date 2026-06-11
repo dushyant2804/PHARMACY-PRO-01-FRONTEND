@@ -1,9 +1,8 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { Check, RefreshCw, Rocket, ShieldCheck, Sparkles } from "lucide-react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { CalendarDays, Check, RefreshCw, Rocket, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  ACKNOWLEDGED_VERSION_KEY,
   compareVersions,
   FRONTEND_VERSION,
   getStoredVersion,
@@ -14,54 +13,87 @@ import {
   UPDATE_COMPLETED_KEY,
 } from "@/lib/version";
 
+const fallbackReleaseNote = "Performance, reliability, and experience improvements.";
 const defaultMetadata = {
   version: FRONTEND_VERSION,
+  date: null,
   message: "You have the latest PharmacyOS experience.",
-  releaseNotes: ["Performance, reliability, and experience improvements."],
+  releaseNotes: [fallbackReleaseNote],
 };
 
 const UpdateContext = createContext(null);
+
+const formatReleaseDate = (date) => {
+  if (!date) return "Release date unavailable";
+  const parsedDate = new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) return String(date);
+  return parsedDate.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+};
+
+const fetchJson = async (path) => {
+  const response = await fetch(`${path}?check=${Date.now()}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } });
+  if (!response.ok) throw new Error(`Unable to fetch ${path}`);
+  return response.json();
+};
 
 export default function UpdateCenter({ children }) {
   const [metadata, setMetadata] = useState(defaultMetadata);
   const [updateOpen, setUpdateOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkStatus, setCheckStatus] = useState("Ready to check");
   const [justUpdated, setJustUpdated] = useState(() => getStoredVersion(sessionStorage, UPDATE_COMPLETED_KEY) === "true");
-  const acknowledgedVersion = getStoredVersion(localStorage, ACKNOWLEDGED_VERSION_KEY);
-  const updateAvailable = compareVersions(metadata.version, FRONTEND_VERSION) > 0 && acknowledgedVersion !== metadata.version;
-  const displayedVersion = acknowledgedVersion && compareVersions(acknowledgedVersion, FRONTEND_VERSION) > 0
-    ? acknowledgedVersion
-    : FRONTEND_VERSION;
+  const updateAvailable = compareVersions(metadata.version, FRONTEND_VERSION) > 0;
   const updateType = useMemo(() => getUpdateType(FRONTEND_VERSION, metadata.version), [metadata.version]);
+  const releaseDate = useMemo(() => formatReleaseDate(metadata.date), [metadata.date]);
+
+  const checkForUpdates = useCallback(async ({ automatic = false } = {}) => {
+    setChecking(true);
+    if (!automatic) setCheckStatus("Checking for updates…");
+
+    try {
+      const [versionPayload, releaseNotesPayload] = await Promise.all([
+        fetchJson("/version.json"),
+        fetchJson("/release-notes.json").catch(() => null),
+      ]);
+      const versionMetadata = normalizeVersionMetadata(versionPayload);
+      if (!versionMetadata) throw new Error("Invalid version metadata");
+      const releaseMetadata = releaseNotesPayload ? normalizeVersionMetadata(releaseNotesPayload) : null;
+      const nextMetadata = {
+        ...versionMetadata,
+        date: releaseMetadata?.date || versionMetadata.date,
+        releaseNotes: releaseMetadata?.releaseNotes?.length ? releaseMetadata.releaseNotes : versionMetadata.releaseNotes,
+      };
+      const hasUpdate = compareVersions(nextMetadata.version, FRONTEND_VERSION) > 0;
+      setMetadata(nextMetadata);
+      setCheckStatus(hasUpdate ? "Update available" : "You’re up to date");
+      if (hasUpdate) setUpdateOpen(true);
+      return hasUpdate;
+    } catch {
+      setCheckStatus("Couldn’t check for updates");
+      return false;
+    } finally {
+      setChecking(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    fetch(`/api/version?check=${Date.now()}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Version check failed")))
-      .then((payload) => {
-        const nextMetadata = normalizeVersionMetadata(payload);
-        if (!active || !nextMetadata) return;
-        setMetadata(nextMetadata);
-        if (compareVersions(nextMetadata.version, FRONTEND_VERSION) > 0 && getStoredVersion(localStorage, ACKNOWLEDGED_VERSION_KEY) !== nextMetadata.version) {
-          setUpdateOpen(true);
-        }
-      })
-      .catch(() => {});
-    return () => { active = false; };
-  }, []);
+    checkForUpdates({ automatic: true });
+  }, [checkForUpdates]);
 
   useEffect(() => {
     if (!justUpdated) return undefined;
     removeStoredVersion(sessionStorage, UPDATE_COMPLETED_KEY);
+    setCheckStatus("You’re up to date");
     const timer = window.setTimeout(() => setJustUpdated(false), 6000);
     return () => window.clearTimeout(timer);
   }, [justUpdated]);
 
   const applyUpdate = async () => {
     setUpdateOpen(false);
+    setWhatsNewOpen(false);
     setUpdating(true);
-    setStoredVersion(localStorage, ACKNOWLEDGED_VERSION_KEY, metadata.version);
     setStoredVersion(sessionStorage, UPDATE_COMPLETED_KEY, "true");
 
     try {
@@ -71,7 +103,10 @@ export default function UpdateCenter({ children }) {
       }
       if ("serviceWorker" in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map((registration) => registration.update()));
+        await Promise.all(registrations.map(async (registration) => {
+          await registration.update();
+          registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+        }));
       }
     } finally {
       const url = new URL(window.location.href);
@@ -82,7 +117,17 @@ export default function UpdateCenter({ children }) {
 
   return (
     <>
-      <UpdateContext.Provider value={{ currentVersion: displayedVersion, updateAvailable, justUpdated, openUpdate: () => setUpdateOpen(true), openWhatsNew: () => setWhatsNewOpen(true) }}>
+      <UpdateContext.Provider value={{
+        currentVersion: FRONTEND_VERSION,
+        latestVersion: metadata.version,
+        updateAvailable,
+        justUpdated,
+        checking,
+        checkStatus,
+        checkForUpdates,
+        openUpdate: () => setUpdateOpen(true),
+        openWhatsNew: () => setWhatsNewOpen(true),
+      }}>
         {children}
       </UpdateContext.Provider>
 
@@ -116,7 +161,11 @@ export default function UpdateCenter({ children }) {
 
       <Dialog open={whatsNewOpen && !updating} onOpenChange={setWhatsNewOpen}>
         <DialogContent className="max-w-md rounded-2xl border-emerald-100">
-          <DialogHeader><DialogTitle className="flex items-center gap-2 text-emerald-950"><Sparkles className="h-5 w-5 text-amber-500" />What’s new in PharmacyOS {metadata.version}</DialogTitle><DialogDescription>{metadata.message}</DialogDescription></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-950"><Sparkles className="h-5 w-5 text-amber-500" />What’s new in PharmacyOS {metadata.version}</DialogTitle>
+            <DialogDescription>{metadata.message}</DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500"><CalendarDays className="h-4 w-4 text-emerald-600" />Released {releaseDate}</div>
           <ul className="space-y-2">{metadata.releaseNotes.map((note) => <li key={note} className="flex gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-600"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{note}</li>)}</ul>
           {updateAvailable && <Button onClick={applyUpdate} className="bg-emerald-900 hover:bg-emerald-800">Update PharmacyOS</Button>}
         </DialogContent>
@@ -130,14 +179,19 @@ export default function UpdateCenter({ children }) {
 export function UpdatePill() {
   const update = useContext(UpdateContext);
   if (!update) return null;
-  const { currentVersion, updateAvailable, justUpdated, openUpdate, openWhatsNew } = update;
+  const { currentVersion, latestVersion, updateAvailable, justUpdated, checking, checkStatus, checkForUpdates, openUpdate, openWhatsNew } = update;
+  const status = justUpdated ? "You’re up to date" : checkStatus;
   return (
     <div className={`update-pill mx-3 mb-3 rounded-xl p-3 text-white ${updateAvailable ? "update-pill-available" : ""}`}>
       <button type="button" onClick={updateAvailable ? openUpdate : openWhatsNew} className="w-full text-left">
-        <div className="flex items-center justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-[.18em] text-amber-200">PharmacyOS</span><span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-200">v{currentVersion}</span></div>
-        {updateAvailable ? <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-amber-100"><span className="flex items-center gap-1.5"><span className="update-status-dot bg-amber-300" />Update Available</span><span aria-hidden="true">→</span></div> : <div className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-300"><span className="update-status-dot bg-emerald-300" />{justUpdated ? "You’re up to date" : "PharmacyOS is up to date"}</div>}
+        <div className="flex items-center justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-[.18em] text-amber-200">Update Center</span><span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-200">v{currentVersion}</span></div>
+        <div className={`mt-2 flex items-center gap-1.5 text-[11px] ${updateAvailable ? "font-semibold text-amber-100" : "text-emerald-300"}`}><span className={`update-status-dot ${updateAvailable ? "bg-amber-300" : "bg-emerald-300"}`} />{status}</div>
+        <div className="mt-1 truncate text-[9px] text-emerald-100/45" title={latestVersion}>Latest deployed: v{latestVersion}</div>
       </button>
-      <button type="button" onClick={openWhatsNew} className="mt-2 text-[10px] font-semibold text-amber-200/80 transition-colors hover:text-amber-100">What’s New →</button>
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
+        <button type="button" disabled={checking} onClick={() => checkForUpdates()} className="update-pill-action"><RefreshCw className={`h-3 w-3 ${checking ? "animate-spin" : ""}`} />{checking ? "Checking…" : "Check Updates"}</button>
+        <button type="button" onClick={openWhatsNew} className="update-pill-action"><Sparkles className="h-3 w-3" />What’s New</button>
+      </div>
     </div>
   );
 }

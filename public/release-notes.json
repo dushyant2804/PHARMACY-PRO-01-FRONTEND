@@ -1,8 +1,7 @@
 {
   "version": "0.1.0+20260611-2f2c7d7",
   "date": "2026-06-11T08:49:43.593Z",
-  "message": "A new PharmacyOS update is available.",
-  "release_notes": [
+  "notes": [
     "Latest PharmacyOS improvements are ready."
   ]
 }

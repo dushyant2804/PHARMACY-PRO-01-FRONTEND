@@ -2,6 +2,14 @@
 const path = require("path");
 require("dotenv").config();
 
+// Use the generated deployment metadata as the version compiled into this frontend build.
+try {
+  const { version } = require("./public/version.json");
+  process.env.REACT_APP_VERSION = process.env.REACT_APP_VERSION || version;
+} catch {
+  // Development can still start before the first generated version file exists.
+}
+
 // Check if we're in development/preview mode (not production build)
 // Craco sets NODE_ENV=development for start, NODE_ENV=production for build
 const isDevServer = process.env.NODE_ENV !== "production";
