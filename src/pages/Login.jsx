@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatApiError } from "@/lib/api";
 
 export default function Login() {
-  const { login, user, passwordExpired } = useAuth();
+  const { login, demoLogin, user, passwordExpired } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,10 +22,10 @@ export default function Login() {
     if (user) navigate(passwordExpired ? "/password-expired" : "/");
   }, [user, passwordExpired, navigate]);
 
-  const signIn = async (loginEmail, loginPassword) => {
+  const signIn = async (authenticate) => {
     setLoading(true);
     try {
-      const result = await login(loginEmail, loginPassword);
+      const result = await authenticate();
       if (result?.password_expired === true || result?.passwordExpired === true || result?.user?.password_expired === true || result?.user?.passwordExpired === true) {
         toast.error("Your password has expired. Set a new password to continue.");
         navigate("/password-expired", { replace: true });
@@ -42,13 +42,11 @@ export default function Login() {
 
   const onSubmit = (event) => {
     event.preventDefault();
-    signIn(email, password);
+    signIn(() => login(email, password));
   };
 
   const onDemoLogin = () => {
-    const demoEmail = "admin@pharmacy.com";
-    const demoPassword = "admin123";
-    signIn(demoEmail, demoPassword);
+    signIn(demoLogin);
   };
 
   return (

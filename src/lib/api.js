@@ -19,6 +19,7 @@ instance.interceptors.response.use(
   (error) => {
     const authFormEndpoints = [
       "/auth/login",
+      "/auth/demo-login",
       "/auth/forgot-password",
       "/auth/verify-otp",
       "/auth/reset-password",
