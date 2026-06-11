@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "@/lib/api";
+import { demoLoginRequest, loginRequest } from "@/lib/auth";
 
 const AuthContext = createContext(null);
 
@@ -42,12 +43,21 @@ export function AuthProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const login = async (email, password) => {
-    const { data } = await api.post("/auth/login", { email, password });
+  const applyLoginResponse = (data) => {
     const token = data?.token || data?.access_token || data?.accessToken;
     if (token) localStorage.setItem("token", token);
     applyAuthResponse(data);
     return data;
+  };
+
+  const login = async (email, password) => {
+    const { data } = await loginRequest(email, password);
+    return applyLoginResponse(data);
+  };
+
+  const demoLogin = async () => {
+    const { data } = await demoLoginRequest();
+    return applyLoginResponse(data);
   };
 
   const completePasswordChange = async () => {
@@ -69,7 +79,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, setUser, passwordExpired, completePasswordChange, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, demoLogin, logout, setUser, passwordExpired, completePasswordChange, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
