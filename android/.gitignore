@@ -1,0 +1,19 @@
+# Android Studio and Gradle
+gradle/wrapper/gradle-wrapper.jar
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+
+# Generated Capacitor files
+capacitor-cordova-android-plugins
+app/src/main/assets/public
+app/src/main/assets/capacitor.config.json
+app/src/main/assets/capacitor.plugins.json
+app/src/main/res/xml/config.xml
+app/capacitor.build.gradle
+capacitor.settings.gradle
