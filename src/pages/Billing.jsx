@@ -381,11 +381,11 @@ export default function Billing() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
+        <div className="relative z-10 lg:col-span-2 space-y-4">
           {/* Keyboard-first quick add */}
-          <div className="relative rounded-sm border border-emerald-200 bg-white p-3 shadow-sm">
+          <div className={`relative overflow-visible rounded-sm border border-emerald-200 bg-white p-3 shadow-sm ${filtered.length > 0 ? "z-[100]" : "z-10"}`}>
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_110px_auto]">
-              <div className="relative">
+              <div className="relative z-[110] overflow-visible">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <Input
                   ref={searchRef}
@@ -402,6 +402,35 @@ export default function Billing() {
                 <button type="button" onClick={() => setScanOpen(true)} className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-sm" data-testid="billing-scan-btn">
                   <ScanLine className="w-4 h-4" /> Scan
                 </button>
+
+                {filtered.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-[120] mt-1 max-h-80 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-xl">
+                    {filtered.map((medicine, index) => (
+                      <button
+                        key={medicine.id || medicine.medicine_id}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => selectQuickMedicine(medicine)}
+                        className={`w-full px-3 py-2.5 text-left border-b border-slate-100 last:border-0 ${index === activeResult ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300" : "hover:bg-slate-50"}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold text-slate-900">{medicine.name}</div>
+                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                              <span>Expiry: {getNearestExpiry(medicine) || "—"}</span>
+                              <span>FIFO: {getBatchNumber(getFifoBatch(medicine) || medicine) || "—"}</span>
+                              {isLowStock(medicine) && <span className="font-bold text-amber-700">Low stock</span>}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <div className="font-mono-nums text-sm font-semibold">{fmtINR(medicine.mrp)}</div>
+                            <div className={`text-xs font-semibold ${getMedicineStock(medicine) <= 0 ? "text-red-600" : "text-emerald-700"}`}>Available: {getMedicineStock(medicine)}</div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <Input
                 ref={quickQuantityRef}
@@ -431,34 +460,7 @@ export default function Billing() {
               </div>
             )}
 
-            {filtered.length > 0 && (
-              <div className="absolute left-3 right-3 z-20 mt-1 max-h-80 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-lg">
-                {filtered.map((medicine, index) => (
-                  <button
-                    key={medicine.id || medicine.medicine_id}
-                    type="button"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => selectQuickMedicine(medicine)}
-                    className={`w-full px-3 py-2.5 text-left border-b border-slate-100 last:border-0 ${index === activeResult ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300" : "hover:bg-slate-50"}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="truncate font-semibold text-slate-900">{medicine.name}</div>
-                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-                          <span>Expiry: {getNearestExpiry(medicine) || "—"}</span>
-                          <span>FIFO: {getBatchNumber(getFifoBatch(medicine) || medicine) || "—"}</span>
-                          {isLowStock(medicine) && <span className="font-bold text-amber-700">Low stock</span>}
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <div className="font-mono-nums text-sm font-semibold">{fmtINR(medicine.mrp)}</div>
-                        <div className={`text-xs font-semibold ${getMedicineStock(medicine) <= 0 ? "text-red-600" : "text-emerald-700"}`}>Available: {getMedicineStock(medicine)}</div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+            {filtered.length > 0 && <div className="h-80" aria-hidden="true" />}
           </div>
 
           {hasScheduleH && (
@@ -482,7 +484,7 @@ export default function Billing() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="data-table">
+              <table className="data-table min-w-[760px]">
                 <thead>
                   <tr>
                     <th>Medicine</th>
@@ -583,7 +585,40 @@ export default function Billing() {
                           />
                         </td>
 
-                        <td className="num-cell font-semibold">
+                        <td className="num-cell whitespace-nowrap">
+                          {fmtINR(unitPrice)}
+                        </td>
+
+                        <td className="num-cell">
+                          <div className="relative ml-auto w-20">
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              min={0}
+                              max={100}
+                              step="0.01"
+                              value={it.discount_pct}
+                              onChange={(event) =>
+                                updateItem(
+                                  i,
+                                  "discount_pct",
+                                  Math.max(0, Math.min(100, Number(event.target.value) || 0))
+                                )
+                              }
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  searchRef.current?.focus();
+                                }
+                              }}
+                              aria-label={`Discount percentage for ${it.medicine_name}`}
+                              className="h-8 w-20 rounded-sm pr-6 text-right"
+                            />
+                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+                          </div>
+                        </td>
+
+                        <td className="num-cell whitespace-nowrap font-semibold">
                           {fmtINR(lt)}
                         </td>
 
