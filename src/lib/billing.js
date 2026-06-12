@@ -116,6 +116,33 @@ export const isLowStock = (medicine) => {
   );
 };
 
+export const getExactBarcodeMatches = (medicines, query) => {
+  const barcode = String(query || "")
+    .trim()
+    .toLowerCase();
+  if (!barcode) return [];
+
+  return (medicines || []).filter(
+    (medicine) =>
+      String(medicine?.barcode || "")
+        .trim()
+        .toLowerCase() === barcode,
+  );
+};
+
+export const getBarcodeAutoAddMatch = (medicines, query) => {
+  const matches = getExactBarcodeMatches(medicines, query);
+  return matches.length === 1 ? matches[0] : null;
+};
+
+export const getQuickAddQuantity = (quantity) =>
+  Math.max(1, Number(quantity) || 1);
+
+export const focusMedicineSearch = (
+  searchRef,
+  schedule = requestAnimationFrame,
+) => schedule(() => searchRef.current?.focus());
+
 export const searchMedicines = (medicines, query, limit = 8) => {
   const term = String(query || "")
     .trim()

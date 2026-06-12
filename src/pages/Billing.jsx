@@ -25,16 +25,20 @@ import { useNavigate } from "react-router-dom";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import Autocomplete from "@/components/Autocomplete";
 import {
+  getBarcodeAutoAddMatch,
   getBatchNumber,
   getFifoBatch,
   getInvoiceDateError,
   getEffectiveDiscountPct,
+  getExactBarcodeMatches,
   getItemDiscountAmount,
   getItemDiscountValue,
   getItemSubtotal,
   getItemTotal,
   getMedicineStock,
   getNearestExpiry,
+  getQuickAddQuantity,
+  focusMedicineSearch,
   getTodayDateInputValue,
   isDiscountValid,
   isLowStock,
@@ -113,7 +117,7 @@ export default function Billing() {
     setActiveCartRow(-1);
     setQuickMedicine(null);
     setQuickQuantity("1");
-    requestAnimationFrame(() => searchRef.current?.focus());
+    focusMedicineSearch(searchRef);
 
     setCustomer({
       id: "",
@@ -152,7 +156,7 @@ export default function Billing() {
 
   const addToCart = (medicine, requestedQuantity = 1) => {
     const stock = getMedicineStock(medicine);
-    const quantity = Math.max(1, Number(requestedQuantity) || 1);
+    const quantity = getQuickAddQuantity(requestedQuantity);
     if (stock <= 0) return toast.error("Out of stock");
 
     const fifoBatch = getFifoBatch(medicine);
@@ -206,12 +210,24 @@ export default function Billing() {
     setQuickMedicine(null);
     setQuickQuantity("1");
     setSearch("");
-    requestAnimationFrame(() => searchRef.current?.focus());
+    focusMedicineSearch(searchRef);
   };
 
   const addQuickRow = () => {
     if (!quickMedicine) return searchRef.current?.focus();
     addToCart(quickMedicine, quickQuantity);
+  };
+
+  const handleSearchChange = (event) => {
+    const value = event.target.value;
+    const exactBarcodeMatch = getBarcodeAutoAddMatch(meds, value);
+
+    if (exactBarcodeMatch) {
+      addToCart(exactBarcodeMatch, quickQuantity);
+      return;
+    }
+
+    setSearch(value);
   };
 
   const handleSearchKeyDown = (event) => {
@@ -488,7 +504,7 @@ export default function Billing() {
                   autoFocus
                   placeholder="Search name, barcode, or batch…"
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={handleSearchChange}
                   onKeyDown={handleSearchKeyDown}
                   className="pl-9 pr-20 rounded-sm h-11 border-emerald-300 focus-visible:ring-emerald-500"
                   data-testid="billing-search"
@@ -516,8 +532,16 @@ export default function Billing() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="truncate font-semibold text-slate-900">
-                              {medicine.name}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="truncate font-semibold text-slate-900">
+                                {medicine.name}
+                              </div>
+                              {getExactBarcodeMatches([medicine], search)
+                                .length === 1 && (
+                                <span className="rounded-sm bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-blue-700">
+                                  BARCODE MATCH
+                                </span>
+                              )}
                             </div>
                             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
                               <span>
@@ -568,7 +592,6 @@ export default function Billing() {
                     addQuickRow();
                   }
                 }}
-                disabled={!quickMedicine}
                 aria-label="Quick quantity"
                 className="h-11 rounded-sm text-right text-lg font-bold"
               />
@@ -1011,7 +1034,7 @@ export default function Billing() {
               `/medicines/lookup/${encodeURIComponent(code)}`,
             );
 
-            addToCart(data);
+            addToCart(data, quickQuantity);
 
             toast.success(`Added: ${data.name}`);
           } catch {

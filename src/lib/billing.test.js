@@ -1,11 +1,15 @@
 import {
   calculateDiscountAmount,
+  focusMedicineSearch,
+  getBarcodeAutoAddMatch,
   getEffectiveDiscountPct,
+  getExactBarcodeMatches,
   getFifoBatch,
   getInvoiceDateError,
   getItemTotal,
   getMedicineStock,
   getNearestExpiry,
+  getQuickAddQuantity,
   getTodayDateInputValue,
   isDiscountValid,
   isLowStock,
@@ -61,11 +65,42 @@ describe("billing helpers", () => {
     expect(getNearestExpiry(medicine)).toBe("06/27");
   });
 
-  test("ranks exact barcode and name-prefix matches first", () => {
-    expect(searchMedicines(medicines, "12345")[0].id).toBe(1);
+  test("auto-adds only a single exact barcode match", () => {
+    expect(getBarcodeAutoAddMatch(medicines, " 12345 ")).toBe(medicines[0]);
+    expect(
+      getBarcodeAutoAddMatch(
+        [...medicines, { id: 4, barcode: "12345" }],
+        "12345",
+      ),
+    ).toBeNull();
+    expect(getExactBarcodeMatches(medicines, "missing")).toEqual([]);
+  });
+
+  test("prioritizes an exact barcode over an exact medicine name", () => {
+    const results = searchMedicines(
+      [...medicines, { id: 4, name: "12345", barcode: "name-only" }],
+      "12345",
+    );
+
+    expect(results.map(({ id }) => id).slice(0, 2)).toEqual([1, 4]);
     expect(searchMedicines(medicines, "para").map(({ id }) => id)).toEqual([
       1, 2, 3,
     ]);
+  });
+
+  test("returns focus to medicine search after add", () => {
+    const focus = jest.fn();
+    const schedule = jest.fn((callback) => callback());
+
+    focusMedicineSearch({ current: { focus } }, schedule);
+
+    expect(schedule).toHaveBeenCalledTimes(1);
+    expect(focus).toHaveBeenCalledTimes(1);
+  });
+
+  test("preserves the current quantity for barcode quick-add", () => {
+    expect(getQuickAddQuantity("4")).toBe(4);
+    expect(getQuickAddQuantity(0)).toBe(1);
   });
 
   test("calculates percentage discounts and the row total", () => {
