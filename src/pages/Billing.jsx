@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import api, { fmtINR, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,11 +16,22 @@ import {
   Trash2,
   AlertTriangle,
   ScanLine,
+  Boxes,
+  CornerDownLeft,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import Autocomplete from "@/components/Autocomplete";
+import {
+  getBatchNumber,
+  getFifoBatch,
+  getMedicineStock,
+  getNearestExpiry,
+  isLowStock,
+  searchMedicines,
+} from "@/lib/billing";
 
 export default function Billing() {
   const navigate = useNavigate();
@@ -30,6 +41,11 @@ export default function Billing() {
   const [doctors, setDoctors] = useState([]);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState([]);
+  const [quickMedicine, setQuickMedicine] = useState(null);
+  const [quickQuantity, setQuickQuantity] = useState("1");
+  const [activeResult, setActiveResult] = useState(0);
+  const searchRef = useRef(null);
+  const quickQuantityRef = useRef(null);
 
   const [customer, setCustomer] = useState({
     id: "",
@@ -72,6 +88,9 @@ export default function Billing() {
   const newBill = () => {
     setSearch("");
     setCart([]);
+    setQuickMedicine(null);
+    setQuickQuantity("1");
+    requestAnimationFrame(() => searchRef.current?.focus());
 
     setCustomer({
       id: "",
@@ -97,14 +116,15 @@ export default function Billing() {
       const active = document.activeElement;
       const tag = active?.tagName;
 
-      if (tag === "INPUT" || tag === "TEXTAREA") {
-        return;
-      }
-
-      // F1 -> New Bill
       if (e.key === "F1") {
         e.preventDefault();
         newBill();
+        return;
+      }
+
+      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") {
+        e.preventDefault();
+        searchRef.current?.focus();
       }
     };
 
@@ -115,62 +135,84 @@ export default function Billing() {
     };
   }, []);
 
-  const filtered = useMemo(() => {
-    if (!search) return [];
+  const filtered = useMemo(() => searchMedicines(meds, search), [search, meds]);
 
-    const s = search.toLowerCase();
+  useEffect(() => setActiveResult(0), [search]);
 
-    return meds
-      .filter(
-        (m) =>
-          m.name.toLowerCase().includes(s) ||
-          (m.barcode && m.barcode.includes(search))
-      )
-      .slice(0, 8);
-  }, [search, meds]);
+  const selectQuickMedicine = (medicine) => {
+    if (getMedicineStock(medicine) <= 0) return toast.error("Out of stock");
+    setQuickMedicine(medicine);
+    setSearch("");
+    setQuickQuantity("1");
+    requestAnimationFrame(() => {
+      quickQuantityRef.current?.focus();
+      quickQuantityRef.current?.select();
+    });
+  };
 
-  const addToCart = (m) => {
-    if (m.quantity <= 0) {
-      return toast.error("Out of stock");
-    }
+  const addToCart = (medicine, requestedQuantity = 1) => {
+    const stock = getMedicineStock(medicine);
+    const quantity = Math.max(1, Number(requestedQuantity) || 1);
+    if (stock <= 0) return toast.error("Out of stock");
 
-    const exists = cart.find((c) => c.name === m.name);
+    const fifoBatch = getFifoBatch(medicine);
+    const medicineId = medicine.id || medicine.medicine_id;
+    const medicineKey = medicineId || medicine.name || medicine.medicine_name;
+    const exists = cart.find((item) => String(item.medicine_id || item.medicine_name) === String(medicineKey));
+    const existingUnits = exists
+      ? exists.quantity * (exists.unit_type === "box" ? exists.units_per_box : 1)
+      : 0;
+
+    if (existingUnits + quantity > stock) return toast.error(`Only ${stock} units available`);
 
     if (exists) {
-      const needed =
-        (exists.quantity + 1) *
-        (exists.unit_type === "box" ? exists.units_per_box : 1);
-
-      if (needed > m.quantity) {
-        return toast.error("Insufficient stock");
-      }
-
-      setCart(
-        cart.map((c) =>
-          c.medicine_id === m.id
-            ? { ...c, quantity: c.quantity + 1 }
-            : c
-        )
-      );
+      setCart(cart.map((item) =>
+        String(item.medicine_id || item.medicine_name) === String(medicineKey)
+          ? { ...item, unit_type: "unit", quantity: existingUnits + quantity }
+          : item
+      ));
     } else {
-      setCart([
-        ...cart,
-        {
-          medicine_name: m.name,
-          expiry_date: m.expiry_date,
-          quantity: 1,
-          mrp: m.mrp,
-          discount_pct: 0,
-          gst_rate: m.gst_rate || 12,
-          category: m.category,
-          stock: m.quantity,
-          unit_type: "unit",
-          units_per_box: Math.max(m.units_per_box || 1, 1),
-        },
-      ]);
+      setCart([...cart, {
+        medicine_id: medicineId,
+        medicine_name: medicine.name || medicine.medicine_name,
+        batch_no: getBatchNumber(fifoBatch || medicine),
+        expiry_date: getNearestExpiry(medicine),
+        quantity,
+        mrp: medicine.mrp,
+        discount_pct: 0,
+        gst_rate: medicine.gst_rate || 12,
+        category: medicine.category,
+        stock,
+        low_stock: isLowStock(medicine),
+        unit_type: "unit",
+        units_per_box: Math.max(medicine.units_per_box || 1, 1),
+      }]);
     }
 
+    setQuickMedicine(null);
+    setQuickQuantity("1");
     setSearch("");
+    requestAnimationFrame(() => searchRef.current?.focus());
+  };
+
+  const addQuickRow = () => {
+    if (!quickMedicine) return searchRef.current?.focus();
+    addToCart(quickMedicine, quickQuantity);
+  };
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key === "ArrowDown" && filtered.length) {
+      event.preventDefault();
+      setActiveResult((current) => Math.min(current + 1, filtered.length - 1));
+    } else if (event.key === "ArrowUp" && filtered.length) {
+      event.preventDefault();
+      setActiveResult((current) => Math.max(current - 1, 0));
+    } else if (event.key === "Enter" && filtered.length) {
+      event.preventDefault();
+      selectQuickMedicine(filtered[activeResult] || filtered[0]);
+    } else if (event.key === "Escape") {
+      setSearch("");
+    }
   };
 
   const updateItem = (i, key, val) => {
@@ -279,7 +321,7 @@ export default function Billing() {
         customer_gstin: customer.gstin,
         referring_doctor: referringDoctor,
 
-        items: cart.map(({ stock, ...rest }) => ({
+        items: cart.map(({ stock, low_stock, ...rest }) => ({
           ...rest,
           quantity: Number(rest.quantity),
           discount_pct: Number(rest.discount_pct || 0),
@@ -324,67 +366,93 @@ export default function Billing() {
 
   return (
     <div className="space-y-6" data-testid="billing-page">
-      <div>
-        <div className="text-xs uppercase tracking-[0.15em] font-semibold text-slate-500">
-          Point of sale
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.15em] font-semibold text-emerald-700">
+            <Zap className="h-4 w-4" /> Quick Counter Mode
+          </div>
+          <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight text-slate-900 mt-1">New Bill</h1>
+          <p className="mt-1 text-sm text-slate-500">Search → Enter → quantity → Enter. Stock deducts when the invoice is created.</p>
         </div>
-
-        <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight text-slate-900 mt-1">
-          New Bill
-        </h1>
+        <div className="flex gap-2 text-xs font-semibold text-slate-500">
+          <span className="rounded-sm border bg-white px-2 py-1">/ Search</span>
+          <span className="rounded-sm border bg-white px-2 py-1">F1 New bill</span>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
-          {/* Search */}
-          <div className="bg-white border border-slate-200 rounded-sm p-4 relative">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-
+          {/* Keyboard-first quick add */}
+          <div className="relative rounded-sm border border-emerald-200 bg-white p-3 shadow-sm">
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_110px_auto]">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  ref={searchRef}
+                  autoFocus
+                  placeholder="Search name, barcode, or batch…"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  className="pl-9 pr-20 rounded-sm h-11 border-emerald-300 focus-visible:ring-emerald-500"
+                  data-testid="billing-search"
+                  role="combobox"
+                  aria-expanded={filtered.length > 0}
+                />
+                <button type="button" onClick={() => setScanOpen(true)} className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-sm" data-testid="billing-scan-btn">
+                  <ScanLine className="w-4 h-4" /> Scan
+                </button>
+              </div>
               <Input
-                placeholder="Search medicine or scan barcode…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 pr-24 rounded-sm h-11"
-                data-testid="billing-search"
+                ref={quickQuantityRef}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={quickMedicine ? getMedicineStock(quickMedicine) : undefined}
+                value={quickQuantity}
+                onChange={(event) => setQuickQuantity(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addQuickRow(); } }}
+                disabled={!quickMedicine}
+                aria-label="Quick quantity"
+                className="h-11 rounded-sm text-right text-lg font-bold"
               />
-
-              <button
-                type="button"
-                onClick={() => setScanOpen(true)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-blue-600 hover:bg-blue-50 rounded-sm"
-                data-testid="billing-scan-btn"
-              >
-                <ScanLine className="w-4 h-4" />
-                Scan
-              </button>
+              <Button type="button" onClick={addQuickRow} disabled={!quickMedicine} className="h-11 rounded-sm bg-emerald-600 px-5 hover:bg-emerald-700">
+                Add <CornerDownLeft className="ml-2 h-4 w-4" />
+              </Button>
             </div>
 
+            {quickMedicine && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-sm bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+                <strong className="text-sm">{quickMedicine.name}</strong>
+                <span>Available: <b>{getMedicineStock(quickMedicine)}</b></span>
+                <span>Nearest expiry: <b>{getNearestExpiry(quickMedicine) || "—"}</b></span>
+                <span>FIFO batch: <b>{getBatchNumber(getFifoBatch(quickMedicine) || quickMedicine) || "—"}</b></span>
+                {isLowStock(quickMedicine) && <span className="font-bold text-amber-700">Low stock</span>}
+              </div>
+            )}
+
             {filtered.length > 0 && (
-              <div className="absolute left-4 right-4 mt-1 bg-white border border-slate-200 shadow-lg rounded-sm z-10 max-h-80 overflow-y-auto">
-                {filtered.map((m) => (
+              <div className="absolute left-3 right-3 z-20 mt-1 max-h-80 overflow-y-auto rounded-sm border border-slate-200 bg-white shadow-lg">
+                {filtered.map((medicine, index) => (
                   <button
-                    key={m.id}
-                    onClick={() => addToCart(m)}
-                    className="w-full px-3 py-2 flex justify-between hover:bg-slate-50 text-left border-b border-slate-100 last:border-0"
+                    key={medicine.id || medicine.medicine_id}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => selectQuickMedicine(medicine)}
+                    className={`w-full px-3 py-2.5 text-left border-b border-slate-100 last:border-0 ${index === activeResult ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300" : "hover:bg-slate-50"}`}
                   >
-                    <div>
-                      <div className="font-medium text-slate-900">
-                        {m.name}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold text-slate-900">{medicine.name}</div>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                          <span>Expiry: {getNearestExpiry(medicine) || "—"}</span>
+                          <span>FIFO: {getBatchNumber(getFifoBatch(medicine) || medicine) || "—"}</span>
+                          {isLowStock(medicine) && <span className="font-bold text-amber-700">Low stock</span>}
+                        </div>
                       </div>
-
-                      <div className="text-xs text-slate-500 font-mono">
-                        {m.batch_no} · {m.category}
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="font-mono-nums text-sm">
-                        {fmtINR(m.mrp)}
-                      </div>
-
-                      <div className="text-xs text-slate-500">
-                        Stock: {m.quantity}
+                      <div className="shrink-0 text-right">
+                        <div className="font-mono-nums text-sm font-semibold">{fmtINR(medicine.mrp)}</div>
+                        <div className={`text-xs font-semibold ${getMedicineStock(medicine) <= 0 ? "text-red-600" : "text-emerald-700"}`}>Available: {getMedicineStock(medicine)}</div>
                       </div>
                     </div>
                   </button>
@@ -408,8 +476,9 @@ export default function Billing() {
 
           {/* Cart */}
           <div className="bg-white border border-slate-200 rounded-sm">
-            <div className="px-4 py-3 border-b border-slate-200 font-heading font-semibold">
-              Items ({cart.length})
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200">
+              <div className="font-heading font-semibold">Items ({cart.length})</div>
+              <div className="flex items-center gap-1 text-xs text-slate-500"><Boxes className="h-4 w-4" /> Invoice creation deducts stock</div>
             </div>
 
             <div className="overflow-x-auto">
@@ -457,10 +526,11 @@ export default function Billing() {
                     return (
                       <tr key={i}>
                         <td>
-                          <div className="font-medium">{it.name}</div>
+                          <div className="font-medium">{it.medicine_name}</div>
 
                           <div className="text-xs text-slate-500 font-mono">
-                            {it.batch_no} · stock {it.stock} units
+                            Available {it.stock} · Exp {it.expiry_date || "—"} · FIFO {it.batch_no || "—"}
+                            {it.low_stock && <span className="ml-2 font-sans font-bold text-amber-700">Low stock</span>}
                           </div>
                         </td>
 
@@ -500,15 +570,15 @@ export default function Billing() {
                               updateItem(
                                 i,
                                 "quantity",
-                                Math.max(
-                                  1,
-                                  Math.min(
-                                    maxQty || 1,
-                                    Number(e.target.value)
-                                  )
-                                )
+                                Math.max(1, Math.min(maxQty || 1, Number(e.target.value)))
                               )
                             }
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                searchRef.current?.focus();
+                              }
+                            }}
                             className="w-20 h-8 text-right rounded-sm"
                           />
                         </td>
