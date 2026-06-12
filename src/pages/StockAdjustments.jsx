@@ -124,9 +124,14 @@ export default function StockAdjustments() {
     loadData();
   }, [loadData]);
 
-  const batches = useMemo(() => getMedicineBatches(form.medicine), [form.medicine]);
+  const batches = useMemo(() => {
+    const medicineBatches = getMedicineBatches(form.medicine);
+    return Array.isArray(medicineBatches) ? medicineBatches : [];
+  }, [form.medicine]);
   const selectedBatch = useMemo(
-    () => batches.find((batch) => String(getBatchId(batch)) === form.batchKey) || null,
+    () => (Array.isArray(batches)
+      ? batches.find((batch) => String(getBatchId(batch)) === form.batchKey) || null
+      : null),
     [batches, form.batchKey]
   );
   const summary = useMemo(() => summarizeAdjustments(history), [history]);
@@ -134,12 +139,14 @@ export default function StockAdjustments() {
     ? getAvailableStock(selectedBatch) + Number(form.quantity)
     : null;
 
-  const medicineOptions = medicines.map((medicine) => ({
-    id: getMedicineId(medicine),
-    value: getMedicineName(medicine),
-    label: `${getMedicineName(medicine)}${medicine.manufacturer ? ` · ${medicine.manufacturer}` : ""}`,
-    medicine,
-  }));
+  const medicineOptions = (Array.isArray(medicines) ? medicines : [])
+    .filter((medicine) => medicine && typeof medicine === "object")
+    .map((medicine) => ({
+      id: getMedicineId(medicine),
+      value: getMedicineName(medicine),
+      label: `${getMedicineName(medicine)}${medicine.manufacturer ? ` · ${medicine.manufacturer}` : ""}`,
+      medicine,
+    }));
 
   const updateField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -249,12 +256,15 @@ export default function StockAdjustments() {
               <span className="mb-1.5 block text-xs font-bold text-slate-700">Batch <span className="text-red-500">*</span></span>
               <select value={form.batchKey} onChange={(event) => { updateField("batchKey", event.target.value); setErrors((current) => ({ ...current, batch: undefined })); }} disabled={!form.medicine} className={`flex h-10 w-full rounded-md border bg-white px-3 py-2 text-sm ring-offset-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${errors.batch ? "border-red-400" : "border-slate-300"}`}>
                 <option value="">{form.medicine ? "Select a batch" : "Select medicine first"}</option>
-                {batches.map((batch) => (
+                {Array.isArray(batches) && batches.map((batch) => (
                   <option key={getBatchId(batch)} value={String(getBatchId(batch))}>
                     {getBatchNumber(batch)} · {getAvailableStock(batch)} available{batch.expiry_date ? ` · Exp ${batch.expiry_date}` : ""}
                   </option>
                 ))}
               </select>
+              {form.medicine && (!Array.isArray(batches) || batches.length === 0) && (
+                <p className="mt-1.5 text-xs font-medium text-slate-500" role="status">No sellable batches available</p>
+              )}
               <FieldError>{errors.batch}</FieldError>
             </label>
 

@@ -1,9 +1,25 @@
-import { getAvailableStock, summarizeAdjustments, validateStockAdjustment } from "./stockAdjustments";
+import { getAvailableStock, getMedicineBatches, summarizeAdjustments, validateStockAdjustment } from "./stockAdjustments";
 
 describe("stock adjustment helpers", () => {
+  test.each([
+    ["null batches", { id: 1, batches: null }],
+    ["undefined batches", { id: 1 }],
+    ["empty batches", { id: 1, batches: [] }],
+  ])("returns no batches for %s", (_label, medicine) => {
+    expect(getMedicineBatches(medicine)).toEqual([]);
+  });
+
+  test("ignores non-array and corrupt batch data", () => {
+    expect(getMedicineBatches({ id: 1, batches: { batch_no: "BAD" } })).toEqual([]);
+    expect(getMedicineBatches({ id: 1, batches: [null, undefined, "BAD", { batch_no: "GOOD" }] })).toEqual([
+      { batch_no: "GOOD" },
+    ]);
+    expect(getAvailableStock({ available_stock: "corrupt" })).toBe(0);
+  });
   test("normalizes available batch stock", () => {
     expect(getAvailableStock({ available_quantity: "12" })).toBe(12);
     expect(getAvailableStock({ available_stock: 4 })).toBe(4);
+    expect(getAvailableStock({ available_stock: 0 })).toBe(0);
   });
 
   test("requires signed, non-zero, whole-number quantities", () => {

@@ -6,35 +6,40 @@ export const normalizeCollection = (data) => {
   return Array.isArray(collection) ? collection : [];
 };
 
-export const getMedicineId = (medicine = {}) =>
-  firstDefined(medicine.id, medicine.medicine_id, medicine.medicineId, "");
+export const getMedicineId = (medicine) =>
+  firstDefined(medicine?.id, medicine?.medicine_id, medicine?.medicineId, "");
 
-export const getMedicineName = (medicine = {}) =>
-  firstDefined(medicine.name, medicine.medicine_name, medicine.medicine, "");
+export const getMedicineName = (medicine) =>
+  firstDefined(medicine?.name, medicine?.medicine_name, medicine?.medicine, "");
 
-export const getBatchNumber = (batch = {}) =>
-  firstDefined(batch.batch_no, batch.batch_number, batch.batchNo, batch.batch, "");
+export const getBatchNumber = (batch) =>
+  firstDefined(batch?.batch_no, batch?.batch_number, batch?.batchNo, batch?.batch, "");
 
-export const getBatchId = (batch = {}) =>
-  firstDefined(batch.id, batch.batch_id, batch.batchId, getBatchNumber(batch));
+export const getBatchId = (batch) =>
+  firstDefined(batch?.id, batch?.batch_id, batch?.batchId, getBatchNumber(batch));
 
-export const getAvailableStock = (batch = {}) =>
-  Number(
+export const getAvailableStock = (batch) => {
+  const stock = Number(
     firstDefined(
-      batch.available_stock,
-      batch.available_quantity,
-      batch.available_units,
-      batch.quantity_units,
-      batch.current_stock,
-      batch.total_stock,
-      batch.stock,
+      batch?.available_stock,
+      batch?.available_quantity,
+      batch?.available_units,
+      batch?.quantity_units,
+      batch?.current_stock,
+      batch?.total_stock,
+      batch?.stock,
       0
     )
   );
 
-export const getMedicineBatches = (medicine = {}) => {
-  if (Array.isArray(medicine.batches) && medicine.batches.length > 0) {
-    return medicine.batches;
+  return Number.isFinite(stock) ? stock : 0;
+};
+
+export const getMedicineBatches = (medicine) => {
+  if (!medicine || typeof medicine !== "object") return [];
+
+  if (Array.isArray(medicine.batches)) {
+    return medicine.batches.filter((batch) => batch && typeof batch === "object");
   }
 
   return getBatchNumber(medicine) ? [medicine] : [];
@@ -61,10 +66,11 @@ export const validateStockAdjustment = ({ date, medicine, batch, adjustmentType,
 
 export const summarizeAdjustments = (adjustments = []) => {
   const totals = { damaged: 0, expired: 0, correction: 0, total: 0 };
+  const safeAdjustments = Array.isArray(adjustments) ? adjustments : [];
 
-  adjustments.forEach((adjustment) => {
-    const quantity = Number(firstDefined(adjustment.quantity, adjustment.adjusted_quantity, adjustment.qty, 0));
-    const type = String(firstDefined(adjustment.adjustment_type, adjustment.type, adjustment.reason, ""))
+  safeAdjustments.forEach((adjustment) => {
+    const quantity = Number(firstDefined(adjustment?.quantity, adjustment?.adjusted_quantity, adjustment?.qty, 0));
+    const type = String(firstDefined(adjustment?.adjustment_type, adjustment?.type, adjustment?.reason, ""))
       .trim()
       .toLowerCase()
       .replace(/[ -]+/g, "_");
