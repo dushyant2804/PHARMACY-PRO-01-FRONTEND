@@ -17,6 +17,7 @@ import {
   PackagePlus,
   BookOpen,
   RotateCcw,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BrandLogo from "@/components/BrandLogo";
@@ -26,6 +27,7 @@ import { LayoutContext } from "@/contexts/LayoutContext";
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/inventory", label: "Inventory", icon: Package, roles: ["admin", "pharmacist"] },
+  { to: "/stock-adjustments", label: "Stock Adjustments", icon: SlidersHorizontal, roles: ["admin", "pharmacist"] },
   { to: "/purchase-orders", label: "Purchases", icon: PackagePlus, roles: ["admin", "pharmacist"] },
   { to: "/purchase-returns", label: "Purchase Returns", icon: RotateCcw, roles: ["admin", "pharmacist"] },
   { to: "/billing", label: "New Bill", icon: Receipt, roles: ["admin", "cashier", "pharmacist"] },

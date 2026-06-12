@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import api, { fmtINR, formatApiError } from "@/lib/api";
 import { Input } from "@/components/ui/input";
@@ -393,7 +394,7 @@ export default function Inventory() {
                     <span className="mt-1.5 block text-[11px] leading-4 text-slate-500">Alert when available stock reaches this level.</span>
                   </label>
                   <label className="block">
-                    <span className="mb-1.5 block text-xs font-bold text-slate-700">Sold Quantity</span>
+                    <span className="mb-1.5 block text-xs font-bold text-slate-700">Sold Quantity <span className="font-semibold text-amber-700">(Legacy/Admin correction)</span></span>
                     <Input
                       type="number"
                       min="0"
@@ -401,7 +402,12 @@ export default function Inventory() {
                       onChange={(event) => setSoldUnitsValue(event.target.value)}
                       className="border-slate-300 bg-white focus-visible:ring-emerald-600"
                     />
-                    <span className="mt-1.5 block text-[11px] leading-4 text-slate-500">Recorded sold units for this medicine.</span>
+                    <span className="mt-1.5 block text-[11px] leading-4 text-slate-500">
+                      Recorded sold units for legacy/admin correction only. For auditable inventory corrections, use{" "}
+                      <Link to="/stock-adjustments" className="font-bold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-800">
+                        Stock Adjustments
+                      </Link>.
+                    </span>
                   </label>
                 </div>
               </SectionCard>
