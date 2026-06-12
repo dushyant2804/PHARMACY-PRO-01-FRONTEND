@@ -35,6 +35,7 @@ import PurchaseOrders from "@/pages/PurchaseOrders";
 import PurchaseOrderDetail from "@/pages/PurchaseOrderDetail";
 import PurchaseReturns from "@/pages/PurchaseReturns";
 import DailySales from "@/pages/DailySales";
+import DailyClosing from "@/pages/DailyClosing";
 import Patients from "@/pages/Patients";
 import Onboarding from "@/pages/Onboarding";
 
@@ -260,6 +261,15 @@ function App() {
               element={
                 <Protected>
                   <DailySales />
+                </Protected>
+              }
+            />
+
+            <Route
+              path="/daily-closing"
+              element={
+                <Protected>
+                  <DailyClosing />
                 </Protected>
               }
             />

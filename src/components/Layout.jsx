@@ -18,6 +18,7 @@ import {
   BookOpen,
   RotateCcw,
   SlidersHorizontal,
+  CalendarCheck2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BrandLogo from "@/components/BrandLogo";
@@ -32,6 +33,7 @@ const nav = [
   { to: "/purchase-returns", label: "Purchase Returns", icon: RotateCcw, roles: ["admin", "pharmacist"] },
   { to: "/billing", label: "New Bill", icon: Receipt, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/daily-sales", label: "Daily Sales", icon: BookOpen, roles: ["admin", "cashier", "pharmacist"] },
+  { to: "/daily-closing", label: "Daily Closing", icon: CalendarCheck2, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/invoices", label: "Invoices", icon: FileText, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/patients", label: "Patients", icon: Users, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/distributors", label: "Distributors", icon: Truck, roles: ["admin", "pharmacist"] },

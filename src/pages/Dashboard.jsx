@@ -404,6 +404,7 @@ export default function Dashboard() {
   const expiringSoonCount = firstDefined(data.expiring_soon_count, expiringSoonItems.length, 0);
   const expiredCount = firstDefined(data.expired_count, expiredItems.length, 0);
   const patientAlerts = getPatientAlerts(data);
+  const dailyClosing = firstDefined(data.daily_closing, data.today_closing, data.closing_summary);
 
   const totalSales = firstDefined(data.total_sales, data.sales, 0);
   const salesThisMonth = firstDefined(data.sales_this_month, data.monthly_sales, 0);
@@ -454,6 +455,16 @@ export default function Dashboard() {
           tone="text-purple-600"
           sub="At purchase cost"
         />
+
+        {dailyClosing && typeof dailyClosing === "object" && (
+          <StatCard
+            label="Today's Closing"
+            value={fmtINR(firstDefined(dailyClosing.expected_total, dailyClosing.expectedTotal, dailyClosing.total, 0))}
+            tone={Math.abs(Number(firstDefined(dailyClosing.mismatch, dailyClosing.mismatch_amount, 0))) < 0.005 ? "text-emerald-600" : "text-amber-600"}
+            sub={`Mismatch: ${fmtINR(firstDefined(dailyClosing.mismatch, dailyClosing.mismatch_amount, 0))}`}
+            onClick={() => navigate("/daily-closing")}
+          />
+        )}
 
         <StatCard
           label="Total Purchase Amount"
