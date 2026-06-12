@@ -28,6 +28,7 @@ import {
   getBarcodeAutoAddMatch,
   getBatchNumber,
   getFifoBatch,
+  getInvoiceDateError,
   getEffectiveDiscountPct,
   getExactBarcodeMatches,
   getItemDiscountAmount,
@@ -38,11 +39,20 @@ import {
   getNearestExpiry,
   getQuickAddQuantity,
   focusMedicineSearch,
+  getTodayDateInputValue,
   isDiscountValid,
   isLowStock,
   searchMedicines,
   toInvoiceItem,
+  withInvoiceDate,
 } from "@/lib/billing";
+import {
+  BILLING_SHORTCUTS,
+  getBillingShortcut,
+  getNextCartRow,
+  getSelectedRowAfterRemoval,
+  removeCartRow,
+} from "@/lib/billingKeyboard";
 
 export default function Billing() {
   const navigate = useNavigate();
@@ -55,8 +65,12 @@ export default function Billing() {
   const [quickMedicine, setQuickMedicine] = useState(null);
   const [quickQuantity, setQuickQuantity] = useState("1");
   const [activeResult, setActiveResult] = useState(0);
+  const [activeCartRow, setActiveCartRow] = useState(-1);
   const searchRef = useRef(null);
   const quickQuantityRef = useRef(null);
+  const customerSearchRef = useRef(null);
+  const cartRowRefs = useRef([]);
+  const cartQuantityRefs = useRef([]);
 
   const [customer, setCustomer] = useState({
     id: "",
@@ -66,6 +80,7 @@ export default function Billing() {
   });
 
   const [referringDoctor, setReferringDoctor] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(getTodayDateInputValue);
   const [billDiscType, setBillDiscType] = useState("none");
   const [billDiscValue, setBillDiscValue] = useState("");
 
@@ -99,6 +114,7 @@ export default function Billing() {
   const newBill = () => {
     setSearch("");
     setCart([]);
+    setActiveCartRow(-1);
     setQuickMedicine(null);
     setQuickQuantity("1");
     focusMedicineSearch(searchRef);
@@ -111,6 +127,7 @@ export default function Billing() {
     });
 
     setReferringDoctor("");
+    setInvoiceDate(getTodayDateInputValue());
     setBillDiscType("none");
     setBillDiscValue("");
 
@@ -121,30 +138,6 @@ export default function Billing() {
 
     setNotes("");
   };
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      const active = document.activeElement;
-      const tag = active?.tagName;
-
-      if (e.key === "F1") {
-        e.preventDefault();
-        newBill();
-        return;
-      }
-
-      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
 
   const filtered = useMemo(() => searchMedicines(meds, search), [search, meds]);
 
@@ -182,6 +175,7 @@ export default function Billing() {
       return toast.error(`Only ${stock} units available`);
 
     if (exists) {
+      setActiveCartRow(cart.indexOf(exists));
       setCart(
         cart.map((item) =>
           String(item.medicine_id || item.medicine_name) === String(medicineKey)
@@ -190,6 +184,7 @@ export default function Billing() {
         ),
       );
     } else {
+      setActiveCartRow(cart.length);
       setCart([
         ...cart,
         {
@@ -296,7 +291,16 @@ export default function Billing() {
   };
 
   const removeItem = (i) => {
-    setCart(cart.filter((_, idx) => idx !== i));
+    setCart((current) => {
+      setActiveCartRow(getSelectedRowAfterRemoval(i, current.length));
+      return removeCartRow(current, i);
+    });
+  };
+
+  const moveActiveCartRow = (direction) => {
+    const nextRow = getNextCartRow(activeCartRow, direction, cart.length);
+    setActiveCartRow(nextRow);
+    requestAnimationFrame(() => cartRowRefs.current[nextRow]?.focus());
   };
 
   const totals = useMemo(() => {
@@ -347,10 +351,16 @@ export default function Billing() {
   const hasScheduleH = cart.some(
     (c) => c.category === "Schedule H" || c.category === "Schedule H1",
   );
+  const today = getTodayDateInputValue();
+  const invoiceDateError = getInvoiceDateError(invoiceDate, today);
 
   const submit = async () => {
     if (cart.length === 0) {
       return toast.error("Cart is empty");
+    }
+
+    if (invoiceDateError) {
+      return toast.error(invoiceDateError);
     }
 
     const invalidDiscount = cart.find(
@@ -370,30 +380,33 @@ export default function Billing() {
     setSaving(true);
 
     try {
-      const payload = {
-        customer_id: customer.id || null,
-        customer_name: customer.name || "Walk-in",
-        customer_phone: customer.phone,
-        customer_gstin: customer.gstin,
-        referring_doctor: referringDoctor,
+      const payload = withInvoiceDate(
+        {
+          customer_id: customer.id || null,
+          customer_name: customer.name || "Walk-in",
+          customer_phone: customer.phone,
+          customer_gstin: customer.gstin,
+          referring_doctor: referringDoctor,
 
-        items: cart.map(toInvoiceItem),
+          items: cart.map(toInvoiceItem),
 
-        payment_mode: payment.mode,
+          payment_mode: payment.mode,
 
-        paid_amount:
-          payment.mode === "credit"
-            ? Number(payment.paid || 0)
-            : Number(payment.paid) || totals.total,
+          paid_amount:
+            payment.mode === "credit"
+              ? Number(payment.paid || 0)
+              : Number(payment.paid) || totals.total,
 
-        bill_discount_amount:
-          billDiscType === "amt" ? Number(billDiscValue || 0) : 0,
+          bill_discount_amount:
+            billDiscType === "amt" ? Number(billDiscValue || 0) : 0,
 
-        bill_discount_pct:
-          billDiscType === "pct" ? Number(billDiscValue || 0) : 0,
+          bill_discount_pct:
+            billDiscType === "pct" ? Number(billDiscValue || 0) : 0,
 
-        notes,
-      };
+          notes,
+        },
+        invoiceDate,
+      );
 
       const { data } = await api.post("/invoices", payload);
 
@@ -406,6 +419,49 @@ export default function Billing() {
       setSaving(false);
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      const action = getBillingShortcut(event);
+      const activeTag = document.activeElement?.tagName;
+
+      if (
+        !action &&
+        event.key === "/" &&
+        activeTag !== "INPUT" &&
+        activeTag !== "TEXTAREA"
+      ) {
+        event.preventDefault();
+        searchRef.current?.focus();
+        return;
+      }
+
+      if (!action) return;
+      event.preventDefault();
+
+      if (action === "newBill") newBill();
+      if (action === "focusMedicineSearch") searchRef.current?.focus();
+      if (action === "focusCustomerSearch") customerSearchRef.current?.focus();
+      if (action === "focusQuantity") {
+        const quantityInput = quickMedicine
+          ? quickQuantityRef.current
+          : cartQuantityRefs.current[activeCartRow >= 0 ? activeCartRow : 0];
+        quantityInput?.focus();
+        quantityInput?.select();
+      }
+      if (action === "createInvoice") submit();
+      if (action === "clearMedicineSearch") {
+        setSearch("");
+        setActiveResult(0);
+      }
+      if (action === "removeSelectedRow" && activeCartRow >= 0) {
+        removeItem(activeCartRow);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
   return (
     <div className="space-y-6" data-testid="billing-page">
@@ -422,11 +478,15 @@ export default function Billing() {
             created.
           </p>
         </div>
-        <div className="flex gap-2 text-xs font-semibold text-slate-500">
-          <span className="rounded-sm border bg-white px-2 py-1">/ Search</span>
-          <span className="rounded-sm border bg-white px-2 py-1">
-            F1 New bill
-          </span>
+        <div
+          className="flex max-w-2xl flex-wrap justify-end gap-1.5 text-xs font-semibold text-slate-500"
+          aria-label="Billing keyboard shortcuts"
+        >
+          {BILLING_SHORTCUTS.map(({ keys, label }) => (
+            <span key={keys} className="rounded-sm border bg-white px-2 py-1">
+              <kbd>{keys}</kbd> {label}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -434,7 +494,7 @@ export default function Billing() {
         <div className="relative z-10 lg:col-span-2 space-y-4">
           {/* Keyboard-first quick add */}
           <div
-            className={`relative overflow-visible rounded-sm border border-emerald-200 bg-white p-3 shadow-sm ${filtered.length > 0 ? "z-[100]" : "z-10"}`}
+            className={`relative overflow-visible rounded-sm border border-emerald-200 bg-white p-3 shadow-sm lg:sticky lg:top-4 ${filtered.length > 0 ? "z-[100]" : "z-20"}`}
           >
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_110px_auto]">
               <div className="relative z-[110] overflow-visible">
@@ -592,7 +652,8 @@ export default function Billing() {
                 Items ({cart.length})
               </div>
               <div className="flex items-center gap-1 text-xs text-slate-500">
-                <Boxes className="h-4 w-4" /> Invoice creation deducts stock
+                <Boxes className="h-4 w-4" />{" "}
+                <span>↑↓ Select row · Ctrl+Delete Remove</span>
               </div>
             </div>
 
@@ -638,7 +699,34 @@ export default function Billing() {
                         : it.stock;
 
                     return (
-                      <tr key={i}>
+                      <tr
+                        key={it.medicine_id || `${it.medicine_name}-${i}`}
+                        ref={(element) => {
+                          cartRowRefs.current[i] = element;
+                        }}
+                        tabIndex={0}
+                        data-testid={`billing-cart-row-${i}`}
+                        aria-selected={activeCartRow === i}
+                        onClick={() => setActiveCartRow(i)}
+                        onFocus={() => setActiveCartRow(i)}
+                        onKeyDown={(event) => {
+                          if (
+                            event.currentTarget === event.target &&
+                            (event.key === "ArrowDown" ||
+                              event.key === "ArrowUp")
+                          ) {
+                            event.preventDefault();
+                            moveActiveCartRow(
+                              event.key === "ArrowUp" ? "up" : "down",
+                            );
+                          }
+                        }}
+                        className={
+                          activeCartRow === i
+                            ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300"
+                            : ""
+                        }
+                      >
                         <td>
                           <div className="font-medium">{it.medicine_name}</div>
 
@@ -674,6 +762,9 @@ export default function Billing() {
 
                         <td className="num-cell">
                           <Input
+                            ref={(element) => {
+                              cartQuantityRefs.current[i] = element;
+                            }}
                             type="number"
                             min={1}
                             max={maxQty}
@@ -688,6 +779,7 @@ export default function Billing() {
                                 ),
                               )
                             }
+                            onFocus={() => setActiveCartRow(i)}
                             onKeyDown={(event) => {
                               if (event.key === "Enter") {
                                 event.preventDefault();
@@ -763,6 +855,8 @@ export default function Billing() {
                         <td>
                           <button
                             onClick={() => removeItem(i)}
+                            aria-label={`Remove ${it.medicine_name}`}
+                            title="Remove row (Ctrl+Delete)"
                             className="text-slate-400 hover:text-red-600"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -780,7 +874,38 @@ export default function Billing() {
         {/* Sidebar */}
         <div className="space-y-4">
           <div className="bg-white border border-slate-200 rounded-sm p-4 space-y-3">
-            <div className="font-heading font-semibold">Customer</div>
+            <div className="font-heading font-semibold">Customer & Billing</div>
+
+            <div>
+              <Label
+                htmlFor="invoice-date"
+                className="text-xs uppercase font-semibold text-slate-600"
+              >
+                Invoice Date
+              </Label>
+              <Input
+                id="invoice-date"
+                type="date"
+                value={invoiceDate}
+                max={today}
+                required
+                aria-invalid={Boolean(invoiceDateError)}
+                aria-describedby={
+                  invoiceDateError ? "invoice-date-error" : undefined
+                }
+                onChange={(event) => setInvoiceDate(event.target.value)}
+                className="rounded-sm mt-1"
+                data-testid="invoice-date"
+              />
+              {invoiceDateError && (
+                <p
+                  id="invoice-date-error"
+                  className="mt-1 text-xs text-red-600"
+                >
+                  {invoiceDateError}
+                </p>
+              )}
+            </div>
 
             <Select
               value={customer.id || "walkin"}
@@ -806,7 +931,11 @@ export default function Billing() {
                 }
               }}
             >
-              <SelectTrigger className="rounded-sm">
+              <SelectTrigger
+                ref={customerSearchRef}
+                aria-label="Customer search"
+                className="rounded-sm"
+              >
                 <SelectValue />
               </SelectTrigger>
 
@@ -888,7 +1017,7 @@ export default function Billing() {
               disabled={saving || cart.length === 0}
               className="w-full rounded-sm bg-blue-600 hover:bg-blue-700 h-11 mt-3 font-semibold"
             >
-              {saving ? "Creating…" : "Create Invoice →"}
+              {saving ? "Creating…" : "Create Invoice →  F6"}
             </Button>
           </div>
         </div>

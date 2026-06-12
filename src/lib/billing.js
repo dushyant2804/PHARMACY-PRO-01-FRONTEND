@@ -1,3 +1,31 @@
+export const getTodayDateInputValue = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+export const getInvoiceDateError = (
+  invoiceDate,
+  today = getTodayDateInputValue(),
+) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(invoiceDate || "")) {
+    return "Invoice date is required";
+  }
+
+  if (invoiceDate > today) {
+    return "Invoice date cannot be in the future";
+  }
+
+  return "";
+};
+
+export const withInvoiceDate = (payload, invoiceDate) => ({
+  ...payload,
+  invoice_date: invoiceDate,
+});
+
 const firstDefined = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== "");
 
