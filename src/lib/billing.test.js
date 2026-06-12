@@ -1,4 +1,15 @@
-import { getFifoBatch, getMedicineStock, getNearestExpiry, isLowStock, searchMedicines } from "./billing";
+import {
+  calculateDiscountAmount,
+  getEffectiveDiscountPct,
+  getFifoBatch,
+  getItemTotal,
+  getMedicineStock,
+  getNearestExpiry,
+  isDiscountValid,
+  isLowStock,
+  searchMedicines,
+  toInvoiceItem,
+} from "./billing";
 
 const medicines = [
   { id: 1, name: "Paracetamol 500", barcode: "12345", batch_no: "P-1" },
@@ -28,6 +39,54 @@ describe("billing helpers", () => {
 
   test("ranks exact barcode and name-prefix matches first", () => {
     expect(searchMedicines(medicines, "12345")[0].id).toBe(1);
-    expect(searchMedicines(medicines, "para").map(({ id }) => id)).toEqual([1, 2, 3]);
+    expect(searchMedicines(medicines, "para").map(({ id }) => id)).toEqual([
+      1, 2, 3,
+    ]);
+  });
+
+  test("calculates percentage discounts and the row total", () => {
+    const item = {
+      mrp: 200,
+      quantity: 2,
+      unit_type: "unit",
+      discount_type: "pct",
+      discount_value: 10,
+    };
+    expect(calculateDiscountAmount(400, "pct", 10)).toBe(40);
+    expect(getItemTotal(item)).toBe(360);
+  });
+
+  test("calculates fixed amount discounts", () => {
+    const item = {
+      mrp: 200,
+      quantity: 2,
+      unit_type: "unit",
+      discount_type: "amt",
+      discount_value: 75,
+    };
+    expect(calculateDiscountAmount(400, "amt", 75)).toBe(75);
+    expect(getItemTotal(item)).toBe(325);
+  });
+
+  test("converts amount discounts to percentage for the invoice payload", () => {
+    expect(getEffectiveDiscountPct(400, "amt", 50)).toBe(12.5);
+    expect(
+      toInvoiceItem({
+        medicine_id: 1,
+        mrp: 200,
+        quantity: 2,
+        discount_type: "amt",
+        discount_value: 50,
+        stock: 8,
+        low_stock: false,
+      }),
+    ).toMatchObject({ medicine_id: 1, discount_pct: 12.5, quantity: 2 });
+  });
+
+  test("rejects invalid amount discounts", () => {
+    expect(isDiscountValid(100, "amt", 100.01)).toBe(false);
+    expect(isDiscountValid(100, "amt", -1)).toBe(false);
+    expect(isDiscountValid(100, "amt", 100)).toBe(true);
+    expect(isDiscountValid(100, "pct", 100.01)).toBe(false);
   });
 });
