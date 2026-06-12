@@ -1,4 +1,5 @@
-const firstDefined = (...values) => values.find((value) => value !== undefined && value !== null && value !== "");
+const firstDefined = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== "");
 
 export const getMedicineStock = (medicine) =>
   Number(
@@ -9,8 +10,8 @@ export const getMedicineStock = (medicine) =>
       medicine?.quantity_units,
       medicine?.total_stock,
       medicine?.quantity,
-      0
-    )
+      0,
+    ),
   ) || 0;
 
 const getBatchStock = (batch) =>
@@ -22,8 +23,8 @@ const getBatchStock = (batch) =>
       batch?.quantity_units,
       batch?.remaining_quantity,
       batch?.quantity,
-      0
-    )
+      0,
+    ),
   ) || 0;
 
 const expiryTime = (value) => {
@@ -33,7 +34,9 @@ const expiryTime = (value) => {
 
   if (monthYear) {
     const month = Number(monthYear[1]);
-    const year = Number(monthYear[2].length === 2 ? `20${monthYear[2]}` : monthYear[2]);
+    const year = Number(
+      monthYear[2].length === 2 ? `20${monthYear[2]}` : monthYear[2],
+    );
     return new Date(year, month, 0, 23, 59, 59, 999).getTime();
   }
 
@@ -42,9 +45,15 @@ const expiryTime = (value) => {
 };
 
 export const getFifoBatch = (medicine) => {
-  const availableBatches = (Array.isArray(medicine?.batches) ? medicine.batches : [])
+  const availableBatches = (
+    Array.isArray(medicine?.batches) ? medicine.batches : []
+  )
     .filter((batch) => getBatchStock(batch) > 0)
-    .sort((a, b) => expiryTime(a.expiry_date || a.expiry) - expiryTime(b.expiry_date || b.expiry));
+    .sort(
+      (a, b) =>
+        expiryTime(a.expiry_date || a.expiry) -
+        expiryTime(b.expiry_date || b.expiry),
+    );
 
   return availableBatches[0] || null;
 };
@@ -55,26 +64,41 @@ export const getBatchNumber = (batchOrMedicine) =>
     batchOrMedicine?.batch_no,
     batchOrMedicine?.batch,
     batchOrMedicine?.batchNo,
-    ""
+    "",
   );
 
 export const getNearestExpiry = (medicine) => {
   const batch = getFifoBatch(medicine);
-  return firstDefined(batch?.expiry_date, batch?.expiry, medicine?.expiry_date, medicine?.expiry, "");
+  return firstDefined(
+    batch?.expiry_date,
+    batch?.expiry,
+    medicine?.expiry_date,
+    medicine?.expiry,
+    "",
+  );
 };
 
 export const isLowStock = (medicine) => {
-  const threshold = firstDefined(medicine?.low_stock_threshold, medicine?.reorder_level);
-  return threshold !== undefined && getMedicineStock(medicine) <= Number(threshold);
+  const threshold = firstDefined(
+    medicine?.low_stock_threshold,
+    medicine?.reorder_level,
+  );
+  return (
+    threshold !== undefined && getMedicineStock(medicine) <= Number(threshold)
+  );
 };
 
 export const searchMedicines = (medicines, query, limit = 8) => {
-  const term = String(query || "").trim().toLowerCase();
+  const term = String(query || "")
+    .trim()
+    .toLowerCase();
   if (!term) return [];
 
   return (medicines || [])
     .map((medicine, index) => {
-      const name = String(medicine?.name || medicine?.medicine_name || "").toLowerCase();
+      const name = String(
+        medicine?.name || medicine?.medicine_name || "",
+      ).toLowerCase();
       const barcode = String(medicine?.barcode || "").toLowerCase();
       const batch = String(getBatchNumber(medicine)).toLowerCase();
       let rank = Number.POSITIVE_INFINITY;
@@ -92,4 +116,72 @@ export const searchMedicines = (medicines, query, limit = 8) => {
     .sort((a, b) => a.rank - b.rank || a.index - b.index)
     .slice(0, limit)
     .map(({ medicine }) => medicine);
+};
+
+const normalizeDiscountType = (type) => (type === "amt" ? "amt" : "pct");
+
+export const getItemSubtotal = (item) => {
+  const unitsPerBox = Math.max(Number(item?.units_per_box || 1), 1);
+  const unitPrice =
+    Number(item?.mrp || 0) * (item?.unit_type === "box" ? unitsPerBox : 1);
+  return Math.max(unitPrice * Number(item?.quantity || 0), 0);
+};
+
+export const getItemDiscountValue = (item) =>
+  Number(item?.discount_value ?? item?.discount_pct ?? 0) || 0;
+
+export const isDiscountValid = (subtotal, type, value) => {
+  const numericSubtotal = Math.max(Number(subtotal || 0), 0);
+  const numericValue = Number(value || 0);
+
+  if (!Number.isFinite(numericValue) || numericValue < 0) return false;
+  return normalizeDiscountType(type) === "amt"
+    ? numericValue <= numericSubtotal
+    : numericValue <= 100;
+};
+
+export const calculateDiscountAmount = (subtotal, type, value) => {
+  const numericSubtotal = Math.max(Number(subtotal || 0), 0);
+  const numericValue = Math.max(Number(value || 0), 0);
+
+  return normalizeDiscountType(type) === "amt"
+    ? Math.min(numericValue, numericSubtotal)
+    : (numericSubtotal * Math.min(numericValue, 100)) / 100;
+};
+
+export const getItemDiscountAmount = (item) =>
+  calculateDiscountAmount(
+    getItemSubtotal(item),
+    item?.discount_type,
+    getItemDiscountValue(item),
+  );
+
+export const getItemTotal = (item) =>
+  getItemSubtotal(item) - getItemDiscountAmount(item);
+
+export const getEffectiveDiscountPct = (subtotal, type, value) => {
+  const numericSubtotal = Math.max(Number(subtotal || 0), 0);
+  if (numericSubtotal === 0) return 0;
+  return (
+    (calculateDiscountAmount(numericSubtotal, type, value) / numericSubtotal) *
+    100
+  );
+};
+
+export const toInvoiceItem = (item) => {
+  const { stock, low_stock, discount_type, discount_value, ...invoiceItem } =
+    item;
+  const subtotal = getItemSubtotal(item);
+
+  return {
+    ...invoiceItem,
+    quantity: Number(invoiceItem.quantity),
+    discount_pct: getEffectiveDiscountPct(
+      subtotal,
+      discount_type,
+      getItemDiscountValue(item),
+    ),
+    units_per_box: Math.max(Number(invoiceItem.units_per_box || 1), 1),
+    unit_type: invoiceItem.unit_type || "unit",
+  };
 };

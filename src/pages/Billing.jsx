@@ -27,10 +27,17 @@ import Autocomplete from "@/components/Autocomplete";
 import {
   getBatchNumber,
   getFifoBatch,
+  getEffectiveDiscountPct,
+  getItemDiscountAmount,
+  getItemDiscountValue,
+  getItemSubtotal,
+  getItemTotal,
   getMedicineStock,
   getNearestExpiry,
+  isDiscountValid,
   isLowStock,
   searchMedicines,
+  toInvoiceItem,
 } from "@/lib/billing";
 
 export default function Billing() {
@@ -158,35 +165,47 @@ export default function Billing() {
     const fifoBatch = getFifoBatch(medicine);
     const medicineId = medicine.id || medicine.medicine_id;
     const medicineKey = medicineId || medicine.name || medicine.medicine_name;
-    const exists = cart.find((item) => String(item.medicine_id || item.medicine_name) === String(medicineKey));
+    const exists = cart.find(
+      (item) =>
+        String(item.medicine_id || item.medicine_name) === String(medicineKey),
+    );
     const existingUnits = exists
-      ? exists.quantity * (exists.unit_type === "box" ? exists.units_per_box : 1)
+      ? exists.quantity *
+        (exists.unit_type === "box" ? exists.units_per_box : 1)
       : 0;
 
-    if (existingUnits + quantity > stock) return toast.error(`Only ${stock} units available`);
+    if (existingUnits + quantity > stock)
+      return toast.error(`Only ${stock} units available`);
 
     if (exists) {
-      setCart(cart.map((item) =>
-        String(item.medicine_id || item.medicine_name) === String(medicineKey)
-          ? { ...item, unit_type: "unit", quantity: existingUnits + quantity }
-          : item
-      ));
+      setCart(
+        cart.map((item) =>
+          String(item.medicine_id || item.medicine_name) === String(medicineKey)
+            ? { ...item, unit_type: "unit", quantity: existingUnits + quantity }
+            : item,
+        ),
+      );
     } else {
-      setCart([...cart, {
-        medicine_id: medicineId,
-        medicine_name: medicine.name || medicine.medicine_name,
-        batch_no: getBatchNumber(fifoBatch || medicine),
-        expiry_date: getNearestExpiry(medicine),
-        quantity,
-        mrp: medicine.mrp,
-        discount_pct: 0,
-        gst_rate: medicine.gst_rate || 12,
-        category: medicine.category,
-        stock,
-        low_stock: isLowStock(medicine),
-        unit_type: "unit",
-        units_per_box: Math.max(medicine.units_per_box || 1, 1),
-      }]);
+      setCart([
+        ...cart,
+        {
+          medicine_id: medicineId,
+          medicine_name: medicine.name || medicine.medicine_name,
+          batch_no: getBatchNumber(fifoBatch || medicine),
+          expiry_date: getNearestExpiry(medicine),
+          quantity,
+          mrp: medicine.mrp,
+          discount_pct: 0,
+          discount_type: "pct",
+          discount_value: 0,
+          gst_rate: medicine.gst_rate || 12,
+          category: medicine.category,
+          stock,
+          low_stock: isLowStock(medicine),
+          unit_type: "unit",
+          units_per_box: Math.max(medicine.units_per_box || 1, 1),
+        },
+      ]);
     }
 
     setQuickMedicine(null);
@@ -226,16 +245,37 @@ export default function Billing() {
     if (key === "unit_type") {
       const upb = c[i].units_per_box || 1;
 
-      const maxQty =
-        val === "box"
-          ? Math.floor(c[i].stock / upb)
-          : c[i].stock;
+      const maxQty = val === "box" ? Math.floor(c[i].stock / upb) : c[i].stock;
 
       if (c[i].quantity > maxQty) {
         c[i].quantity = Math.max(maxQty, 1);
       }
     }
 
+    const subtotal = getItemSubtotal(c[i]);
+    const discountType = c[i].discount_type || "pct";
+    const discountValue = getItemDiscountValue(c[i]);
+    c[i].discount_value =
+      discountType === "amt"
+        ? Math.min(Math.max(discountValue, 0), subtotal)
+        : Math.min(Math.max(discountValue, 0), 100);
+
+    setCart(c);
+  };
+
+  const updateDiscountType = (i, discountType) => {
+    const c = [...cart];
+    const discountAmount = getItemDiscountAmount(c[i]);
+    const subtotal = getItemSubtotal(c[i]);
+
+    c[i] = {
+      ...c[i],
+      discount_type: discountType,
+      discount_value:
+        discountType === "amt"
+          ? discountAmount
+          : getEffectiveDiscountPct(subtotal, "amt", discountAmount),
+    };
     setCart(c);
   };
 
@@ -247,17 +287,7 @@ export default function Billing() {
     let raw = 0;
 
     const lines = cart.map((it) => {
-      const upb = it.units_per_box || 1;
-
-      const unitPrice =
-        it.mrp * (it.unit_type === "box" ? upb : 1);
-
-      const base = unitPrice * it.quantity;
-
-      const disc =
-        base * (Number(it.discount_pct || 0) / 100);
-
-      const taxable = base - disc;
+      const taxable = getItemTotal(it);
 
       raw += taxable;
 
@@ -272,9 +302,7 @@ export default function Billing() {
     if (billDiscType === "amt") {
       billDisc = Math.min(Number(billDiscValue || 0), raw);
     } else if (billDiscType === "pct") {
-      billDisc =
-        raw *
-        (Math.min(Number(billDiscValue || 0), 100) / 100);
+      billDisc = raw * (Math.min(Number(billDiscValue || 0), 100) / 100);
     }
 
     let sub = 0;
@@ -301,14 +329,26 @@ export default function Billing() {
   }, [cart, billDiscType, billDiscValue]);
 
   const hasScheduleH = cart.some(
-    (c) =>
-      c.category === "Schedule H" ||
-      c.category === "Schedule H1"
+    (c) => c.category === "Schedule H" || c.category === "Schedule H1",
   );
 
   const submit = async () => {
     if (cart.length === 0) {
       return toast.error("Cart is empty");
+    }
+
+    const invalidDiscount = cart.find(
+      (item) =>
+        !isDiscountValid(
+          getItemSubtotal(item),
+          item.discount_type,
+          getItemDiscountValue(item),
+        ),
+    );
+    if (invalidDiscount) {
+      return toast.error(
+        `Invalid discount for ${invalidDiscount.medicine_name}`,
+      );
     }
 
     setSaving(true);
@@ -321,16 +361,7 @@ export default function Billing() {
         customer_gstin: customer.gstin,
         referring_doctor: referringDoctor,
 
-        items: cart.map(({ stock, low_stock, ...rest }) => ({
-          ...rest,
-          quantity: Number(rest.quantity),
-          discount_pct: Number(rest.discount_pct || 0),
-          units_per_box: Math.max(
-            Number(rest.units_per_box || 1),
-            1
-          ),
-          unit_type: rest.unit_type || "unit",
-        })),
+        items: cart.map(toInvoiceItem),
 
         payment_mode: payment.mode,
 
@@ -340,14 +371,10 @@ export default function Billing() {
             : Number(payment.paid) || totals.total,
 
         bill_discount_amount:
-          billDiscType === "amt"
-            ? Number(billDiscValue || 0)
-            : 0,
+          billDiscType === "amt" ? Number(billDiscValue || 0) : 0,
 
         bill_discount_pct:
-          billDiscType === "pct"
-            ? Number(billDiscValue || 0)
-            : 0,
+          billDiscType === "pct" ? Number(billDiscValue || 0) : 0,
 
         notes,
       };
@@ -371,19 +398,28 @@ export default function Billing() {
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.15em] font-semibold text-emerald-700">
             <Zap className="h-4 w-4" /> Quick Counter Mode
           </div>
-          <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight text-slate-900 mt-1">New Bill</h1>
-          <p className="mt-1 text-sm text-slate-500">Search → Enter → quantity → Enter. Stock deducts when the invoice is created.</p>
+          <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight text-slate-900 mt-1">
+            New Bill
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Search → Enter → quantity → Enter. Stock deducts when the invoice is
+            created.
+          </p>
         </div>
         <div className="flex gap-2 text-xs font-semibold text-slate-500">
           <span className="rounded-sm border bg-white px-2 py-1">/ Search</span>
-          <span className="rounded-sm border bg-white px-2 py-1">F1 New bill</span>
+          <span className="rounded-sm border bg-white px-2 py-1">
+            F1 New bill
+          </span>
         </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="relative z-10 lg:col-span-2 space-y-4">
           {/* Keyboard-first quick add */}
-          <div className={`relative overflow-visible rounded-sm border border-emerald-200 bg-white p-3 shadow-sm ${filtered.length > 0 ? "z-[100]" : "z-10"}`}>
+          <div
+            className={`relative overflow-visible rounded-sm border border-emerald-200 bg-white p-3 shadow-sm ${filtered.length > 0 ? "z-[100]" : "z-10"}`}
+          >
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_110px_auto]">
               <div className="relative z-[110] overflow-visible">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -399,7 +435,12 @@ export default function Billing() {
                   role="combobox"
                   aria-expanded={filtered.length > 0}
                 />
-                <button type="button" onClick={() => setScanOpen(true)} className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-sm" data-testid="billing-scan-btn">
+                <button
+                  type="button"
+                  onClick={() => setScanOpen(true)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-sm"
+                  data-testid="billing-scan-btn"
+                >
                   <ScanLine className="w-4 h-4" /> Scan
                 </button>
 
@@ -415,16 +456,35 @@ export default function Billing() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="truncate font-semibold text-slate-900">{medicine.name}</div>
+                            <div className="truncate font-semibold text-slate-900">
+                              {medicine.name}
+                            </div>
                             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-                              <span>Expiry: {getNearestExpiry(medicine) || "—"}</span>
-                              <span>FIFO: {getBatchNumber(getFifoBatch(medicine) || medicine) || "—"}</span>
-                              {isLowStock(medicine) && <span className="font-bold text-amber-700">Low stock</span>}
+                              <span>
+                                Expiry: {getNearestExpiry(medicine) || "—"}
+                              </span>
+                              <span>
+                                FIFO:{" "}
+                                {getBatchNumber(
+                                  getFifoBatch(medicine) || medicine,
+                                ) || "—"}
+                              </span>
+                              {isLowStock(medicine) && (
+                                <span className="font-bold text-amber-700">
+                                  Low stock
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="shrink-0 text-right">
-                            <div className="font-mono-nums text-sm font-semibold">{fmtINR(medicine.mrp)}</div>
-                            <div className={`text-xs font-semibold ${getMedicineStock(medicine) <= 0 ? "text-red-600" : "text-emerald-700"}`}>Available: {getMedicineStock(medicine)}</div>
+                            <div className="font-mono-nums text-sm font-semibold">
+                              {fmtINR(medicine.mrp)}
+                            </div>
+                            <div
+                              className={`text-xs font-semibold ${getMedicineStock(medicine) <= 0 ? "text-red-600" : "text-emerald-700"}`}
+                            >
+                              Available: {getMedicineStock(medicine)}
+                            </div>
                           </div>
                         </div>
                       </button>
@@ -437,15 +497,27 @@ export default function Billing() {
                 type="number"
                 inputMode="numeric"
                 min={1}
-                max={quickMedicine ? getMedicineStock(quickMedicine) : undefined}
+                max={
+                  quickMedicine ? getMedicineStock(quickMedicine) : undefined
+                }
                 value={quickQuantity}
                 onChange={(event) => setQuickQuantity(event.target.value)}
-                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addQuickRow(); } }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addQuickRow();
+                  }
+                }}
                 disabled={!quickMedicine}
                 aria-label="Quick quantity"
                 className="h-11 rounded-sm text-right text-lg font-bold"
               />
-              <Button type="button" onClick={addQuickRow} disabled={!quickMedicine} className="h-11 rounded-sm bg-emerald-600 px-5 hover:bg-emerald-700">
+              <Button
+                type="button"
+                onClick={addQuickRow}
+                disabled={!quickMedicine}
+                className="h-11 rounded-sm bg-emerald-600 px-5 hover:bg-emerald-700"
+              >
                 Add <CornerDownLeft className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -453,10 +525,24 @@ export default function Billing() {
             {quickMedicine && (
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-sm bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
                 <strong className="text-sm">{quickMedicine.name}</strong>
-                <span>Available: <b>{getMedicineStock(quickMedicine)}</b></span>
-                <span>Nearest expiry: <b>{getNearestExpiry(quickMedicine) || "—"}</b></span>
-                <span>FIFO batch: <b>{getBatchNumber(getFifoBatch(quickMedicine) || quickMedicine) || "—"}</b></span>
-                {isLowStock(quickMedicine) && <span className="font-bold text-amber-700">Low stock</span>}
+                <span>
+                  Available: <b>{getMedicineStock(quickMedicine)}</b>
+                </span>
+                <span>
+                  Nearest expiry:{" "}
+                  <b>{getNearestExpiry(quickMedicine) || "—"}</b>
+                </span>
+                <span>
+                  FIFO batch:{" "}
+                  <b>
+                    {getBatchNumber(
+                      getFifoBatch(quickMedicine) || quickMedicine,
+                    ) || "—"}
+                  </b>
+                </span>
+                {isLowStock(quickMedicine) && (
+                  <span className="font-bold text-amber-700">Low stock</span>
+                )}
               </div>
             )}
 
@@ -479,8 +565,12 @@ export default function Billing() {
           {/* Cart */}
           <div className="bg-white border border-slate-200 rounded-sm">
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200">
-              <div className="font-heading font-semibold">Items ({cart.length})</div>
-              <div className="flex items-center gap-1 text-xs text-slate-500"><Boxes className="h-4 w-4" /> Invoice creation deducts stock</div>
+              <div className="font-heading font-semibold">
+                Items ({cart.length})
+              </div>
+              <div className="flex items-center gap-1 text-xs text-slate-500">
+                <Boxes className="h-4 w-4" /> Invoice creation deducts stock
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -491,7 +581,7 @@ export default function Billing() {
                     <th>Type</th>
                     <th className="text-right">Qty</th>
                     <th className="text-right">Rate</th>
-                    <th className="text-right">Disc %</th>
+                    <th className="text-right">Discount</th>
                     <th className="text-right">Total</th>
                     <th></th>
                   </tr>
@@ -515,10 +605,9 @@ export default function Billing() {
                     const unitPrice =
                       it.mrp * (it.unit_type === "box" ? upb : 1);
 
-                    const lt =
-                      unitPrice *
-                      it.quantity *
-                      (1 - (it.discount_pct || 0) / 100);
+                    const subtotal = getItemSubtotal(it);
+                    const discountAmount = getItemDiscountAmount(it);
+                    const lt = getItemTotal(it);
 
                     const maxQty =
                       it.unit_type === "box"
@@ -531,31 +620,29 @@ export default function Billing() {
                           <div className="font-medium">{it.medicine_name}</div>
 
                           <div className="text-xs text-slate-500 font-mono">
-                            Available {it.stock} · Exp {it.expiry_date || "—"} · FIFO {it.batch_no || "—"}
-                            {it.low_stock && <span className="ml-2 font-sans font-bold text-amber-700">Low stock</span>}
+                            Available {it.stock} · Exp {it.expiry_date || "—"} ·
+                            FIFO {it.batch_no || "—"}
+                            {it.low_stock && (
+                              <span className="ml-2 font-sans font-bold text-amber-700">
+                                Low stock
+                              </span>
+                            )}
                           </div>
                         </td>
 
                         <td>
                           <Select
                             value={it.unit_type}
-                            onValueChange={(v) =>
-                              updateItem(i, "unit_type", v)
-                            }
+                            onValueChange={(v) => updateItem(i, "unit_type", v)}
                           >
                             <SelectTrigger className="h-8 w-24 rounded-sm">
                               <SelectValue />
                             </SelectTrigger>
 
                             <SelectContent>
-                              <SelectItem value="unit">
-                                Unit
-                              </SelectItem>
+                              <SelectItem value="unit">Unit</SelectItem>
 
-                              <SelectItem
-                                value="box"
-                                disabled={upb <= 1}
-                              >
+                              <SelectItem value="box" disabled={upb <= 1}>
                                 Box ({upb}u)
                               </SelectItem>
                             </SelectContent>
@@ -572,7 +659,10 @@ export default function Billing() {
                               updateItem(
                                 i,
                                 "quantity",
-                                Math.max(1, Math.min(maxQty || 1, Number(e.target.value)))
+                                Math.max(
+                                  1,
+                                  Math.min(maxQty || 1, Number(e.target.value)),
+                                ),
                               )
                             }
                             onKeyDown={(event) => {
@@ -590,19 +680,40 @@ export default function Billing() {
                         </td>
 
                         <td className="num-cell">
-                          <div className="relative ml-auto w-20">
+                          <div className="ml-auto flex w-40 items-center justify-end gap-1">
+                            <Select
+                              value={it.discount_type || "pct"}
+                              onValueChange={(value) =>
+                                updateDiscountType(i, value)
+                              }
+                            >
+                              <SelectTrigger
+                                className="h-8 w-16 rounded-sm"
+                                aria-label={`Discount type for ${it.medicine_name}`}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pct">%</SelectItem>
+                                <SelectItem value="amt">₹</SelectItem>
+                              </SelectContent>
+                            </Select>
                             <Input
                               type="number"
                               inputMode="decimal"
                               min={0}
-                              max={100}
+                              max={
+                                (it.discount_type || "pct") === "amt"
+                                  ? subtotal
+                                  : 100
+                              }
                               step="0.01"
-                              value={it.discount_pct}
+                              value={getItemDiscountValue(it)}
                               onChange={(event) =>
                                 updateItem(
                                   i,
-                                  "discount_pct",
-                                  Math.max(0, Math.min(100, Number(event.target.value) || 0))
+                                  "discount_value",
+                                  Number(event.target.value) || 0,
                                 )
                               }
                               onKeyDown={(event) => {
@@ -611,15 +722,19 @@ export default function Billing() {
                                   searchRef.current?.focus();
                                 }
                               }}
-                              aria-label={`Discount percentage for ${it.medicine_name}`}
-                              className="h-8 w-20 rounded-sm pr-6 text-right"
+                              aria-label={`Discount value for ${it.medicine_name}`}
+                              className="h-8 w-24 rounded-sm text-right"
                             />
-                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
                           </div>
                         </td>
 
                         <td className="num-cell whitespace-nowrap font-semibold">
-                          {fmtINR(lt)}
+                          <div>{fmtINR(lt)}</div>
+                          {discountAmount > 0 && (
+                            <div className="text-xs font-normal text-emerald-700">
+                              after −{fmtINR(discountAmount)}
+                            </div>
+                          )}
                         </td>
 
                         <td>
@@ -642,9 +757,7 @@ export default function Billing() {
         {/* Sidebar */}
         <div className="space-y-4">
           <div className="bg-white border border-slate-200 rounded-sm p-4 space-y-3">
-            <div className="font-heading font-semibold">
-              Customer
-            </div>
+            <div className="font-heading font-semibold">Customer</div>
 
             <Select
               value={customer.id || "walkin"}
@@ -657,9 +770,7 @@ export default function Billing() {
                     gstin: "",
                   });
                 } else {
-                  const c = customers.find(
-                    (x) => String(x.id) === String(v)
-                  );
+                  const c = customers.find((x) => String(x.id) === String(v));
 
                   if (c) {
                     setCustomer({
@@ -677,15 +788,10 @@ export default function Billing() {
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="walkin">
-                  Walk-in (cash)
-                </SelectItem>
+                <SelectItem value="walkin">Walk-in (cash)</SelectItem>
 
                 {customers.map((c) => (
-                  <SelectItem
-                    key={c.id}
-                    value={String(c.id)}
-                  >
+                  <SelectItem key={c.id} value={String(c.id)}>
                     {c.name}
                   </SelectItem>
                 ))}
@@ -738,22 +844,16 @@ export default function Billing() {
           <div className="bg-slate-900 text-white rounded-sm p-5 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-slate-400">Subtotal</span>
-              <span className="font-mono-nums">
-                {fmtINR(totals.sub)}
-              </span>
+              <span className="font-mono-nums">{fmtINR(totals.sub)}</span>
             </div>
 
             <div className="flex justify-between text-sm">
               <span className="text-slate-400">GST</span>
-              <span className="font-mono-nums">
-                {fmtINR(totals.gst)}
-              </span>
+              <span className="font-mono-nums">{fmtINR(totals.gst)}</span>
             </div>
 
             <div className="border-t border-slate-700 pt-2 flex justify-between">
-              <span className="font-heading font-semibold text-lg">
-                Total
-              </span>
+              <span className="font-heading font-semibold text-lg">Total</span>
 
               <span className="font-heading font-bold text-2xl font-mono-nums">
                 {fmtINR(totals.total)}
@@ -779,16 +879,14 @@ export default function Billing() {
 
           try {
             const { data } = await api.get(
-              `/medicines/lookup/${encodeURIComponent(code)}`
+              `/medicines/lookup/${encodeURIComponent(code)}`,
             );
 
             addToCart(data);
 
             toast.success(`Added: ${data.name}`);
           } catch {
-            toast.error(
-              `No medicine found for barcode ${code}`
-            );
+            toast.error(`No medicine found for barcode ${code}`);
           }
         }}
       />
