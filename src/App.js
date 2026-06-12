@@ -22,6 +22,7 @@ import ForgotPassword from "@/pages/ForgotPassword";
 import PasswordExpired from "@/pages/PasswordExpired";
 import Dashboard from "@/pages/Dashboard";
 import Inventory from "@/pages/Inventory";
+import StockAdjustments from "@/pages/StockAdjustments";
 import Billing from "@/pages/Billing";
 import Invoices from "@/pages/Invoices";
 import InvoiceDetail from "@/pages/InvoiceDetail";
@@ -169,6 +170,15 @@ function App() {
               element={
                 <Protected>
                   <Inventory />
+                </Protected>
+              }
+            />
+
+            <Route
+              path="/stock-adjustments"
+              element={
+                <Protected>
+                  <StockAdjustments />
                 </Protected>
               }
             />
