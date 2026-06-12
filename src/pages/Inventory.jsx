@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 
 import api, { fmtINR, formatApiError } from "@/lib/api";
 import { Input } from "@/components/ui/input";
+import { useLayout } from "@/contexts/LayoutContext";
 import {
   AlertTriangle,
   Boxes,
@@ -97,6 +98,13 @@ export default function Inventory() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const { setInspectorMode } = useLayout();
+
+  useEffect(() => {
+    setInspectorMode(detailsOpen);
+
+    return () => setInspectorMode(false);
+  }, [detailsOpen, setInspectorMode]);
 
   const load = useCallback(async (selectedId) => {
     try {
