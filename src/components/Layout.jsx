@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import BrandLogo from "@/components/BrandLogo";
 import { UpdatePill } from "@/components/UpdateCenter";
+import { LayoutContext } from "@/contexts/LayoutContext";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "cashier", "pharmacist"] },
@@ -44,6 +45,7 @@ export default function Layout({ children }) {
   const [open, setOpen] = useState(false);
   const [loadingScreen, setLoadingScreen] = useState(false);
   const [loadingText, setLoadingText] = useState("Dashboard");
+  const [inspectorMode, setInspectorMode] = useState(false);
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -143,7 +145,8 @@ export default function Layout({ children }) {
   );
 
   return (
-    <div className="min-h-screen app-canvas flex">
+    <LayoutContext.Provider value={{ inspectorMode, setInspectorMode }}>
+      <div className="min-h-screen app-canvas flex">
       {loadingScreen && (
     <div className="fixed inset-0 z-[999] bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
 
@@ -169,7 +172,9 @@ export default function Layout({ children }) {
 )}
 
       {/* DESKTOP SIDEBAR */}
-      <aside className="hidden md:flex w-60 sidebar-premium flex-col fixed inset-y-0 left-0">
+      <aside
+        className={`${inspectorMode ? "hidden" : "hidden md:flex"} w-60 sidebar-premium flex-col fixed inset-y-0 left-0`}
+      >
         {SidebarContent}
       </aside>
 
@@ -187,7 +192,11 @@ export default function Layout({ children }) {
       )}
 
       {/* MAIN */}
-      <main className="flex-1 md:ml-60 min-h-screen">
+      <main
+        className={`min-h-screen flex-1 transition-[margin] duration-300 ease-out ${
+          inspectorMode ? "md:ml-0" : "md:ml-60"
+        }`}
+      >
         <header className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
           <button
             onClick={() => setOpen(true)}
@@ -209,6 +218,7 @@ export default function Layout({ children }) {
          {children}
         </div>
       </main>
-    </div>
+      </div>
+    </LayoutContext.Provider>
   );
 }
