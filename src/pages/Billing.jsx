@@ -27,6 +27,7 @@ import Autocomplete from "@/components/Autocomplete";
 import {
   getBatchNumber,
   getFifoBatch,
+  getInvoiceDateError,
   getEffectiveDiscountPct,
   getItemDiscountAmount,
   getItemDiscountValue,
@@ -34,10 +35,12 @@ import {
   getItemTotal,
   getMedicineStock,
   getNearestExpiry,
+  getTodayDateInputValue,
   isDiscountValid,
   isLowStock,
   searchMedicines,
   toInvoiceItem,
+  withInvoiceDate,
 } from "@/lib/billing";
 
 export default function Billing() {
@@ -62,6 +65,7 @@ export default function Billing() {
   });
 
   const [referringDoctor, setReferringDoctor] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(getTodayDateInputValue);
   const [billDiscType, setBillDiscType] = useState("none");
   const [billDiscValue, setBillDiscValue] = useState("");
 
@@ -107,6 +111,7 @@ export default function Billing() {
     });
 
     setReferringDoctor("");
+    setInvoiceDate(getTodayDateInputValue());
     setBillDiscType("none");
     setBillDiscValue("");
 
@@ -331,10 +336,16 @@ export default function Billing() {
   const hasScheduleH = cart.some(
     (c) => c.category === "Schedule H" || c.category === "Schedule H1",
   );
+  const today = getTodayDateInputValue();
+  const invoiceDateError = getInvoiceDateError(invoiceDate, today);
 
   const submit = async () => {
     if (cart.length === 0) {
       return toast.error("Cart is empty");
+    }
+
+    if (invoiceDateError) {
+      return toast.error(invoiceDateError);
     }
 
     const invalidDiscount = cart.find(
@@ -354,30 +365,33 @@ export default function Billing() {
     setSaving(true);
 
     try {
-      const payload = {
-        customer_id: customer.id || null,
-        customer_name: customer.name || "Walk-in",
-        customer_phone: customer.phone,
-        customer_gstin: customer.gstin,
-        referring_doctor: referringDoctor,
+      const payload = withInvoiceDate(
+        {
+          customer_id: customer.id || null,
+          customer_name: customer.name || "Walk-in",
+          customer_phone: customer.phone,
+          customer_gstin: customer.gstin,
+          referring_doctor: referringDoctor,
 
-        items: cart.map(toInvoiceItem),
+          items: cart.map(toInvoiceItem),
 
-        payment_mode: payment.mode,
+          payment_mode: payment.mode,
 
-        paid_amount:
-          payment.mode === "credit"
-            ? Number(payment.paid || 0)
-            : Number(payment.paid) || totals.total,
+          paid_amount:
+            payment.mode === "credit"
+              ? Number(payment.paid || 0)
+              : Number(payment.paid) || totals.total,
 
-        bill_discount_amount:
-          billDiscType === "amt" ? Number(billDiscValue || 0) : 0,
+          bill_discount_amount:
+            billDiscType === "amt" ? Number(billDiscValue || 0) : 0,
 
-        bill_discount_pct:
-          billDiscType === "pct" ? Number(billDiscValue || 0) : 0,
+          bill_discount_pct:
+            billDiscType === "pct" ? Number(billDiscValue || 0) : 0,
 
-        notes,
-      };
+          notes,
+        },
+        invoiceDate,
+      );
 
       const { data } = await api.post("/invoices", payload);
 
@@ -757,7 +771,35 @@ export default function Billing() {
         {/* Sidebar */}
         <div className="space-y-4">
           <div className="bg-white border border-slate-200 rounded-sm p-4 space-y-3">
-            <div className="font-heading font-semibold">Customer</div>
+            <div className="font-heading font-semibold">Customer & Billing</div>
+
+            <div>
+              <Label
+                htmlFor="invoice-date"
+                className="text-xs uppercase font-semibold text-slate-600"
+              >
+                Invoice Date
+              </Label>
+              <Input
+                id="invoice-date"
+                type="date"
+                value={invoiceDate}
+                max={today}
+                required
+                aria-invalid={Boolean(invoiceDateError)}
+                aria-describedby={
+                  invoiceDateError ? "invoice-date-error" : undefined
+                }
+                onChange={(event) => setInvoiceDate(event.target.value)}
+                className="rounded-sm mt-1"
+                data-testid="invoice-date"
+              />
+              {invoiceDateError && (
+                <p id="invoice-date-error" className="mt-1 text-xs text-red-600">
+                  {invoiceDateError}
+                </p>
+              )}
+            </div>
 
             <Select
               value={customer.id || "walkin"}

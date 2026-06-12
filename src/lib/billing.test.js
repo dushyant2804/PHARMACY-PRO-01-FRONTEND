@@ -2,13 +2,16 @@ import {
   calculateDiscountAmount,
   getEffectiveDiscountPct,
   getFifoBatch,
+  getInvoiceDateError,
   getItemTotal,
   getMedicineStock,
   getNearestExpiry,
+  getTodayDateInputValue,
   isDiscountValid,
   isLowStock,
   searchMedicines,
   toInvoiceItem,
+  withInvoiceDate,
 } from "./billing";
 
 const medicines = [
@@ -18,6 +21,27 @@ const medicines = [
 ];
 
 describe("billing helpers", () => {
+  test("defaults the invoice date to today's local date", () => {
+    const localDate = new Date(2026, 5, 12, 23, 30);
+
+    expect(getTodayDateInputValue(localDate)).toBe("2026-06-12");
+  });
+
+  test("adds a selected backdated invoice date to the creation payload", () => {
+    expect(withInvoiceDate({ customer_name: "Walk-in" }, "2025-12-31")).toEqual({
+      customer_name: "Walk-in",
+      invoice_date: "2025-12-31",
+    });
+  });
+
+  test("rejects future invoice dates while allowing today and past dates", () => {
+    expect(getInvoiceDateError("2026-06-13", "2026-06-12")).toBe(
+      "Invoice date cannot be in the future",
+    );
+    expect(getInvoiceDateError("2026-06-12", "2026-06-12")).toBe("");
+    expect(getInvoiceDateError("2025-12-31", "2026-06-12")).toBe("");
+  });
+
   test("normalizes available medicine stock and low-stock thresholds", () => {
     const medicine = { available_units: 4, low_stock_threshold: 5 };
     expect(getMedicineStock(medicine)).toBe(4);
