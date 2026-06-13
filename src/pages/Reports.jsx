@@ -9,14 +9,12 @@ import {
   Legend,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, BarChart3, Inbox, WalletCards } from "lucide-react";
+import { AlertTriangle, BarChart3, Inbox } from "lucide-react";
 import api, { fmtINR } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,8 +34,12 @@ const number = (value) => Number(value || 0);
 const hasValues = (rows, keys) => rows.some((row) => keys.some((key) => number(row?.[key]) !== 0));
 const moneyTip = (value) => fmtINR(value);
 
-function Kpi({ label, value, tone = "text-slate-950", icon: Icon }) {
-  return <div className="premium-panel p-4"><div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500"><span>{label}</span>{Icon && <Icon className="h-4 w-4" />}</div><div className={`mt-2 text-2xl font-extrabold ${tone}`}>{value}</div></div>;
+function Kpi({ label, value, tone = "text-slate-950", icon: Icon, emphasis = false, help }) {
+  return <div className={`premium-panel p-4 ${emphasis ? "border-amber-300 bg-amber-50/60" : ""}`}><div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500"><span>{label}</span>{Icon && <Icon className="h-4 w-4" />}</div><div className={`mt-2 text-2xl font-extrabold ${tone}`}>{value}</div>{help && <p className="mt-1 text-xs text-slate-500">{help}</p>}</div>;
+}
+
+function InsightSection({ title, description, children, empty = true }) {
+  return <section className="premium-panel p-5"><h3 className="font-heading text-lg font-bold text-slate-900">{title}</h3><p className="mt-1 text-sm text-slate-500">{description}</p><div className="mt-4">{empty ? <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/70 p-5 text-sm text-slate-500">No recorded data is available for this insight yet.</div> : children}</div></section>;
 }
 
 function EmptyState({ children }) {
@@ -103,6 +105,7 @@ export default function Reports() {
   const [paymentsPayload, setPaymentsPayload] = useState(null);
   const [purchaseSalesPayload, setPurchaseSalesPayload] = useState(null);
   const [recoveryPayload, setRecoveryPayload] = useState(null);
+  const [analytics, setAnalytics] = useState({});
 
   const loadSales = useCallback(async () => {
     const params = { start, end };
@@ -126,11 +129,14 @@ export default function Reports() {
       optionalGet("/reports/expiry-analytics"),
       optionalGet("/reports/recovery-movement"),
       optionalGet("/dashboard/summary"),
-    ]).then(([stockData, outstandingData, expiryData, recoveryData, dashboardData]) => {
+      optionalGet("/reports/analytics"),
+      optionalGet("/reports/purchase-returns"),
+    ]).then(([stockData, outstandingData, expiryData, recoveryData, dashboardData, analyticsData, returnsData]) => {
       setStock(stockData);
       setOutstanding(outstandingData);
       setExpiryPayload(expiryData ?? stockData?.expiry_analytics ?? dashboardData?.expiry_analytics ?? dashboardData ?? null);
       setRecoveryPayload(recoveryData ?? outstandingData?.recovery_movement ?? null);
+      setAnalytics({ ...(analyticsData || {}), purchase_returns: returnsData ?? analyticsData?.purchase_returns });
     });
   }, [loadSales]);
 
@@ -142,6 +148,11 @@ export default function Reports() {
   const recovery = useMemo(() => normalizeRecovery(recoveryPayload), [recoveryPayload]);
   const customerOutstanding = asArray(outstanding?.customers).reduce((sum, row) => sum + number(firstDefined(row.outstanding, row.balance)), 0);
   const distributorOutstanding = asArray(outstanding?.distributors).reduce((sum, row) => sum + number(firstDefined(row.outstanding, row.balance)), 0);
+  const expiryCount = expiry.filter((row) => row.name !== "Safe").reduce((sum, row) => sum + row.value, 0);
+  const expiryValue = number(firstDefined(expiryPayload?.value_at_risk, expiryPayload?.expiry_value_at_risk, stock?.expiry_value_at_risk));
+  const aging = (side) => firstDefined(outstanding?.aging?.[side], outstanding?.[`${side}_aging`], {});
+  const agingBuckets = (side) => [["0–30 days", "0_30"], ["31–60 days", "31_60"], ["61–90 days", "61_90"], ["90+ days", "90_plus"]].map(([label, key]) => ({ label, value: number(firstDefined(aging(side)?.[key], aging(side)?.[label])) }));
+  const returns = firstDefined(analytics?.purchase_returns, {});
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><div className="premium-kicker">Business intelligence</div><h1 className="mt-2 text-3xl font-extrabold tracking-tight">Reports command center</h1><p className="text-sm text-slate-500">Analytics shown only from recorded pharmacy transactions.</p></div><BarChart3 className="h-10 w-10 text-emerald-700" /></div>
@@ -152,11 +163,17 @@ export default function Reports() {
         <ChartCard title="Monthly sales trend" subtitle="Recorded invoice sales during the selected period." empty={!hasValues(monthlySales, ["sales"])} emptyText="No sales data yet"><ResponsiveContainer><AreaChart data={monthlySales}><defs><linearGradient id="sales" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0f766e" stopOpacity=".35" /><stop offset="1" stopColor="#0f766e" stopOpacity="0" /></linearGradient></defs><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="month" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Area type="monotone" dataKey="sales" name="Sales" stroke="#0f766e" fill="url(#sales)" strokeWidth={3} /></AreaChart></ResponsiveContainer></ChartCard>
       </TabsContent>
       <TabsContent value="stock" className="mt-5 space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Items" value={number(stock?.total_items)} /><Kpi label="Units" value={number(stock?.total_units)} /><Kpi label="Cost value" value={fmtINR(stock?.cost_value)} /><Kpi label="MRP value" value={fmtINR(stock?.mrp_value)} /></div>
-        <div className="grid gap-5 xl:grid-cols-2"><ChartCard title="Top selling medicines" subtitle="Sold invoice quantities reported by backend analytics." empty={!topSelling.length} emptyText="No top-selling medicines yet"><ResponsiveContainer><BarChart data={topSelling} layout="vertical"><CartesianGrid stroke="#e2e8f0" horizontal={false} /><XAxis type="number" /><YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="units" name="Units sold" fill="#0f766e" radius={[0, 8, 8, 0]} /></BarChart></ResponsiveContainer></ChartCard><ChartCard title="Expiry risk analysis" subtitle="Backend expiry analytics: expired, 30-day, 90-day, and safe stock." empty={!hasValues(expiry, ["value"])} emptyText="No expiry analytics yet"><ResponsiveContainer><BarChart data={expiry}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis /><Tooltip /><Bar dataKey="value" name="Stock"><Cell fill="#dc2626" /><Cell fill="#ea580c" /><Cell fill="#d4a72c" /><Cell fill="#0f766e" /></Bar></BarChart></ResponsiveContainer></ChartCard></div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"><Kpi label="Items" value={number(stock?.total_items)} /><Kpi label="Units" value={number(stock?.total_units)} /><Kpi label="Cost value" value={fmtINR(stock?.cost_value)} /><Kpi label="MRP value" value={fmtINR(stock?.mrp_value)} /><Kpi label="Expiry risk count" value={expiryCount} icon={AlertTriangle} /><Kpi label="Expiry value at risk" value={fmtINR(expiryValue)} tone="text-rose-700" icon={AlertTriangle} emphasis help="Prioritize this value when planning returns and clearance." /></div>
+        <ChartCard title="Expiry risk analysis" subtitle="Backend expiry analytics: expired, 30-day, 90-day, and safe stock." empty={!hasValues(expiry, ["value"])} emptyText="No expiry analytics yet"><ResponsiveContainer><BarChart data={expiry}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis /><Tooltip /><Bar dataKey="value" name="Stock"><Cell fill="#dc2626" /><Cell fill="#ea580c" /><Cell fill="#d4a72c" /><Cell fill="#0f766e" /></Bar></BarChart></ResponsiveContainer></ChartCard>
       </TabsContent>
-      <TabsContent value="outstanding" className="mt-5 space-y-5"><div className="grid gap-4 md:grid-cols-2"><Kpi label="Customer outstanding" value={fmtINR(customerOutstanding)} tone="text-rose-700" icon={AlertTriangle} /><Kpi label="Distributor outstanding" value={fmtINR(distributorOutstanding)} icon={WalletCards} /></div><ChartCard title="Outstanding and recovery movement" subtitle="Period-end customer outstanding, distributor outstanding, and recovered amount from ledger analytics." empty={!hasValues(recovery, ["customerOutstanding", "distributorOutstanding", "recovered"])} emptyText="No ledger or recovery data yet"><ResponsiveContainer><LineChart data={recovery}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="period" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Legend /><Line dataKey="customerOutstanding" name="Customer outstanding" stroke="#dc2626" strokeWidth={2} /><Line dataKey="distributorOutstanding" name="Distributor outstanding" stroke="#d4a72c" strokeWidth={2} /><Line dataKey="recovered" name="Recovered amount" stroke="#0f766e" strokeWidth={3} /></LineChart></ResponsiveContainer></ChartCard></TabsContent>
-      <TabsContent value="analytics" className="mt-5 grid gap-5 xl:grid-cols-2"><ChartCard title="Payment mode distribution" subtitle="Actual payment modes recorded against invoices." empty={!payments.length} emptyText="No payment data yet"><ResponsiveContainer><PieChart><Pie data={payments} dataKey="value" nameKey="name" innerRadius={55} outerRadius={95} paddingAngle={4}>{payments.map((row, index) => <Cell key={`${row.name}-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip formatter={moneyTip} /><Legend /></PieChart></ResponsiveContainer></ChartCard><ChartCard title="Purchases vs sales" subtitle="Recorded monthly purchase totals compared with invoice sales." empty={!hasValues(purchaseVsSales, ["purchases", "sales"])} emptyText="No purchase or sales data yet"><ResponsiveContainer><BarChart data={purchaseVsSales}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="month" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Legend /><Bar dataKey="purchases" name="Purchases" fill="#d4a72c" radius={[6, 6, 0, 0]} /><Bar dataKey="sales" name="Sales" fill="#0f766e" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard></TabsContent>
+      <TabsContent value="outstanding" className="mt-5 space-y-5">
+        <div className="grid gap-5 lg:grid-cols-2">{[["Customer Receivables", customerOutstanding, "customers", "text-rose-700"], ["Distributor Payables", distributorOutstanding, "distributors", "text-amber-700"]].map(([title, total, side, tone]) => <section key={side} className="premium-panel p-5"><h3 className="font-heading text-lg font-bold">{title}</h3><div className={`mt-2 text-3xl font-extrabold ${tone}`}>{fmtINR(total)}</div><div className="mt-5 grid grid-cols-2 gap-3">{agingBuckets(side).map((bucket) => <div key={bucket.label} className="rounded-lg bg-slate-50 p-3"><div className="text-xs font-semibold text-slate-500">{bucket.label}</div><div className="mt-1 font-bold">{fmtINR(bucket.value)}</div></div>)}</div></section>)}</div>
+        <ChartCard title="Outstanding movement" subtitle="Period-end receivables and payables from ledger analytics." empty={!hasValues(recovery, ["customerOutstanding", "distributorOutstanding"])} emptyText="No outstanding movement has been recorded yet."><ResponsiveContainer><LineChart data={recovery}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="period" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Legend /><Line dataKey="customerOutstanding" name="Customer receivables" stroke="#dc2626" strokeWidth={2} /><Line dataKey="distributorOutstanding" name="Distributor payables" stroke="#d4a72c" strokeWidth={2} /></LineChart></ResponsiveContainer></ChartCard>
+      </TabsContent>
+      <TabsContent value="analytics" className="mt-5 space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Total return value" value={fmtINR(firstDefined(returns.total_return_value, returns.total_value))} /><Kpi label="Settled return value" value={fmtINR(firstDefined(returns.settled_return_value, returns.settled_value))} tone="text-emerald-700" /><Kpi label="Unsettled return value" value={fmtINR(firstDefined(returns.unsettled_return_value, returns.unsettled_value))} tone="text-rose-700" /><Kpi label="Returned quantity" value={number(firstDefined(returns.returned_quantity, returns.quantity))} /></div>
+        <div className="grid gap-5 lg:grid-cols-2"><InsightSection title="Medicine-wise profit intelligence" description="Compare sales, cost, and estimated profit by medicine." empty={!asArray(analytics?.medicine_profit).length} /><InsightSection title="Dead stock analysis" description="Identify inventory with no recent sales movement." empty={!asArray(analytics?.dead_stock).length} /><InsightSection title="Fast-moving medicines" description="Medicines with the strongest recorded unit movement." empty={!topSelling.length}>{topSelling.length > 0 && <div className="space-y-2">{topSelling.slice(0, 5).map(row => <div key={row.name} className="flex justify-between rounded-lg bg-slate-50 p-3"><span>{row.name}</span><strong>{row.units} units</strong></div>)}</div>}</InsightSection><InsightSection title="Slow-moving medicines" description="Inventory with low recorded sales velocity." empty={!asArray(analytics?.slow_moving).length} /><InsightSection title="Purchase return analytics" description="Return value, settlement status, and returned quantity without speculative scoring." empty={!Object.keys(returns).length} /><InsightSection title="Monthly & seasonal trends" description="Use recorded monthly activity to support purchasing decisions." empty={!hasValues(purchaseVsSales, ["purchases", "sales"])} /></div>
+      </TabsContent>
     </Tabs>
   </div>;
 }
