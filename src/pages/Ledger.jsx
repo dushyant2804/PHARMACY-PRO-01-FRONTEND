@@ -276,7 +276,12 @@ export default function Ledger() {
         ].some((value) => String(value || "").toLowerCase().includes(query));
         return matchesType && matchesQuery;
       })
-    : transactions;
+    : transactions.filter((transaction) => {
+        const query = ledgerSearch.trim().toLowerCase();
+        const matchesType = ledgerTypeFilter === "all" || getTransactionKind(transaction) === ledgerTypeFilter;
+        const matchesQuery = !query || [getTransactionTypeLabel(transaction), getReferenceNotes(transaction), transaction.invoice_number, transaction.invoice_id, transaction.reference_number, getTransactionMode(transaction)].some((value) => String(value || "").toLowerCase().includes(query));
+        return matchesType && matchesQuery;
+      });
   const newTransactionModeOptions = getNewTransactionModeOptions(type, txnType);
   const currentFinancialYear = data.current_financial_year || getCurrentIndianFinancialYear();
   const financialYearOptions = [
@@ -652,17 +657,17 @@ const handleDelete = async (transaction) => {
         </div>
       )}
 
-      {type === "distributor" && (
+      {(type === "distributor" || type === "customer") && (
         <div className="flex flex-col gap-3 rounded-sm border border-slate-200 bg-white p-3 sm:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input value={ledgerSearch} onChange={(e) => setLedgerSearch(e.target.value)} placeholder="Search reference, invoice, notes, or payment mode" className="rounded-sm pl-9" />
+            <Input value={ledgerSearch} onChange={(e) => setLedgerSearch(e.target.value)} placeholder={type === "customer" ? "Search invoice, reference, notes, or payment mode" : "Search reference, invoice, notes, or payment mode"} className="rounded-sm pl-9" />
           </div>
           <Select value={ledgerTypeFilter} onValueChange={setLedgerTypeFilter}>
             <SelectTrigger className="w-full rounded-sm sm:w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All transaction types</SelectItem>
-              <SelectItem value="purchase">Purchases</SelectItem>
+              {type === "distributor" ? <SelectItem value="purchase">Purchases</SelectItem> : <SelectItem value="sale">Sales</SelectItem>}
               <SelectItem value="payment">Payments</SelectItem>
               <SelectItem value="opening_balance">Opening balance</SelectItem>
               <SelectItem value="adjustment">Adjustments</SelectItem>
@@ -715,6 +720,8 @@ const handleDelete = async (transaction) => {
                   </td>
                   <td>
                     <div>{getReferenceNotes(t)}</div>
+                    {type === "customer" && (t.invoice_id || t.invoice?.id) && <Link to={`/invoices/${t.invoice_id || t.invoice.id}`} className="mt-1 inline-flex text-xs font-semibold text-blue-600 hover:underline">View invoice {t.invoice_number || t.invoice_reference || "detail"}</Link>}
+                    {type === "customer" && !(t.invoice_id || t.invoice?.id) && (t.invoice_number || t.invoice_reference) && <div className="mt-1 text-xs text-slate-500">Invoice: <span className="font-mono font-medium text-slate-700">{t.invoice_number || t.invoice_reference}</span></div>}
 
                     {billWiseInfo.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
