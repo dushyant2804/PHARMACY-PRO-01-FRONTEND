@@ -1,536 +1,136 @@
 import React, { useEffect, useMemo, useState } from "react";
-import api, { fmtINR, fmtDate, formatApiError } from "@/lib/api";
+import api, { fmtINR, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, BookOpen, RefreshCw, ArrowLeft } from "lucide-react";
+import { ArrowLeft, BookOpen, CircleDollarSign, RefreshCw, ReceiptText, WalletCards } from "lucide-react";
 import { toast } from "sonner";
-import Autocomplete from "@/components/Autocomplete";
 import { useNavigate } from "react-router-dom";
 
 const today = () => new Date().toISOString().slice(0, 10);
-
-const emptyEntry = {
-  medicine_id: "", medicine_name: "", quantity: 1, unit_type: "unit",
-  total_amount: "", customer_name: "", payment_status: "paid", notes: "",
-};
+const emptyTotals = { cash_amount: "", upi_amount: "", pending_amount: "", notes: "" };
+const emptyExpense = { category: "", amount: "", notes: "" };
+const number = (value) => Number(value || 0);
 
 export default function DailySales() {
   const navigate = useNavigate();
-  const [meds, setMeds] = useState([]);
   const [date, setDate] = useState(today());
-  const [entries, setEntries] = useState([]);
-  const [summary, setSummary] = useState({ total: 0, paid: 0, pending: 0, count: 0 });
+  const [summary, setSummary] = useState({});
+  const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [form, setForm] = useState(emptyEntry);
-  const [saving, setSaving] = useState(false);
-  const [historicalForm, setHistoricalForm] = useState({
-  cash_amount: "",
-  upi_amount: "",
-  pending_amount: "",
-  notes: "",
-});
+  const [totalsForm, setTotalsForm] = useState(emptyTotals);
+  const [expenseForm, setExpenseForm] = useState(emptyExpense);
+  const [totalsSaving, setTotalsSaving] = useState(false);
+  const [expenseSaving, setExpenseSaving] = useState(false);
 
-const [historicalSaving, setHistoricalSaving] = useState(false);
-const [expenseForm, setExpenseForm] = useState({
-  category: "",
-  amount: "",
-  notes: "",
-});
-
-const [expenseSaving, setExpenseSaving] = useState(false);
-  const load = async (d = date) => {
-    setLoading(true); setError(null);
+  const load = async (selectedDate = date) => {
+    setLoading(true);
+    setError(null);
     try {
-      const [list, sum] = await Promise.all([
-        api.get("/daily-sales", { params: { date: d } }).catch(() => ({ data: [] })),
-        api.get("/daily-sales/summary", { params: { date: d } }).catch(() => ({ data: { total: 0, paid: 0, pending: 0, count: 0 } })),
+      const [summaryResponse, expensesResponse] = await Promise.all([
+        api.get("/daily-sales/summary", { params: { date: selectedDate } }).catch(() => ({ data: {} })),
+        api.get("/expenses", { params: { date: selectedDate } }).catch(() => ({ data: [] })),
       ]);
-      setEntries(Array.isArray(list.data) ? list.data : []);
-      setSummary(sum.data || { total: 0, paid: 0, pending: 0, count: 0 });
+      setSummary(summaryResponse.data || {});
+      setExpenses(Array.isArray(expensesResponse.data) ? expensesResponse.data : []);
     } catch (e) {
-      setError("Failed to load daily sales");
-    } finally { setLoading(false); }
+      setError("Failed to load the daily register");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => {
-    api.get("/medicines").then((r) => setMeds(Array.isArray(r.data) ? r.data : [])).catch(() => setMeds([]));
-    load(date);
-    // eslint-disable-next-line
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(date); }, [date]);
 
-  useEffect(() => { load(date); /* eslint-disable-next-line */ }, [date]);
+  const totals = useMemo(() => {
+    const outstanding = number(summary.pending ?? summary.outstanding ?? summary.credit_sales);
+    const gross = number(summary.total ?? summary.gross_sales);
+    const collected = number(summary.paid ?? summary.collected ?? (gross - outstanding));
+    const expenseTotal = expenses.reduce((sum, expense) => sum + number(expense.amount), 0);
+    return { gross, collected, outstanding, expenseTotal, net: gross - expenseTotal };
+  }, [summary, expenses]);
 
-  const selectedMed = useMemo(
-    () => meds.find((m) => m.id === form.medicine_id),
-    [form.medicine_id, meds]
-  );
-
-  // Auto-fill total amount when medicine, qty or unit_type changes (only if user hasn't manually overridden)
-  const [autoTotal, setAutoTotal] = useState(true);
-  useEffect(() => {
-    if (!autoTotal || !selectedMed) return;
-    const upb = Math.max(selectedMed.units_per_box || 1, 1);
-    const unitPrice = selectedMed.mrp * (form.unit_type === "box" ? upb : 1);
-    const computed = +(unitPrice * Number(form.quantity || 0)).toFixed(2);
-    setForm((f) => ({ ...f, total_amount: computed }));
-    // eslint-disable-next-line
-  }, [form.medicine_id, form.quantity, form.unit_type, autoTotal]);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!form.medicine_id) return toast.error("Pick a medicine");
-    if (!form.quantity || Number(form.quantity) <= 0) return toast.error("Quantity must be > 0");
-    if (!form.total_amount || Number(form.total_amount) <= 0) return toast.error("Total amount required");
-    setSaving(true);
+  const submitTotals = async (event) => {
+    event.preventDefault();
+    const cash = number(totalsForm.cash_amount);
+    const upi = number(totalsForm.upi_amount);
+    const pending = number(totalsForm.pending_amount);
+    if (cash + upi + pending <= 0) return toast.error("Enter at least one sales total");
+    setTotalsSaving(true);
     try {
-      await api.post("/daily-sales", {
-        medicine_id: form.medicine_id,
-        quantity: Number(form.quantity),
-        unit_type: form.unit_type,
-        total_amount: Number(form.total_amount),
-        customer_name: form.customer_name,
-        payment_status: form.payment_status,
-        notes: form.notes,
-        sale_date: date,
-      });
-      toast.success("Sale recorded");
-      setForm({ ...emptyEntry });
-      setAutoTotal(true);
-      // refresh meds and entries
-      const m = await api.get("/medicines");
-      setMeds(Array.isArray(m.data) ? m.data : []);
+      await api.post("/historical-sales", { date, cash_amount: cash, upi_amount: upi, pending_amount: pending, notes: totalsForm.notes });
+      toast.success("Daily totals saved");
+      setTotalsForm(emptyTotals);
       load(date);
     } catch (e) { toast.error(formatApiError(e)); }
-    finally { setSaving(false); }
+    finally { setTotalsSaving(false); }
   };
 
-  const submitHistoricalSale = async (e) => {
-  e.preventDefault();
-
-  setHistoricalSaving(true);
-
-  try {
-    await api.post("/historical-sales", {
-      date,
-      cash_amount: Number(historicalForm.cash_amount || 0),
-      upi_amount: Number(historicalForm.upi_amount || 0),
-      pending_amount: Number(historicalForm.pending_amount || 0),
-      notes: historicalForm.notes,
-    });
-
-    toast.success("Historical sale added");
-
-    setHistoricalForm({
-      cash_amount: "",
-      upi_amount: "",
-      pending_amount: "",
-      notes: "",
-    });
-
-    load(date);
-
-  } catch (e) {
-    toast.error(formatApiError(e));
-  } finally {
-    setHistoricalSaving(false);
-  }
-};
-  
-  const submitExpense = async (e) => {
-  e.preventDefault();
-
-  if (!expenseForm.category) {
-    return toast.error("Expense category required");
-  }
-
-  if (!expenseForm.amount || Number(expenseForm.amount) <= 0) {
-    return toast.error("Expense amount required");
-  }
-
-  setExpenseSaving(true);
-
-  try {
-    await api.post("/expenses", {
-      date,
-      category: expenseForm.category,
-      amount: Number(expenseForm.amount),
-      notes: expenseForm.notes,
-    });
-
-    toast.success("Expense added");
-
-    setExpenseForm({
-      category: "",
-      amount: "",
-      notes: "",
-    });
-
-  } catch (e) {
-    toast.error(formatApiError(e));
-  } finally {
-    setExpenseSaving(false);
-  }
-};
-  
-  const remove = async (id) => {
-    if (!window.confirm("Delete this entry? Stock will be restored.")) return;
+  const submitExpense = async (event) => {
+    event.preventDefault();
+    if (!expenseForm.category.trim()) return toast.error("Expense category required");
+    if (number(expenseForm.amount) <= 0) return toast.error("Expense amount required");
+    setExpenseSaving(true);
     try {
-      await api.delete(`/daily-sales/${id}`);
-      toast.success("Entry deleted, stock restored");
-      const m = await api.get("/medicines");
-      setMeds(Array.isArray(m.data) ? m.data : []);
+      await api.post("/expenses", { date, category: expenseForm.category, amount: number(expenseForm.amount), notes: expenseForm.notes });
+      toast.success("Expense added");
+      setExpenseForm(emptyExpense);
       load(date);
     } catch (e) { toast.error(formatApiError(e)); }
+    finally { setExpenseSaving(false); }
   };
 
-  const upb = selectedMed ? Math.max(selectedMed.units_per_box || 1, 1) : 1;
+  const cards = [
+    ["Gross Sales", totals.gross, "text-slate-900"],
+    ["Paid / Collected", totals.collected, "text-emerald-600"],
+    ["Outstanding", totals.outstanding, "text-amber-600"],
+    ["Expenses", totals.expenseTotal, "text-red-600"],
+    ["Estimated Net Profit", totals.net, totals.net < 0 ? "text-red-600" : "text-blue-700"],
+  ];
 
   return (
-    <div className="space-y-6" data-testid="daily-sales-page">
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" onClick={() => navigate("/")} className="rounded-sm" data-testid="ds-back-btn">
-          <ArrowLeft className="w-4 h-4 mr-1" />Dashboard
-        </Button>
-        <div>
-          <div className="text-xs uppercase tracking-[0.15em] font-semibold text-slate-500">Quick Log</div>
-          <h1 className="font-heading text-2xl md:text-3xl font-bold flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-blue-600" />Daily Sales Book
-          </h1>
+    <div className="mx-auto max-w-6xl space-y-5" data-testid="daily-sales-page">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => navigate("/")} className="rounded-sm"><ArrowLeft className="mr-1 h-4 w-4" />Dashboard</Button>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">Business register</p><h1 className="flex items-center gap-2 font-heading text-2xl font-bold md:text-3xl"><BookOpen className="h-6 w-6 text-blue-600" />Daily Sales</h1></div>
         </div>
+        <div className="w-full sm:w-48"><Label className="text-xs font-semibold uppercase text-slate-500">Register date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 rounded-sm" data-testid="ds-date" /></div>
+      </header>
+
+      <div className="rounded-sm border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+        <strong>Summary register only.</strong> Daily Sales records summarized business totals only and does not change inventory. Use Billing for actual medicine sales and Stock Adjustments for stock correction.
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="kpi-card rounded-sm">
-          <div className="text-xs uppercase tracking-wider font-semibold text-slate-500">Today</div>
-          <div className="font-heading text-2xl font-bold font-mono-nums mt-1">{fmtINR(summary.total)}</div>
-          <div className="text-xs text-slate-500 mt-1">{summary.count} entries</div>
-        </div>
-        <div className="kpi-card rounded-sm">
-          <div className="text-xs uppercase tracking-wider font-semibold text-slate-500">Paid</div>
-          <div className="font-heading text-2xl font-bold font-mono-nums text-emerald-600 mt-1">{fmtINR(summary.paid)}</div>
-        </div>
-        <div className="kpi-card rounded-sm">
-          <div className="text-xs uppercase tracking-wider font-semibold text-slate-500">Pending</div>
-          <div className="font-heading text-2xl font-bold font-mono-nums text-amber-600 mt-1">{fmtINR(summary.pending)}</div>
-        </div>
-        <div className="kpi-card rounded-sm">
-          <Label className="text-xs uppercase font-semibold text-slate-500">Date</Label>
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-sm mt-1" data-testid="ds-date" />
-        </div>
-      </div>
+      <section aria-label="Daily sales summary" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {cards.map(([label, value, color]) => <div key={label} className="kpi-card rounded-sm"><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p><p className={`mt-2 font-heading text-xl font-bold font-mono-nums sm:text-2xl ${color}`}>{fmtINR(value)}</p></div>)}
+      </section>
 
-      <div className="bg-white border border-slate-200 rounded-sm p-4">
-  <div className="flex items-center gap-2 mb-4">
-    <BookOpen className="w-5 h-5 text-slate-600" />
-    <div>
-      <div className="font-heading font-semibold">
-        Historical Daily Sales Entry
-      </div>
-      <div className="text-xs text-slate-500">
-        Add old register totals without affecting inventory
-      </div>
-    </div>
-  </div>
+      {error && <div className="rounded-sm border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-  <form
-    onSubmit={submitHistoricalSale}
-    className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
-  >
-
-    <div>
-      <Label className="text-xs uppercase font-semibold text-slate-600">
-        Cash ₹
-      </Label>
-
-      <Input
-        type="number"
-        min="0"
-        value={historicalForm.cash_amount}
-        onChange={(e) =>
-          setHistoricalForm({
-            ...historicalForm,
-            cash_amount: e.target.value
-          })
-        }
-        className="rounded-sm mt-1"
-      />
-    </div>
-
-    <div>
-      <Label className="text-xs uppercase font-semibold text-slate-600">
-        UPI ₹
-      </Label>
-
-      <Input
-        type="number"
-        min="0"
-        value={historicalForm.upi_amount}
-        onChange={(e) =>
-          setHistoricalForm({
-            ...historicalForm,
-            upi_amount: e.target.value
-          })
-        }
-        className="rounded-sm mt-1"
-      />
-    </div>
-
-    <div>
-      <Label className="text-xs uppercase font-semibold text-slate-600">
-        Pending ₹
-      </Label>
-
-      <Input
-        type="number"
-        min="0"
-        value={historicalForm.pending_amount}
-        onChange={(e) =>
-          setHistoricalForm({
-            ...historicalForm,
-            pending_amount: e.target.value
-          })
-        }
-        className="rounded-sm mt-1"
-      />
-    </div>
-
-    <div>
-      <Label className="text-xs uppercase font-semibold text-slate-600">
-        Notes
-      </Label>
-
-      <Input
-        value={historicalForm.notes}
-        onChange={(e) =>
-          setHistoricalForm({
-            ...historicalForm,
-            notes: e.target.value
-          })
-        }
-        className="rounded-sm mt-1"
-      />
-    </div>
-
-    <div>
-      <Button
-        type="submit"
-        disabled={historicalSaving}
-        className="rounded-sm bg-slate-700 hover:bg-slate-800 w-full"
-      >
-        Add Historical Sale
-      </Button>
-    </div>
-
-  </form>
-</div>
-
-     <div className="bg-white border border-slate-200 rounded-sm p-4">
-  <div className="flex items-center gap-2 mb-4">
-    <div>
-      <div className="font-heading font-semibold">
-        Daily Expenses
-      </div>
-
-      <div className="text-xs text-slate-500">
-        Track operational expenses for this date
-      </div>
-    </div>
-  </div>
-
-  <form
-    onSubmit={submitExpense}
-    className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end"
-  >
-
-    <div>
-      <Label className="text-xs uppercase font-semibold text-slate-600">
-        Category
-      </Label>
-
-      <Input
-        value={expenseForm.category}
-        onChange={(e) =>
-          setExpenseForm({
-            ...expenseForm,
-            category: e.target.value
-          })
-        }
-        placeholder="Electricity / Delivery / Rent"
-        className="rounded-sm mt-1"
-      />
-    </div>
-
-    <div>
-      <Label className="text-xs uppercase font-semibold text-slate-600">
-        Amount ₹
-      </Label>
-
-      <Input
-        type="number"
-        min="0"
-        value={expenseForm.amount}
-        onChange={(e) =>
-          setExpenseForm({
-            ...expenseForm,
-            amount: e.target.value
-          })
-        }
-        className="rounded-sm mt-1"
-      />
-    </div>
-
-    <div>
-      <Label className="text-xs uppercase font-semibold text-slate-600">
-        Notes
-      </Label>
-
-      <Input
-        value={expenseForm.notes}
-        onChange={(e) =>
-          setExpenseForm({
-            ...expenseForm,
-            notes: e.target.value
-          })
-        }
-        className="rounded-sm mt-1"
-      />
-    </div>
-
-    <div>
-      <Button
-        type="submit"
-        disabled={expenseSaving}
-        className="rounded-sm bg-red-600 hover:bg-red-700 w-full"
-      >
-        Add Expense
-      </Button>
-    </div>
-
-  </form>
-</div>
-      
-      {/* Quick entry */}
-      <div className="bg-white border border-slate-200 rounded-sm p-4">
-        <div className="font-heading font-semibold mb-3">New Entry</div>
-        <form onSubmit={submit} className="grid md:grid-cols-12 gap-2 items-end">
-          <div className="md:col-span-3">
-            <Label className="text-xs uppercase font-semibold text-slate-600">Medicine *</Label>
-            <Autocomplete
-              value={form.medicine_name}
-              onChange={(text, item) => {
-                setForm({ ...form, medicine_name: text, medicine_id: item?.id || "" });
-                setAutoTotal(true);
-              }}
-              options={meds.map((m) => ({
-                id: m.name,
-                label: `${m.name} · total stk ${m.total_stock}`,
-                value: m.name
-              }))}
-              placeholder="Search…"
-              className="rounded-sm mt-1 h-9"
-              testId="ds-medicine"
-              required
-            />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs uppercase font-semibold text-slate-600">Type</Label>
-            <Select value={form.unit_type} onValueChange={(v) => { setForm({ ...form, unit_type: v }); setAutoTotal(true); }}>
-              <SelectTrigger className="rounded-sm mt-1 h-9" data-testid="ds-unit-type"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unit">Unit</SelectItem>
-                <SelectItem value="box" disabled={upb <= 1}>Box ({upb}u)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="md:col-span-1">
-            <Label className="text-xs uppercase font-semibold text-slate-600">Qty</Label>
-            <Input type="number" min="1" value={form.quantity}
-              onChange={(e) => { setForm({ ...form, quantity: e.target.value }); setAutoTotal(true); }}
-              className="rounded-sm mt-1 h-9" data-testid="ds-qty" required />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs uppercase font-semibold text-slate-600">Total ₹</Label>
-            <Input type="number" step="0.01" value={form.total_amount}
-              onChange={(e) => { setForm({ ...form, total_amount: e.target.value }); setAutoTotal(false); }}
-              className="rounded-sm mt-1 h-9 font-mono-nums" data-testid="ds-amount" required />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs uppercase font-semibold text-slate-600">Customer</Label>
-            <Input value={form.customer_name}
-              onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
-              placeholder="Walk-in"
-              className="rounded-sm mt-1 h-9" data-testid="ds-customer" />
-          </div>
-          <div className="md:col-span-1">
-            <Label className="text-xs uppercase font-semibold text-slate-600">Status</Label>
-            <Select value={form.payment_status} onValueChange={(v) => setForm({ ...form, payment_status: v })}>
-              <SelectTrigger className="rounded-sm mt-1 h-9" data-testid="ds-status"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="md:col-span-1">
-            <Button type="submit" disabled={saving} className="rounded-sm bg-blue-600 hover:bg-blue-700 w-full h-9" data-testid="ds-save">
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
+      <section className="rounded-sm border border-slate-200 bg-white p-4 sm:p-5">
+        <div className="mb-4 flex items-start gap-3"><CircleDollarSign className="mt-0.5 h-5 w-5 text-emerald-600" /><div><h2 className="font-heading font-semibold">Daily business totals</h2><p className="text-sm text-slate-500">Save summarized totals for the selected date. Past-date entries are historical records and never affect inventory.</p></div></div>
+        <form onSubmit={submitTotals} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[['cash_amount', 'Cash Sales'], ['upi_amount', 'UPI Sales'], ['pending_amount', 'Outstanding / Credit Sales']].map(([field, label]) => <div key={field}><Label className="text-xs font-semibold uppercase text-slate-600">{label} ₹</Label><Input type="number" min="0" step="0.01" value={totalsForm[field]} onChange={(e) => setTotalsForm({ ...totalsForm, [field]: e.target.value })} className="mt-1 rounded-sm" /></div>)}
+          <div><Label className="text-xs font-semibold uppercase text-slate-600">Notes</Label><Input value={totalsForm.notes} onChange={(e) => setTotalsForm({ ...totalsForm, notes: e.target.value })} placeholder="Optional register note" className="mt-1 rounded-sm" /></div>
+          <div className="sm:col-span-2 lg:col-span-4"><Button type="submit" disabled={totalsSaving} className="w-full rounded-sm bg-slate-800 hover:bg-slate-900 sm:w-auto"><WalletCards className="mr-2 h-4 w-4" />Save summarized totals</Button></div>
         </form>
-      </div>
+      </section>
 
-      {/* Log */}
-      <div className="bg-white border border-slate-200 rounded-sm">
-        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-          <div className="font-heading font-semibold">Log — {date}</div>
-          <Button variant="ghost" size="sm" onClick={() => load(date)} className="rounded-sm">
-            <RefreshCw className="w-4 h-4" />
-          </Button>
+      <section className="rounded-sm border border-slate-200 bg-white p-4 sm:p-5">
+        <div className="mb-4 flex items-start justify-between gap-3"><div className="flex gap-3"><ReceiptText className="mt-0.5 h-5 w-5 text-red-600" /><div><h2 className="font-heading font-semibold">Expenses</h2><p className="text-sm text-slate-500">Track operating expenses for the selected date.</p></div></div><Button variant="ghost" size="sm" onClick={() => load(date)} disabled={loading}><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></Button></div>
+        <form onSubmit={submitExpense} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div><Label className="text-xs font-semibold uppercase text-slate-600">Category</Label><Input value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} placeholder="Rent, delivery, utilities…" className="mt-1 rounded-sm" /></div>
+          <div><Label className="text-xs font-semibold uppercase text-slate-600">Amount ₹</Label><Input type="number" min="0" step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} className="mt-1 rounded-sm" /></div>
+          <div><Label className="text-xs font-semibold uppercase text-slate-600">Notes</Label><Input value={expenseForm.notes} onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })} placeholder="Optional details" className="mt-1 rounded-sm" /></div>
+          <div className="flex items-end"><Button type="submit" disabled={expenseSaving} className="w-full rounded-sm bg-red-600 hover:bg-red-700">Add expense</Button></div>
+        </form>
+        <div className="mt-5 border-t border-slate-100 pt-4">
+          {loading ? <p className="text-sm text-slate-500">Loading expenses…</p> : expenses.length === 0 ? <p className="text-sm text-slate-500">No expenses recorded for this date.</p> : <div className="space-y-2">{expenses.map((expense, index) => <div key={expense.id || index} className="flex items-start justify-between gap-4 rounded-sm bg-slate-50 px-3 py-2 text-sm"><div><p className="font-medium text-slate-800">{expense.category}</p>{expense.notes && <p className="text-xs text-slate-500">{expense.notes}</p>}</div><p className="font-semibold font-mono-nums text-red-600">{fmtINR(expense.amount)}</p></div>)}</div>}
         </div>
-        {loading ? (
-          <div className="p-8 text-center text-slate-500">Loading…</div>
-        ) : error ? (
-          <div className="p-8 text-center text-red-600">{error}</div>
-        ) : entries.length === 0 ? (
-          <div className="p-10 text-center text-slate-500" data-testid="ds-empty">No data available for this date.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead><tr>
-                <th>Time</th><th>Medicine</th><th>Type</th>
-                <th className="text-right">Qty</th><th className="text-right">Amount</th>
-                <th>Customer</th><th>Status</th><th></th>
-              </tr></thead>
-              <tbody>
-                {entries.map((e) => (
-                  <tr key={e.id}>
-                    <td className="font-mono-nums text-xs">{new Date(e.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td>
-                    <td className="font-medium">{e.medicine_name}<div className="text-xs text-slate-500 font-mono">{e.batch_no}</div></td>
-                    <td className="uppercase text-xs tracking-wider">{e.unit_type}</td>
-                    <td className="num-cell">{e.quantity}</td>
-                    <td className="num-cell font-semibold">{fmtINR(e.total_amount)}</td>
-                    <td>{e.customer_name}</td>
-                    <td>
-                      <span className={`px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-sm ${
-                        e.payment_status === "paid" ? "badge-otc" : "badge-sch-h1"
-                      }`}>{e.payment_status}</span>
-                    </td>
-                    <td className="text-right">
-                      <button onClick={() => remove(e.id)} className="text-slate-400 hover:text-red-600">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      </section>
     </div>
   );
 }
