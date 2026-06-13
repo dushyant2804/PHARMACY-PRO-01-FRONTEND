@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertCircle, ArrowLeft, CalendarCheck2, IndianRupee, LockKeyhole, RefreshCw, Save, Scale, WalletCards } from "lucide-react";
+import { AlertCircle, ArrowLeft, CalendarCheck2, CheckCircle2, Info, LockKeyhole, RefreshCw, Save, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,239 +8,43 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { fmtDate, fmtINR, formatApiError } from "@/lib/api";
-import {
-  EMPTY_CLOSING,
-  calculateClosing,
-  createDailyClosing,
-  getDailyClosing,
-  getMismatchStatus,
-  listDailyClosings,
-  updateDailyClosing,
-} from "@/lib/dailyClosing";
+import { EMPTY_CLOSING, calculateClosing, createDailyClosing, getDailyClosing, getMismatchStatus, listDailyClosings, updateDailyClosing } from "@/lib/dailyClosing";
 
-const today = () => {
-  const date = new Date();
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 10);
-};
-
-const amountFields = [
-  ["cash_sales", "Cash sales", "Cash received from sales"],
-  ["upi_sales", "UPI sales", "UPI / QR collections"],
-  ["card_sales", "Card sales", "Debit and credit cards"],
-  ["credit_sales", "Credit sales", "Sales pending collection"],
-  ["expenses", "Expenses", "Cash paid out today"],
-  ["counted_cash", "Counted cash", "Physical cash in drawer"],
+const today = () => { const date = new Date(); date.setMinutes(date.getMinutes() - date.getTimezoneOffset()); return date.toISOString().slice(0, 10); };
+const statusStyle = { balanced: "border-emerald-200 bg-emerald-50 text-emerald-800", shortage: "border-red-300 bg-red-50 text-red-800", excess: "border-amber-300 bg-amber-50 text-amber-900" };
+const statusCopy = { balanced: ["Balanced", "Counted cash agrees with expected cash."], shortage: ["Shortage", "Counted cash is below the expected amount."], excess: ["Excess", "Counted cash is above the expected amount."] };
+const importedRows = [
+  ["Expected total", "expectedTotal", "Sales total after expenses"], ["Expected cash", "expectedCash", "Opening cash + cash sales − expenses"],
+  ["Expenses", "expenses", "Imported cash expenses"], ["Collected amount", "collectedAmount", "Cash, UPI, and card collections"], ["Outstanding", "outstanding", "Credit or unpaid sales"],
 ];
-
-const statusStyle = {
-  balanced: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  shortage: "border-red-200 bg-red-50 text-red-700",
-  excess: "border-amber-200 bg-amber-50 text-amber-700",
-};
-
-function MismatchBadge({ mismatch }) {
-  const status = getMismatchStatus(mismatch);
-  return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${statusStyle[status]}`}>
-      {status}
-    </span>
-  );
-}
+function Badge({ mismatch }) { const status = getMismatchStatus(mismatch); return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${statusStyle[status]}`}>{statusCopy[status][0]}</span>; }
+function SectionTitle({ number, title, copy }) { return <div className="border-b border-slate-200 px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">{number}</span><div><h2 className="font-heading font-semibold text-slate-900">{title}</h2><p className="text-xs text-slate-500">{copy}</p></div></div></div>; }
 
 export default function DailyClosing() {
-  const [records, setRecords] = useState([]);
-  const [form, setForm] = useState(() => ({ ...EMPTY_CLOSING, closing_date: today() }));
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const calculations = useMemo(() => calculateClosing(form), [form]);
-  const selectedRecord = records.find((record) => record.closing_date === form.closing_date);
-  const isLocked = Boolean(selectedRecord?.locked || form.locked);
-  const mismatchStatus = getMismatchStatus(calculations.mismatch);
+  const [records, setRecords] = useState([]); const [form, setForm] = useState(() => ({ ...EMPTY_CLOSING, closing_date: today() }));
+  const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState("");
+  const calculations = useMemo(() => ({ ...calculateClosing(form), ...Object.fromEntries(["expectedTotal", "expectedCash", "collectedAmount", "outstanding"].filter(k => form[k] !== undefined).map(k => [k, Number(form[k])])) }), [form]);
+  const selectedRecord = records.find(r => r.closing_date === form.closing_date); const isLocked = Boolean(selectedRecord?.locked || form.locked); const status = getMismatchStatus(calculations.mismatch);
+  const updateField = (field, value) => setForm(current => ({ ...current, [field]: value }));
+  const loadClosings = useCallback(async () => { setLoading(true); setError(""); try { const loaded = await listDailyClosings(); setRecords(loaded); setForm(current => { const match = loaded.find(r => r.closing_date === current.closing_date); return match && current.counted_cash === "" && !current.notes ? { ...match, lock_day: match.locked } : current; }); } catch (e) { setError(formatApiError(e)); toast.error(`Daily closing history unavailable: ${formatApiError(e)}`); } finally { setLoading(false); } }, []);
+  useEffect(() => { loadClosings(); }, [loadClosings]);
+  const selectDate = async closingDate => { const record = records.find(r => r.closing_date === closingDate); if (record) return setForm({ ...record, lock_day: record.locked }); try { const loaded = await getDailyClosing(closingDate); setRecords(current => [loaded, ...current.filter(r => r.closing_date !== loaded.closing_date)]); setForm({ ...loaded, lock_day: loaded.locked }); } catch (e) { if (e?.response?.status === 404) setForm({ ...EMPTY_CLOSING, closing_date: closingDate }); else toast.error(`Could not load that closing: ${formatApiError(e)}`); } };
+  const handleSubmit = async event => { event.preventDefault(); if (isLocked) return; setSaving(true); try { const saved = selectedRecord?.id ? await updateDailyClosing(selectedRecord.id, form) : await createDailyClosing(form); setRecords(current => [saved, ...current.filter(r => r.closing_date !== saved.closing_date)].sort((a,b) => b.closing_date.localeCompare(a.closing_date))); setForm({ ...saved, lock_day: saved.locked }); toast.success(form.lock_day ? "Day closed and locked" : "Daily closing saved"); } catch(e) { toast.error(`Could not save daily closing: ${formatApiError(e)}`); } finally { setSaving(false); } };
 
-  const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+  return <div className="mx-auto max-w-6xl space-y-5" data-testid="daily-closing-page">
+    <header className="flex flex-col gap-4 border-b border-slate-300 pb-5 sm:flex-row sm:items-end sm:justify-between"><div><Link to="/" className="mb-3 inline-flex items-center text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-900"><ArrowLeft className="mr-1 h-4 w-4"/> Dashboard</Link><div className="flex items-center gap-2"><CalendarCheck2 className="h-6 w-6 text-emerald-700"/><h1 className="font-heading text-2xl font-bold text-slate-900">Daily Closing</h1></div><p className="mt-2 max-w-2xl text-sm text-slate-600">Daily Closing verifies cash and business totals for the day. Billing and Daily Sales data are imported automatically.</p></div><div className="w-full sm:w-52"><Label htmlFor="closing-date" className="text-xs font-bold uppercase tracking-wider text-slate-600">Reconciliation date</Label><Input id="closing-date" type="date" value={form.closing_date} max={today()} onChange={e => selectDate(e.target.value)} className="mt-1 rounded-sm bg-white"/></div></header>
 
-  const loadClosings = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const loadedRecords = await listDailyClosings();
-      setRecords(loadedRecords);
-      setForm((current) => {
-        const matching = loadedRecords.find((record) => record.closing_date === current.closing_date);
-        const hasUnsavedInput = amountFields.some(([field]) => current[field] !== "") || Boolean(current.notes) || current.lock_day;
-        return matching && !hasUnsavedInput ? { ...matching, lock_day: matching.locked } : current;
-      });
-    } catch (requestError) {
-      const message = formatApiError(requestError);
-      setError(message);
-      toast.error(`Daily closing history unavailable: ${message}`);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <section className="rounded-sm border border-slate-200 bg-white shadow-sm"><SectionTitle number="1" title="Imported day summary" copy="Review the business totals imported from Billing and Daily Sales."/><div className="grid divide-y divide-slate-100 p-2 md:grid-cols-2 md:divide-y-0 lg:grid-cols-5">{importedRows.map(([label,key,hint]) => <div key={key} className="px-3 py-3 lg:border-r lg:last:border-r-0"><div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</div><div className="mt-1 font-mono-nums text-lg font-semibold text-slate-900" data-testid={`closing-summary-${key}`}>{fmtINR(key === "expenses" ? form.expenses : calculations[key])}</div><div className="mt-1 text-[10px] leading-4 text-slate-400">{hint}</div></div>)}</div></section>
 
-  useEffect(() => {
-    loadClosings();
-  }, [loadClosings]);
+      <section className="rounded-sm border border-slate-200 bg-white shadow-sm"><SectionTitle number="2" title="Cash reconciliation" copy="Enter the physical cash count and verify the resulting variance."/><div className="grid gap-5 p-5 md:grid-cols-[1fr_1.4fr]">
+        <div className="space-y-4"><div><Label htmlFor="opening_cash" className="text-xs font-bold uppercase tracking-wider text-slate-600">Opening cash <span className="font-normal normal-case text-slate-400">(optional)</span></Label><Input id="opening_cash" type="number" min="0" step="0.01" value={form.opening_cash ?? ""} onChange={e => updateField("opening_cash", e.target.value)} disabled={isLocked} placeholder="0.00" className="mt-1 rounded-sm font-mono-nums"/><p className="mt-1 text-[11px] text-slate-400">Use only when opening float is supported by your closing process.</p></div><div><Label htmlFor="counted_cash" className="text-xs font-bold uppercase tracking-wider text-slate-600">Counted cash ₹</Label><Input id="counted_cash" data-testid="closing-counted_cash" type="number" min="0" step="0.01" value={form.counted_cash} onChange={e => updateField("counted_cash", e.target.value)} disabled={isLocked} required placeholder="0.00" className="mt-1 h-12 rounded-sm border-slate-400 font-mono-nums text-lg font-semibold"/><p className="mt-1 text-[11px] text-slate-400">Physical cash verified in the drawer or safe.</p></div></div>
+        <div className={`flex items-center gap-4 rounded-sm border p-5 ${statusStyle[status]}`} data-testid={`mismatch-${status}`}>{status === "balanced" ? <CheckCircle2 className="h-8 w-8 shrink-0"/> : <TriangleAlert className="h-8 w-8 shrink-0"/>}<div className="flex-1"><div className="flex items-center justify-between gap-2"><span className="text-xs font-bold uppercase tracking-widest">Cash variance</span><Badge mismatch={calculations.mismatch}/></div><div className="mt-2 font-mono-nums text-3xl font-bold">{fmtINR(calculations.mismatch)}</div><p className="mt-1 text-xs opacity-80">{statusCopy[status][1]}</p><div className="mt-3 border-t border-current/15 pt-3 text-[11px]">Counted cash minus expected cash</div></div></div>
+      </div></section>
 
-  const selectDate = async (closingDate) => {
-    const record = records.find((item) => item.closing_date === closingDate);
-    if (record) {
-      setForm({ ...record, lock_day: record.locked });
-      return;
-    }
+      <section className="rounded-sm border border-slate-200 bg-white shadow-sm"><SectionTitle number="3" title="Notes and day lock" copy="Document exceptions, then optionally protect the final closing from edits."/><div className="space-y-4 p-5"><div><Label htmlFor="closing-notes" className="text-xs font-bold uppercase tracking-wider text-slate-600">Closing notes</Label><Textarea id="closing-notes" disabled={isLocked} value={form.notes} onChange={e => updateField("notes", e.target.value)} placeholder="Explain a variance, cash movement, or handover detail…" className="mt-1 min-h-20 rounded-sm"/></div><div className="flex items-center justify-between gap-4 rounded-sm border border-slate-200 bg-slate-50 p-4"><div><Label htmlFor="lock-day" className="font-semibold text-slate-900">Lock day after saving</Label><p className="text-xs text-slate-500">Use only after totals and cash count are final. Locked records cannot be edited.</p></div><Switch id="lock-day" disabled={isLocked} checked={Boolean(form.lock_day)} onCheckedChange={checked => updateField("lock_day", checked)}/></div></div><div className="flex items-center justify-between border-t border-slate-200 px-5 py-3"><span className="inline-flex items-center gap-2 text-xs text-slate-500">{isLocked ? <><LockKeyhole className="h-4 w-4"/> This day is locked</> : <><Info className="h-4 w-4"/> Verify imported totals before saving</>}</span><Button type="submit" disabled={isLocked || saving} className="rounded-sm bg-emerald-800 hover:bg-emerald-900">{form.lock_day ? <LockKeyhole className="mr-2 h-4 w-4"/> : <Save className="mr-2 h-4 w-4"/>}{saving ? "Saving…" : form.lock_day ? "Save & lock day" : "Save reconciliation"}</Button></div></section>
+    </form>
 
-    try {
-      const loaded = await getDailyClosing(closingDate);
-      setRecords((current) => [loaded, ...current.filter((item) => item.closing_date !== loaded.closing_date)]);
-      setForm({ ...loaded, lock_day: loaded.locked });
-    } catch (requestError) {
-      if (requestError?.response?.status === 404) {
-        setForm({ ...EMPTY_CLOSING, closing_date: closingDate });
-        return;
-      }
-      toast.error(`Could not load that closing: ${formatApiError(requestError)}`);
-    }
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (isLocked) return;
-
-    setSaving(true);
-    try {
-      const saved = selectedRecord?.id
-        ? await updateDailyClosing(selectedRecord.id, form)
-        : await createDailyClosing(form);
-      setRecords((current) => [saved, ...current.filter((record) => record.closing_date !== saved.closing_date)]
-        .sort((a, b) => b.closing_date.localeCompare(a.closing_date)));
-      setForm({ ...saved, lock_day: saved.locked });
-      setError("");
-      toast.success(form.lock_day ? "Day closed and locked" : "Daily closing saved");
-    } catch (requestError) {
-      toast.error(`Could not save daily closing: ${formatApiError(requestError)}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6" data-testid="daily-closing-page">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <Link to="/" className="mb-2 inline-flex items-center text-xs font-medium uppercase tracking-wider text-slate-500 hover:text-slate-900">
-            <ArrowLeft className="mr-1 h-4 w-4" /> Dashboard
-          </Link>
-          <div className="flex items-center gap-2">
-            <CalendarCheck2 className="h-6 w-6 text-emerald-600" />
-            <h1 className="font-heading text-2xl font-bold text-slate-900">Daily Closing</h1>
-          </div>
-          <p className="mt-1 text-sm text-slate-500">Reconcile collections, expenses, and cash before ending the day.</p>
-        </div>
-        {isLocked && (
-          <div className="inline-flex items-center gap-2 self-start rounded-sm border border-slate-300 bg-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-700">
-            <LockKeyhole className="h-4 w-4" /> Day locked
-          </div>
-        )}
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-sm border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-widest text-slate-500"><span>Expected total</span><IndianRupee className="h-4 w-4" /></div>
-          <div className="mt-2 font-heading text-2xl font-bold font-mono-nums text-slate-900">{fmtINR(calculations.expectedTotal)}</div>
-          <div className="mt-1 text-xs text-slate-400">All sales minus expenses</div>
-        </div>
-        <div className="rounded-sm border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-widest text-slate-500"><span>Expected cash</span><WalletCards className="h-4 w-4" /></div>
-          <div className="mt-2 font-heading text-2xl font-bold font-mono-nums text-slate-900">{fmtINR(calculations.expectedCash)}</div>
-          <div className="mt-1 text-xs text-slate-400">Cash sales minus expenses</div>
-        </div>
-        <div className={`rounded-sm border bg-white p-4 shadow-sm ${statusStyle[mismatchStatus]}`}>
-          <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-widest"><span>Cash mismatch</span><Scale className="h-4 w-4" /></div>
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="font-heading text-2xl font-bold font-mono-nums">{fmtINR(calculations.mismatch)}</div>
-            <MismatchBadge mismatch={calculations.mismatch} />
-          </div>
-          <div className="mt-1 text-xs opacity-70">Counted cash minus expected cash</div>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="rounded-sm border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-4 py-3">
-          <div className="font-heading font-semibold text-slate-900">Closing details</div>
-          <div className="text-xs text-slate-500">Save a draft, or lock the day after confirming the final count.</div>
-        </div>
-        <fieldset className="grid gap-4 p-4 md:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <Label htmlFor="closing-date" className="text-xs font-semibold uppercase text-slate-600">Closing date</Label>
-            <Input id="closing-date" type="date" value={form.closing_date} max={today()} onChange={(event) => selectDate(event.target.value)} className="mt-1 rounded-sm" required />
-          </div>
-          {amountFields.map(([field, label, hint]) => (
-            <div key={field}>
-              <Label htmlFor={field} className="text-xs font-semibold uppercase text-slate-600">{label} ₹</Label>
-              <Input id={field} data-testid={`closing-${field}`} type="number" min="0" step="0.01" value={form[field]} onChange={(event) => updateField(field, event.target.value)} placeholder="0.00" className="mt-1 rounded-sm font-mono-nums" disabled={isLocked} required />
-              <div className="mt-1 text-[11px] text-slate-400">{hint}</div>
-            </div>
-          ))}
-          <div className="md:col-span-2 lg:col-span-3">
-            <Label htmlFor="closing-notes" className="text-xs font-semibold uppercase text-slate-600">Notes</Label>
-            <Textarea id="closing-notes" disabled={isLocked} value={form.notes} onChange={(event) => updateField("notes", event.target.value)} placeholder="Explain a mismatch, cash movement, or handover detail…" className="mt-1 min-h-20 rounded-sm" />
-          </div>
-          <div className="flex items-center justify-between gap-4 rounded-sm border border-slate-200 bg-slate-50 p-3 md:col-span-2 lg:col-span-3">
-            <div>
-              <Label htmlFor="lock-day" className="font-semibold text-slate-900">Lock day after saving</Label>
-              <p className="text-xs text-slate-500">Locked closing records cannot be edited, protecting the final handover.</p>
-            </div>
-            <Switch id="lock-day" disabled={isLocked} checked={Boolean(form.lock_day)} onCheckedChange={(checked) => updateField("lock_day", checked)} />
-          </div>
-        </fieldset>
-        <div className="flex justify-end border-t border-slate-200 px-4 py-3">
-          <Button type="submit" disabled={isLocked || saving} className="rounded-sm bg-emerald-700 hover:bg-emerald-800" data-testid="save-daily-closing">
-            {form.lock_day ? <LockKeyhole className="mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
-            {saving ? "Saving…" : form.lock_day ? "Save & lock day" : "Save closing"}
-          </Button>
-        </div>
-      </form>
-
-      <div className="rounded-sm border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-4 py-3">
-          <div className="font-heading font-semibold text-slate-900">Daily closing history</div>
-          <div className="text-xs text-slate-500">Select an unlocked day to review or update its closing.</div>
-        </div>
-        {loading ? (
-          <div className="p-10 text-center text-sm text-slate-500">Loading closing history…</div>
-        ) : error ? (
-          <div className="flex flex-col items-center gap-3 p-10 text-center text-sm text-red-600">
-            <AlertCircle className="h-5 w-5" />
-            <span>Closing history could not be loaded. Your current form entries have been preserved.</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => loadClosings()} className="rounded-sm">
-              <RefreshCw className="mr-2 h-4 w-4" /> Retry
-            </Button>
-          </div>
-        ) : records.length === 0 ? (
-          <div className="p-10 text-center text-sm text-slate-500">No closing records yet. Complete today’s closing above.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="data-table min-w-[900px]">
-              <thead><tr><th>Date</th><th className="text-right">Gross sales</th><th className="text-right">Expenses</th><th className="text-right">Expected total</th><th className="text-right">Counted cash</th><th className="text-right">Mismatch</th><th>Status</th><th>Day</th></tr></thead>
-              <tbody>{records.map((record) => (
-                <tr key={record.closing_date} onClick={() => selectDate(record.closing_date)} className="cursor-pointer hover:bg-slate-50">
-                  <td className="font-medium">{fmtDate(`${record.closing_date}T00:00:00`)}</td>
-                  <td className="num-cell">{fmtINR(record.grossSales)}</td>
-                  <td className="num-cell">{fmtINR(record.expenses)}</td>
-                  <td className="num-cell font-semibold">{fmtINR(record.expectedTotal)}</td>
-                  <td className="num-cell">{fmtINR(record.counted_cash)}</td>
-                  <td className="num-cell font-semibold">{fmtINR(record.mismatch)}</td>
-                  <td><MismatchBadge mismatch={record.mismatch} /></td>
-                  <td>{record.locked ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600"><LockKeyhole className="h-3.5 w-3.5" /> Locked</span> : <span className="text-xs font-semibold text-blue-600">Draft</span>}</td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    <section className="rounded-sm border border-slate-200 bg-white shadow-sm"><SectionTitle number="4" title="Closing history" copy="Select a previous date to inspect its reconciliation record."/>{loading ? <div className="p-10 text-center text-sm text-slate-500">Loading closing history…</div> : error ? <div className="flex flex-col items-center gap-3 p-10 text-sm text-red-700"><AlertCircle className="h-5 w-5"/>History could not be loaded.<Button variant="outline" size="sm" onClick={loadClosings}><RefreshCw className="mr-2 h-4 w-4"/>Retry</Button></div> : records.length === 0 ? <div className="p-10 text-center text-sm text-slate-500">No closing records yet.</div> : <div className="overflow-x-auto"><table className="data-table min-w-[850px]"><thead><tr><th>Date</th><th className="text-right">Expected total</th><th className="text-right">Expected cash</th><th className="text-right">Counted cash</th><th className="text-right">Variance</th><th>Status</th><th>Record</th></tr></thead><tbody>{records.map(record => <tr key={record.closing_date} onClick={() => selectDate(record.closing_date)} className="cursor-pointer hover:bg-slate-50"><td className="font-medium">{fmtDate(`${record.closing_date}T00:00:00`)}</td><td className="num-cell">{fmtINR(record.expectedTotal)}</td><td className="num-cell">{fmtINR(record.expectedCash)}</td><td className="num-cell">{fmtINR(record.counted_cash)}</td><td className="num-cell font-semibold">{fmtINR(record.mismatch)}</td><td><Badge mismatch={record.mismatch}/></td><td className="text-xs font-semibold">{record.locked ? "Locked" : "Draft"}</td></tr>)}</tbody></table></div>}</section>
+  </div>;
 }
