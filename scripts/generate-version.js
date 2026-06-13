@@ -19,8 +19,14 @@ const buildTimestamp = date.toISOString().slice(0, 10).replace(/-/g, "");
 const commitHash = runGit(["rev-parse", "--short=7", "HEAD"], "unknown");
 const commitSubject = runGit(["log", "-1", "--pretty=%s"], "");
 const version = `${packageJson.version}+${buildTimestamp}-${commitHash}`;
-const fallbackNote = "Latest PharmacyOS improvements are ready.";
-const notes = commitSubject && !/^merge\b/i.test(commitSubject) ? [commitSubject] : [fallbackNote];
+const releaseHighlights = [
+  "Added drug licence fields and pharmacy logo support to Business Profile.",
+  "Improved Settings organization and mobile responsiveness.",
+  "Expanded Update Center with semantic version, build details, and release notes.",
+];
+const notes = commitSubject && !/^merge\b/i.test(commitSubject)
+  ? [commitSubject, ...releaseHighlights]
+  : releaseHighlights;
 const metadata = {
   version,
   date: date.toISOString(),

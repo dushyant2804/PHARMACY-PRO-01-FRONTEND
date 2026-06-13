@@ -17,6 +17,9 @@ import {
   Trash2,
   Image as ImageIcon,
   X,
+  Building2,
+  RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,6 +30,7 @@ import { fonts } from "@/lib/fonts";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import PasswordChangeForm from "@/components/PasswordChangeForm";
 import { getUserDeleteProtection, getUserId } from "@/lib/userDeletion";
+import { FRONTEND_VERSION, normalizeVersionMetadata } from "@/lib/version";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -36,6 +40,7 @@ export default function Settings() {
 
   const fileRef = useRef();
   const sigRef = useRef();
+  const logoRef = useRef();
 
   const [users, setUsers] = useState([]);
   const [deletingUserId, setDeletingUserId] = useState(null);
@@ -52,8 +57,13 @@ export default function Settings() {
     business_address: "",
     business_phone: "",
     business_gstin: "",
+    business_dl_number_1: "",
+    business_dl_number_2: "",
+    logo_b64: "",
     signature_b64: "",
   });
+
+  const [versionInfo, setVersionInfo] = useState(null);
 
   const [welcomeText, setWelcomeText] = useState(
     localStorage.getItem("welcomeText") || 
@@ -117,6 +127,14 @@ export default function Settings() {
   useEffect(() => {
     if (user?.role === "admin") loadUsers();
     loadSettings();
+    Promise.all([
+      fetch("/version.json").then((response) => response.ok ? response.json() : null),
+      fetch("/release-notes.json").then((response) => response.ok ? response.json() : null).catch(() => null),
+    ]).then(([version, notes]) => {
+      const primary = normalizeVersionMetadata(version || {});
+      const release = normalizeVersionMetadata(notes || {});
+      if (primary) setVersionInfo({ ...primary, releaseNotes: release?.releaseNotes?.length ? release.releaseNotes : primary.releaseNotes });
+    }).catch(() => {});
     // eslint-disable-next-line
   }, [user]);
 
@@ -233,7 +251,7 @@ export default function Settings() {
 
       {/* ================= SECURITY ================= */}
       <div className="bg-white border border-slate-200 rounded-sm p-5" data-testid="change-password-section">
-        <div className="font-heading font-semibold mb-1">Change Password</div>
+        <div className="font-heading font-semibold mb-1">Security</div>
         <p className="text-sm text-slate-600 mb-4">
           Update your own password. Password policy and authorization are enforced by the server.
         </p>
@@ -245,27 +263,26 @@ export default function Settings() {
       {/* ================= FONT SETTINGS (NEW SECTION) ================= */}
       <div className="bg-white border border-slate-200 rounded-sm p-5">
         <div className="font-heading font-semibold mb-3">
-          Font Style
+          Fonts & Themes
         </div>
 
         <p className="text-sm text-slate-600 mb-4">
           Change how your app feels instantly.
         </p>
 
-        <div className="grid gap-2">
-          {Object.entries(fonts).map(([key, f]) => (
-            <button
-              key={key}
-              onClick={() => setFont(f.value)}
-              className={`px-4 py-2 border rounded text-left transition ${
-                font === f.value
-                  ? "bg-black text-white"
-                  : "hover:bg-slate-100"
-              }`}
-              style={{ fontFamily: f.value }}
-            >
-              {f.name}
-            </button>
+        <div className="grid gap-5 lg:grid-cols-2">
+          {Object.entries({
+            Professional: ["ibmPlex", "inter", "roboto", "openSans", "sourceSans3", "workSans"],
+            Elegant: ["poppins", "montserrat", "raleway", "playfair"],
+            Classic: ["lato", "merriweather", "ubuntu", "cabin", "ptSans"],
+            Experimental: ["nunito", "cormorant", "calligraphy"],
+          }).map(([category, keys]) => (
+            <div key={category}>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{category}</div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {keys.map((key) => { const f = fonts[key]; return <button key={key} onClick={() => setFont(f.value)} className={`rounded border px-3 py-2 text-left text-sm transition ${font === f.value ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 hover:bg-slate-50"}`} style={{ fontFamily: f.value }}>{f.name}</button>; })}
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -344,6 +361,29 @@ export default function Settings() {
               className="rounded-sm mt-1"
             />
           </div>
+          {[["DL Number 1", "business_dl_number_1"], ["DL Number 2", "business_dl_number_2"]].map(([label, key]) => (
+            <div key={key}>
+              <Label className="text-xs uppercase font-semibold text-slate-600">{label}</Label>
+              <Input value={settings[key] || ""} onChange={(e) => setSettings({ ...settings, [key]: e.target.value })} className="rounded-sm mt-1" placeholder="Drug licence number" />
+            </div>
+          ))}
+        </div>
+
+        <div className="mb-4 rounded-sm border border-slate-200 bg-slate-50 p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dashed border-slate-300 bg-white">
+              {settings.logo_b64 ? <img src={settings.logo_b64} alt="Pharmacy logo preview" className="h-full w-full object-contain p-2" /> : <Building2 className="h-7 w-7 text-slate-300" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-600">Pharmacy Logo</div>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Used as your brand mark on invoices, PDFs, and printable documents.</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => logoRef.current?.click()}><Upload className="mr-2 h-3.5 w-3.5" />{settings.logo_b64 ? "Replace logo" : "Upload logo"}</Button>
+                {settings.logo_b64 && <Button type="button" variant="ghost" size="sm" onClick={() => setSettings({ ...settings, logo_b64: "" })}><X className="mr-1 h-3.5 w-3.5" />Remove</Button>}
+              </div>
+            </div>
+          </div>
+          <input ref={logoRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; if (f.size > 1024 * 1024) return toast.error("Max 1MB image"); const reader = new FileReader(); reader.onload = () => setSettings({ ...settings, logo_b64: reader.result }); reader.readAsDataURL(f); }} />
         </div>
 
         <div className="border border-slate-200 rounded-sm p-4 bg-slate-50">
@@ -765,6 +805,16 @@ export default function Settings() {
         </Button>
 
       </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5" data-testid="update-center-section">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div><div className="font-heading font-semibold">Update Center</div><p className="mt-1 text-sm text-slate-600">Version details and the latest improvements available to your pharmacy.</p></div>
+          <div className="rounded-lg bg-slate-950 px-3 py-2 text-left text-white sm:text-right"><div className="text-xs text-slate-400">App version</div><div className="font-mono text-sm">v{(versionInfo?.version || FRONTEND_VERSION).split("+")[0]}</div>{(versionInfo?.version || FRONTEND_VERSION).includes("+") && <div className="mt-1 text-[11px] text-slate-400">Build {(versionInfo?.version || FRONTEND_VERSION).split("+")[1]}</div>}</div>
+        </div>
+        <div className="mt-5"><div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-600"><RefreshCw className="h-4 w-4" />What’s new / Release notes</div>
+          {versionInfo?.releaseNotes?.length ? <ul className="grid gap-2 sm:grid-cols-2">{versionInfo.releaseNotes.map((note) => <li key={note} className="flex gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{note}</li>)}</ul> : <p className="text-sm text-slate-500">Release information will appear when provided by the update service.</p>}
+        </div>
+      </section>
     </div>
   );
 }
