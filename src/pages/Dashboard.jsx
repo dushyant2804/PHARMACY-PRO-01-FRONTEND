@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowRight, ArrowUpRight, BadgeIndianRupee, Clock3, IndianRupee, LockKeyhole,
   PackageSearch, PackageX, ReceiptText, ShieldAlert, ShoppingCart, SlidersHorizontal,
-  TrendingUp, Trophy, Users, WalletCards, Zap,
+  TrendingUp, Trophy, Users, WalletCards, Zap, Truck,
 } from "lucide-react";
 
 const getOutstandingTotal = (outstanding, listKey) => {
@@ -331,6 +331,12 @@ function DashboardSkeleton() {
   );
 }
 
+const statToneStyles = {
+  emerald: "from-emerald-50/90 via-white to-emerald-50/50 border-emerald-200/70", blue: "from-sky-50/90 via-white to-blue-50/50 border-sky-200/70",
+  violet: "from-violet-50/80 via-white to-slate-50 border-violet-200/70", orange: "from-orange-50/80 via-white to-amber-50/40 border-orange-200/70",
+  red: "from-rose-50/80 via-white to-red-50/40 border-rose-200/70", amber: "from-amber-50/80 via-white to-yellow-50/40 border-amber-200/70", slate: "from-slate-50 via-white to-slate-100/60 border-slate-200",
+};
+
 function StatCard({ label, value, tone = "emerald", sub, icon: Icon, onClick }) {
   const content = (
     <>
@@ -345,8 +351,8 @@ function StatCard({ label, value, tone = "emerald", sub, icon: Icon, onClick }) 
   );
 
   return onClick ? (
-    <button type="button" onClick={onClick} className="dashboard-stat group text-left">{content}</button>
-  ) : <div className="dashboard-stat group">{content}</div>;
+    <button type="button" onClick={onClick} className={`dashboard-stat group bg-gradient-to-br ${statToneStyles[tone]} text-left shadow-sm hover:shadow-lg`}>{content}</button>
+  ) : <div className={`dashboard-stat group bg-gradient-to-br ${statToneStyles[tone]}`}>{content}</div>;
 }
 
 function SmartMedicineCard({ config, items, onClick }) {
@@ -387,7 +393,7 @@ function ExpiryTable({ title, tone, columns, items, emptyText, renderRow, onClic
     <button type="button" onClick={onClick} className="flex w-full items-center justify-between border-b border-slate-100 px-5 py-4 text-left">
       <h2 className={`font-bold ${tone}`}>{title}</h2><ArrowUpRight className="h-4 w-4 text-slate-300" />
     </button>
-    <div className="max-h-[320px] overflow-auto"><table className="w-full min-w-[720px] text-sm"><thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr>{columns.map((column) => <th key={column} className="border-b p-3 text-left">{column}</th>)}</tr></thead>
+    <div className="max-h-[360px] overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr>{columns.map((column) => <th key={column} className="border-b p-3 text-left">{column}</th>)}</tr></thead>
     <tbody>{items.length ? items.map(renderRow) : <tr><td className="p-5 text-slate-400" colSpan={columns.length}>{emptyText}</td></tr>}</tbody></table></div>
   </div>;
 }
@@ -420,7 +426,8 @@ export default function Dashboard() {
 
   const customerOutstanding = getOutstandingTotal(outstanding, "customers");
   const distributorOutstanding = getOutstandingTotal(outstanding, "distributors");
-  const pendingPayments = toNumber(firstDefined(data.pending_payment_amount, data.pending_payments_total, customerOutstanding + distributorOutstanding, 0));
+  const customerReceivables = toNumber(firstDefined(data.customer_receivables, customerOutstanding, 0));
+  const distributorPayables = toNumber(firstDefined(data.distributor_payables, distributorOutstanding, 0));
   const expiringSoonItems = firstDefined(data.expiring_soon_items, data.expiring_soon, []);
   const expiredItems = firstDefined(data.expired_items, data.expired, []);
   const expiringSoonCount = firstDefined(data.expiring_soon_count, expiringSoonItems.length, 0);
@@ -438,7 +445,8 @@ export default function Dashboard() {
     { label: "Today Customers", value: todayCustomers, sub: "View customer activity", tone: "violet", icon: Users, path: "/customers" },
     { label: "Low Stock Count", value: lowStockCount, sub: "Needs replenishment", tone: "orange", icon: PackageSearch, path: "/inventory" },
     { label: "Expiring Soon", value: expiringSoonCount, sub: "Act before expiry", tone: "red", icon: Clock3, path: "/inventory" },
-    { label: "Pending Payments", value: fmtINR(pendingPayments), sub: "Customer + supplier dues", tone: "amber", icon: WalletCards, path: "/reports" },
+    { label: "Customer Receivables", value: fmtINR(customerReceivables), sub: "Outstanding customer dues", tone: "amber", icon: WalletCards, path: "/reports" },
+    { label: "Distributor Payables", value: fmtINR(distributorPayables), sub: "Outstanding supplier dues", tone: "slate", icon: Truck, path: "/reports" },
   ];
 
   return <div className="dashboard-shell">
@@ -449,20 +457,20 @@ export default function Dashboard() {
       </div>
     </section>
 
-    <section><SectionHeader eyebrow="Today's pulse" title="Daily decision metrics" /><div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">{kpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div></section>
+    <section><SectionHeader eyebrow="Today's pulse" title="Daily decision metrics" /><div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-7">{kpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div></section>
 
     <section><SectionHeader eyebrow="Pharmacy intelligence" title="What deserves your attention" action="Open reports" onAction={() => navigate("/reports")} /><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{SMART_CARD_CONFIG.map((config) => <SmartMedicineCard key={config.key} config={config} items={getSmartList(data, config.keys)} onClick={() => navigate(config.key === "expiry" || config.key === "dead" ? "/inventory" : "/reports")} />)}</div></section>
 
     <section className="grid gap-4 xl:grid-cols-[1.25fr_.75fr]">
       <div className="dashboard-panel p-5"><SectionHeader eyebrow="Inventory watch" title="Low stock medicines" action="Open inventory" onAction={() => navigate("/inventory")} />
-        <div className="grid gap-2 sm:grid-cols-2">{lowStockItems.slice(0, 8).map((item, index) => <button key={item.id || index} onClick={() => navigate("/inventory")} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-3 text-left transition hover:border-orange-200 hover:bg-orange-50"><span className="truncate text-sm font-semibold text-slate-700">{getMedicineName(item)}</span><span className="ml-3 rounded-lg bg-red-50 px-2 py-1 text-xs font-bold text-red-600">{firstDefined(item.qty, getAvailableStock(item), 0)} left</span></button>)}{!lowStockItems.length && <p className="col-span-full rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">Stock levels look healthy today.</p>}</div>
+        <div className="grid gap-2 sm:grid-cols-2">{lowStockItems.slice(0, 8).map((item, index) => { const status = firstDefined(item.low_stock_status, item.stock_status, "Low Stock"); const statusStyle = status === "Restocked" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : status === "Reordered" ? "bg-blue-50 text-blue-700 border-blue-200" : status === "Abandoned" ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-orange-50 text-orange-700 border-orange-200"; return <button key={item.id || index} onClick={() => navigate("/inventory")} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left transition hover:border-orange-200 hover:shadow-sm"><span className="min-w-0"><span className="block truncate text-sm font-semibold text-slate-700">{getMedicineName(item)}</span><span className="mt-1 block text-xs text-slate-500">{firstDefined(item.qty, getAvailableStock(item), 0)} units left</span></span>{/* TODO: Replace this read-only badge with an admin status control when the backend update endpoint is available. */}<span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusStyle}`}>{status}</span></button>; })}{!lowStockItems.length && <p className="col-span-full rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">Stock levels look healthy today.</p>}</div>
       </div>
       <div className="dashboard-panel p-5"><SectionHeader eyebrow="Returns desk" title="Purchase return summary" action="Manage returns" onAction={() => navigate("/purchase-returns")} /><div className="grid grid-cols-2 gap-3"><div className="rounded-2xl bg-slate-950 p-4 text-white"><div className="text-2xl font-bold">{purchaseReturns.length}</div><div className="mt-1 text-[10px] uppercase tracking-wider text-slate-400">Return records</div></div><div className="rounded-2xl bg-amber-50 p-4 text-amber-950"><div className="text-2xl font-bold">{returnedUnits}</div><div className="mt-1 text-[10px] uppercase tracking-wider text-amber-700">Units returned</div></div></div><p className="mt-4 text-xs leading-5 text-slate-500">Track supplier returns alongside expiry and batch status to recover inventory value faster.</p></div>
     </section>
 
     <section className="dashboard-panel overflow-hidden"><div className="border-b border-slate-100 p-5"><SectionHeader eyebrow="Patient care" title="Medicine due alerts" action="Open patients" onAction={() => navigate("/patients")} /></div><div className="max-h-[270px] overflow-auto"><table className="w-full min-w-[680px] text-sm"><thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr>{["Patient", "Phone", "Medicine", "Status"].map((x) => <th key={x} className="border-b p-3 text-left">{x}</th>)}</tr></thead><tbody>{patientAlerts.length ? patientAlerts.map((alert, index) => { const status = getPatientAlertStatus(alert); return <tr key={alert.id || index} className="border-b border-slate-100"><td className="p-3 font-semibold">{firstDefined(alert.name, alert.patient_name, "-")}</td><td className="p-3 text-slate-500">{firstDefined(alert.phone, alert.patient_phone, "-")}</td><td className="p-3 text-slate-500">{getMedicineName(alert)}</td><td className="p-3 font-bold text-orange-600">{status}</td></tr>; }) : <tr><td className="p-5 text-slate-400" colSpan={4}>No patient refill alerts today.</td></tr>}</tbody></table></div></section>
 
-    <section className="grid gap-4 xl:grid-cols-2">
+    <section className="grid gap-5">
       <ExpiryTable title="Expiring Soon Medicines" tone="text-orange-600" columns={["Medicine", "Batch", "Expiry Date", "Days Remaining", "Return Status"]} items={expiringSoonItems} emptyText="No expiring soon medicines" onClick={() => navigate("/inventory")} renderRow={(item, i) => <tr key={item.id || i} className="border-b border-slate-100"><td className="p-3 font-semibold">{getMedicineName(item)}</td><td className="p-3 text-slate-500">{getBatchNo(item)}</td><td className="p-3 text-slate-500">{getExpiryDate(item)}</td><td className="p-3 font-bold text-orange-600">{firstDefined(item.days_to_expiry, item.days_left, item.days_remaining, 0)} days</td><td className="p-3"><ReturnStatusBadge status={getReturnStatus(item, purchaseReturns, inventoryBatches)} /></td></tr>} />
       <ExpiryTable title="Expired Medicines" tone="text-red-600" columns={["Medicine", "Batch", "Expiry Date", "Status", "Return Status"]} items={expiredItems} emptyText="No expired medicines" onClick={() => navigate("/inventory")} renderRow={(item, i) => <tr key={item.id || i} className="border-b border-slate-100"><td className="p-3 font-semibold">{getMedicineName(item)}</td><td className="p-3 text-slate-500">{getBatchNo(item)}</td><td className="p-3 text-slate-500">{getExpiryDate(item)}</td><td className="p-3 font-bold text-red-600">Expired {firstDefined(item.expired_days_ago, item.days_expired, 0)} days ago</td><td className="p-3"><ReturnStatusBadge status={getReturnStatus(item, purchaseReturns, inventoryBatches)} /></td></tr>} />
     </section>

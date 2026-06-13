@@ -50,6 +50,20 @@ export default function Layout({ children }) {
   const [loadingScreen, setLoadingScreen] = useState(false);
   const [loadingText, setLoadingText] = useState("Dashboard");
   const [inspectorMode, setInspectorMode] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  useEffect(() => {
+    let inactivityTimer;
+    const resetTimer = () => {
+      clearTimeout(inactivityTimer);
+      if (document.visibilityState === "visible") inactivityTimer = setTimeout(() => setSidebarCollapsed(true), 3 * 60 * 1000);
+    };
+    const events = ["pointerdown", "keydown", "scroll"];
+    events.forEach((event) => window.addEventListener(event, resetTimer, { passive: true }));
+    document.addEventListener("visibilitychange", resetTimer);
+    resetTimer();
+    return () => { clearTimeout(inactivityTimer); events.forEach((event) => window.removeEventListener(event, resetTimer)); document.removeEventListener("visibilitychange", resetTimer); };
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -177,10 +191,12 @@ export default function Layout({ children }) {
 
       {/* DESKTOP SIDEBAR */}
       <aside
-        className={`${inspectorMode ? "hidden" : "hidden md:flex"} w-60 sidebar-premium flex-col fixed inset-y-0 left-0`}
+        className={`${inspectorMode || sidebarCollapsed ? "hidden" : "hidden md:flex"} w-60 sidebar-premium flex-col fixed inset-y-0 left-0 transition-transform duration-300`}
       >
         {SidebarContent}
       </aside>
+
+      {!inspectorMode && sidebarCollapsed && <button type="button" onClick={() => setSidebarCollapsed(false)} className="fixed left-4 top-5 z-40 hidden items-center gap-2 rounded-full border border-emerald-700/20 bg-emerald-950 px-4 py-2.5 text-xs font-bold text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-emerald-900 md:flex" aria-label="Reopen navigation sidebar"><Menu className="h-4 w-4" /> Navigation</button>}
 
       {/* MOBILE SIDEBAR */}
       {open && (
@@ -198,7 +214,7 @@ export default function Layout({ children }) {
       {/* MAIN */}
       <main
         className={`min-h-screen flex-1 transition-[margin] duration-300 ease-out ${
-          inspectorMode ? "md:ml-0" : "md:ml-60"
+          inspectorMode || sidebarCollapsed ? "md:ml-0" : "md:ml-60"
         }`}
       >
         <header className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
