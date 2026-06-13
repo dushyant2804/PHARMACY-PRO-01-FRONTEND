@@ -6,6 +6,7 @@ import { Printer, Mail, MessageCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { getInvoicePaymentStatus, getInvoiceProfit, PAYMENT_STATUS } from "@/lib/invoices";
+import { invoiceShareMessage, whatsappUrl as makeWhatsappUrl } from "@/lib/sharing";
 
 export default function InvoiceDetail() {
   const { id } = useParams();
@@ -58,13 +59,9 @@ export default function InvoiceDetail() {
   if (inv === false) return <div className="bg-red-50 border border-red-200 rounded-sm p-6 text-center text-red-800">Invoice not found</div>;
   if (!inv) return <div className="text-slate-500">Loading…</div>;
 
-  const waMsg = encodeURIComponent(
-    `Invoice ${inv.invoice_no}\nTotal: ${fmtINR(inv.total)}\nDate: ${fmtDate(inv.created_at)}\nThank you!`
-  );
-  const whatsappUrl = inv.customer_phone
-    ? `https://wa.me/${inv.customer_phone.replace(/\D/g, "")}?text=${waMsg}`
-    : `https://wa.me/?text=${waMsg}`;
-  const mailto = `mailto:?subject=Invoice ${inv.invoice_no}&body=${waMsg}`;
+  const shareMessage = invoiceShareMessage(inv);
+  const whatsappUrl = makeWhatsappUrl(inv.customer_phone, shareMessage);
+  const mailto = `mailto:?subject=Invoice ${inv.invoice_no}&body=${encodeURIComponent(shareMessage)}`;
   const paymentStatus = PAYMENT_STATUS[getInvoicePaymentStatus(inv)];
   const profitability = getInvoiceProfit(inv);
   const canSeeProfit = user?.role === "admin" && (profitability.profit != null || profitability.margin != null);
@@ -80,8 +77,8 @@ export default function InvoiceDetail() {
           <Button variant="outline" className="rounded-sm" onClick={downloadPdf} disabled={downloading} data-testid="download-pdf-btn">
             <Download className="w-4 h-4 mr-2" />{downloading ? "Generating…" : "Download PDF"}
           </Button>
-          <a href={whatsappUrl} target="_blank" rel="noreferrer">
-            <Button variant="outline" className="rounded-sm"><MessageCircle className="w-4 h-4 mr-2" />WhatsApp</Button>
+          <a href={whatsappUrl || undefined} target="_blank" rel="noreferrer" aria-disabled={!whatsappUrl} title={whatsappUrl ? "Share on WhatsApp" : "Phone number required"}>
+            <Button variant="outline" className="rounded-sm" disabled={!whatsappUrl}><MessageCircle className="w-4 h-4 mr-2" />WhatsApp</Button>
           </a>
           <a href={mailto}>
             <Button variant="outline" className="rounded-sm"><Mail className="w-4 h-4 mr-2" />Email</Button>
