@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, RefreshCw, Search } from "lucide-react";
+import { Pencil, Plus, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
 
 const reasons = ["Expired", "Damaged", "Wrong Item", "Other"];
@@ -228,6 +228,15 @@ const getSettlementState = (item) => {
   }
 
   return { label: "Unsettled", className: "border-amber-200 bg-amber-50 text-amber-800" };
+};
+
+const isVoided = (item) => parseBoolean(firstDefined(item.is_voided, item.voided, false))
+  || ["void", "voided", "cancelled", "canceled"].includes(String(item.status || "").toLowerCase());
+
+const actionAllowed = (item, action) => {
+  const explicit = firstDefined(item[`can_${action}`], item.permissions?.[action], item.allowed_actions?.includes?.(action));
+  if (explicit !== undefined) return parseBoolean(explicit);
+  return !isVoided(item) && getSettlementState(item).label === "Unsettled";
 };
 
 function SettlementBadge({ item }) {
@@ -552,6 +561,9 @@ export default function PurchaseReturns() {
   const [loading, setLoading] = useState(true);
   const [reportLoading, setReportLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [editForm, setEditForm] = useState({ return_date: "", reason: "", notes: "", return_quantity: "", purchase_rate: "" });
+  const [actionError, setActionError] = useState("");
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
@@ -755,6 +767,53 @@ export default function PurchaseReturns() {
     }
   };
 
+  const openEdit = (item) => {
+    setActionError("");
+    setEditing(item);
+    setEditForm({
+      return_date: String(firstDefined(item.return_date, item.date, "")).slice(0, 10),
+      reason: item.reason || "Other",
+      notes: item.notes || "",
+      return_quantity: firstDefined(item.return_quantity, item.quantity, ""),
+      purchase_rate: firstDefined(item.purchase_rate, item.purchase_price, ""),
+    });
+  };
+
+  const saveEdit = async (event) => {
+    event.preventDefault();
+    const payload = { return_date: editForm.return_date, reason: editForm.reason, notes: editForm.notes.trim() };
+    if (parseBoolean(editing.can_edit_quantity)) payload.return_quantity = Number(editForm.return_quantity);
+    if (parseBoolean(editing.can_edit_rate)) payload.purchase_rate = Number(editForm.purchase_rate);
+    try {
+      setSaving(true);
+      setActionError("");
+      await api.patch(`/purchase-returns/${editing.id}`, payload);
+      toast.success("Purchase return updated");
+      setEditing(null);
+      await loadAll(page, appliedFilters);
+    } catch (e) {
+      const message = formatApiError(e);
+      setActionError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const voidReturn = async (item) => {
+    if (!window.confirm("This will void the return and restore stock if allowed. Continue?")) return;
+    try {
+      setActionError("");
+      await api.post(`/purchase-returns/${item.id}/void`);
+      toast.success("Purchase return voided");
+      await loadAll(page, appliedFilters);
+    } catch (e) {
+      const message = formatApiError(e);
+      setActionError(message);
+      toast.error(message);
+    }
+  };
+
   const applyFilters = async (e) => {
     e.preventDefault();
     setAppliedFilters(filters);
@@ -927,6 +986,7 @@ export default function PurchaseReturns() {
       </div>
 
       <div className="bg-white border border-slate-200 rounded-sm overflow-x-auto shadow-sm">
+        {actionError && <div role="alert" className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{actionError}</div>}
         <table className="data-table min-w-[1120px]">
           <thead>
             <tr>
@@ -940,12 +1000,13 @@ export default function PurchaseReturns() {
               <th>Reason</th>
               <th>Settlement</th>
               <th>Notes</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={10} className="text-center py-8 text-slate-500">
+                <td colSpan={11} className="text-center py-8 text-slate-500">
                   <div className="inline-flex items-center gap-2">
                     <span className="h-4 w-4 rounded-full border-2 border-blue-200 border-t-blue-600 animate-spin" />
                     Loading purchase returns…
@@ -956,7 +1017,7 @@ export default function PurchaseReturns() {
 
             {!loading && error && (
               <tr>
-                <td colSpan={10} className="text-center py-8 text-red-600">
+                <td colSpan={11} className="text-center py-8 text-red-600">
                   {error}
                 </td>
               </tr>
@@ -964,7 +1025,7 @@ export default function PurchaseReturns() {
 
             {!loading && !error && returns.length === 0 && (
               <tr>
-                <td colSpan={10} className="text-center py-8 text-slate-500">
+                <td colSpan={11} className="text-center py-8 text-slate-500">
                   No purchase returns found.
                 </td>
               </tr>
@@ -983,6 +1044,10 @@ export default function PurchaseReturns() {
                   <td>{item.reason || "—"}</td>
                   <td><SettlementBadge item={item} /></td>
                   <td className="text-xs text-slate-600">{item.notes || "—"}</td>
+                  <td><div className="flex gap-2">
+                    {actionAllowed(item, "edit") && <Button size="sm" variant="outline" onClick={() => openEdit(item)}><Pencil className="mr-1 h-3 w-3" />Edit</Button>}
+                    {actionAllowed(item, "void") && <Button size="sm" variant="outline" className="text-red-700" onClick={() => voidReturn(item)}>Void Return</Button>}
+                  </div></td>
                 </tr>
               );
             })}
@@ -1190,6 +1255,21 @@ export default function PurchaseReturns() {
                 {saving ? "Saving..." : "Create Return"}
               </Button>
             </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(editing)} onOpenChange={(next) => !next && setEditing(null)}>
+        <DialogContent className="rounded-sm max-w-lg">
+          <DialogHeader><DialogTitle>Edit Purchase Return</DialogTitle></DialogHeader>
+          <form onSubmit={saveEdit} className="space-y-4">
+            {actionError && <div role="alert" className="rounded-sm bg-red-50 p-3 text-sm font-medium text-red-700">{actionError}</div>}
+            <div><Label>Return Date</Label><Input type="date" required value={editForm.return_date} onChange={(e) => setEditForm({ ...editForm, return_date: e.target.value })} /></div>
+            <div><Label>Reason</Label><Select value={editForm.reason} onValueChange={(reason) => setEditForm({ ...editForm, reason })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{reasons.map((reason) => <SelectItem key={reason} value={reason}>{reason}</SelectItem>)}</SelectContent></Select></div>
+            <div><Label>Notes</Label><Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} /></div>
+            {parseBoolean(editing?.can_edit_quantity) && <div><Label>Return Quantity</Label><Input type="number" min="1" required value={editForm.return_quantity} onChange={(e) => setEditForm({ ...editForm, return_quantity: e.target.value })} /></div>}
+            {parseBoolean(editing?.can_edit_rate) && <div><Label>Purchase Rate</Label><Input type="number" min="0" step="0.01" required value={editForm.purchase_rate} onChange={(e) => setEditForm({ ...editForm, purchase_rate: e.target.value })} /></div>}
+            <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button><Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button></div>
           </form>
         </DialogContent>
       </Dialog>
