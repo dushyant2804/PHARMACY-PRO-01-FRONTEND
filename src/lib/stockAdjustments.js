@@ -94,6 +94,7 @@ export const adjustmentTypeLabel = (value) => {
     correction: "Correction",
     stock_correction: "Correction",
     inventory_correction: "Correction",
+    opening_reconciliation: "Opening Reconciliation",
     stock_count: "Stock count",
     received: "Received",
     return: "Return",

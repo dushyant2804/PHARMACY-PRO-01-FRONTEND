@@ -87,6 +87,16 @@ const historyMedicine = (row) => firstDefined(row.medicine_name, row.medicine?.n
 const historyBatch = (row) => firstDefined(row.batch_no, row.batch_number, row.batch?.batch_no, row.batch, "—");
 const historyUser = (row) => firstDefined(row.user_name, row.created_by_name, row.user?.name, row.created_by, "—");
 const historyDate = (row) => firstDefined(row.adjustment_date, row.date, row.created_at, row.createdAt);
+const historyReference = (row) => firstDefined(row.reference_number, row.reference, row.ref_no, "—");
+const typeBadgeClass = (value) => {
+  const type = String(value || "").trim().toLowerCase().replace(/[ -]+/g, "_");
+  if (type === "damaged") return "border-red-200 bg-red-50 text-red-700";
+  if (type === "expired") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (["correction", "stock_correction", "inventory_correction"].includes(type)) return "border-blue-200 bg-blue-50 text-blue-700";
+  if (type === "opening_reconciliation") return "border-purple-200 bg-purple-50 text-purple-700";
+  return "border-slate-200 bg-slate-50 text-slate-700";
+};
+const TypeBadge = ({ type }) => <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${typeBadgeClass(type)}`}>{adjustmentTypeLabel(type)}</span>;
 
 export default function StockAdjustments() {
   const [medicines, setMedicines] = useState([]);
@@ -138,6 +148,9 @@ export default function StockAdjustments() {
   const projectedStock = selectedBatch && form.quantity !== "" && Number.isFinite(Number(form.quantity))
     ? getAvailableStock(selectedBatch) + Number(form.quantity)
     : null;
+
+  const parsedQuantity = Number(form.quantity);
+  const hasQuantity = form.quantity !== "" && Number.isFinite(parsedQuantity) && parsedQuantity !== 0;
 
   const medicineOptions = (Array.isArray(medicines) ? medicines : [])
     .filter((medicine) => medicine && typeof medicine === "object")
@@ -272,12 +285,12 @@ export default function StockAdjustments() {
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3" data-testid="selected-batch-stock">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Available stock</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Current Stock</p>
                     <p className="mt-1 text-2xl font-black text-emerald-950">{getAvailableStock(selectedBatch)}</p>
                   </div>
                   {projectedStock !== null && (
                     <div className="text-right">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">After adjustment</p>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Resulting Stock</p>
                       <p className={`mt-1 text-lg font-black ${projectedStock < 0 ? "text-red-700" : "text-emerald-950"}`}>{projectedStock}</p>
                     </div>
                   )}
@@ -293,17 +306,21 @@ export default function StockAdjustments() {
                   <option value="damaged">Damaged</option>
                   <option value="expired">Expired</option>
                   <option value="correction">Correction</option>
+                  <option value="opening_reconciliation">Opening Reconciliation</option>
                   <option value="stock_count">Stock count</option>
                   <option value="received">Received</option>
                   <option value="return">Return</option>
                   <option value="other">Other</option>
                 </select>
                 <FieldError>{errors.adjustmentType}</FieldError>
+                {form.adjustmentType && <div className="mt-2"><TypeBadge type={form.adjustmentType} /></div>}
+                {form.adjustmentType === "opening_reconciliation" && <p className="mt-2 rounded-md border border-purple-200 bg-purple-50 p-2 text-xs font-medium text-purple-800">Use this only during initial stock cleanup to match software stock with physical shelf stock.</p>}
               </label>
 
               <label className="block">
                 <span className="mb-1.5 block text-xs font-bold text-slate-700">Quantity <span className="text-red-500">*</span></span>
                 <Input type="number" step="1" value={form.quantity} onChange={(event) => updateField("quantity", event.target.value)} placeholder="e.g. -5 or +10" className={errors.quantity ? "border-red-400 focus-visible:ring-red-500" : ""} />
+                {hasQuantity && <p className={`mt-2 flex items-center gap-1.5 text-xs font-bold ${parsedQuantity > 0 ? "text-emerald-700" : "text-red-700"}`} data-testid="quantity-indicator">{parsedQuantity > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}{parsedQuantity > 0 ? `Adding ${parsedQuantity} units` : `Removing ${Math.abs(parsedQuantity)} units`}</p>}
                 <FieldError>{errors.quantity}</FieldError>
               </label>
             </div>
@@ -343,7 +360,7 @@ export default function StockAdjustments() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[880px] text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr><th className="p-3 text-left">Date</th><th className="p-3 text-left">Medicine</th><th className="p-3 text-left">Batch</th><th className="p-3 text-right">Quantity</th><th className="p-3 text-left">Type</th><th className="p-3 text-left">User</th><th className="p-3 text-left">Notes</th></tr>
+                <tr><th className="p-3 text-left">Date</th><th className="p-3 text-left">Medicine</th><th className="p-3 text-left">Batch</th><th className="p-3 text-right">Quantity</th><th className="p-3 text-left">Type</th><th className="p-3 text-left">Reference</th><th className="p-3 text-left">User</th><th className="p-3 text-left">Notes</th></tr>
               </thead>
               <tbody>
                 {history.map((row, index) => {
@@ -354,14 +371,15 @@ export default function StockAdjustments() {
                       <td className="p-3 font-bold text-slate-900">{historyMedicine(row)}</td>
                       <td className="p-3"><span className="rounded bg-slate-100 px-2 py-1 font-mono text-xs text-slate-700">{historyBatch(row)}</span></td>
                       <td className={`p-3 text-right font-black tabular-nums ${quantity > 0 ? "text-emerald-700" : quantity < 0 ? "text-red-700" : "text-slate-500"}`}>{quantity > 0 ? `+${quantity}` : quantity}</td>
-                      <td className="p-3 text-slate-700">{adjustmentTypeLabel(historyType(row))}</td>
+                      <td className="p-3"><TypeBadge type={historyType(row)} /></td>
+                      <td className="p-3 text-slate-600">{historyReference(row)}</td>
                       <td className="p-3 text-slate-600">{historyUser(row)}</td>
                       <td className="max-w-[260px] p-3 text-slate-600"><span className="line-clamp-2">{row.notes || "—"}</span></td>
                     </tr>
                   );
                 })}
-                {!loading && history.length === 0 && <tr><td colSpan="7" className="p-12 text-center text-sm text-slate-500">No stock adjustments recorded yet.</td></tr>}
-                {loading && <tr><td colSpan="7" className="p-12 text-center text-sm text-slate-500">Loading stock adjustments…</td></tr>}
+                {!loading && history.length === 0 && <tr><td colSpan="8" className="p-12 text-center text-sm text-slate-500">No stock adjustments recorded yet.</td></tr>}
+                {loading && <tr><td colSpan="8" className="p-12 text-center text-sm text-slate-500">Loading stock adjustments…</td></tr>}
               </tbody>
             </table>
           </div>
