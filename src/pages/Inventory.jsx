@@ -1,6 +1,4 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-
 import api, { fmtINR, formatApiError } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { useLayout } from "@/contexts/LayoutContext";
@@ -8,8 +6,9 @@ import {
   AlertTriangle,
   Boxes,
   Eye,
+  Lock,
   Pencil,
-  Save,
+  Search,
   Trash2,
   X,
 } from "lucide-react";
@@ -64,6 +63,48 @@ const getExpiryStatus = (expiry, backendStatus) => {
   return "normal";
 };
 
+const categoryStyles = {
+  OTC: "bg-emerald-100 text-emerald-800 ring-emerald-600/20",
+  H: "bg-amber-100 text-amber-800 ring-amber-600/20",
+  H1: "bg-red-900 text-white ring-red-950/30",
+  X: "bg-slate-950 text-white ring-slate-950/30",
+  NRX: "bg-slate-950 text-white ring-slate-950/30",
+  G: "bg-purple-100 text-purple-800 ring-purple-600/20",
+};
+
+function CategoryBadge({ category }) {
+  const key = String(category || "").trim().toUpperCase();
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ring-1 ring-inset ${categoryStyles[key] || "bg-slate-100 text-slate-700 ring-slate-500/20"}`}>{category || "Uncategorized"}</span>;
+}
+
+const normalizeHealth = (value) => String(value || "").toLowerCase().replace(/[ _-]/g, "");
+const getHealthStatus = (item) => {
+  const backend = normalizeHealth(item?.inventory_status ?? item?.stock_status ?? item?.status);
+  if (["expired"].includes(backend)) return "Expired";
+  if (["soldout", "outofstock", "empty"].includes(backend)) return "Sold Out";
+  if (["critical"].includes(backend)) return "Critical";
+  if (["lowstock", "low"].includes(backend)) return "Low Stock";
+  if (["healthy", "instock", "normal"].includes(backend)) return "Healthy";
+  if (getExpiryStatus(item?.expiry_date, item?.expiry_status) === "expired") return "Expired";
+  const stock = getAvailableQty(item);
+  if (stock <= 0) return "Sold Out";
+  const threshold = Number(item?.low_stock_threshold);
+  if (item?.low_stock_threshold !== null && item?.low_stock_threshold !== undefined && Number.isFinite(threshold)) {
+    if (stock <= Math.max(1, Math.floor(threshold / 2))) return "Critical";
+    if (stock <= threshold) return "Low Stock";
+  }
+  return "Healthy";
+};
+
+const healthStyles = {
+  Healthy: "bg-emerald-100 text-emerald-800",
+  "Low Stock": "bg-amber-100 text-amber-800",
+  Critical: "bg-red-100 text-red-800",
+  "Sold Out": "bg-slate-900 text-white",
+  Expired: "bg-purple-100 text-purple-800",
+};
+function HealthBadge({ item }) { const status = getHealthStatus(item); return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ${healthStyles[status]}`}>{status}</span>; }
+
 function DetailItem({ label, value, valueClassName = "" }) {
   return (
     <div className="min-w-0">
@@ -93,12 +134,9 @@ function SectionCard({ eyebrow, title, children, className = "" }) {
 
 export default function Inventory() {
   const [meds, setMeds] = useState([]);
-  const [thresholdValue, setThresholdValue] = useState("");
-  const [soldUnitsValue, setSoldUnitsValue] = useState("");
   const [search, setSearch] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
   const { setInspectorMode } = useLayout();
 
   useEffect(() => {
@@ -128,41 +166,7 @@ export default function Inventory() {
 
   const openDetails = (medicine) => {
     setSelected(medicine);
-    setThresholdValue(medicine.low_stock_threshold ?? "");
-    setSoldUnitsValue(medicine.sold_units ?? medicine.sold_quantity ?? "");
     setDetailsOpen(true);
-  };
-
-  const saveMedicine = async () => {
-    if (!selected || isSaving) return;
-
-    setIsSaving(true);
-    try {
-      await Promise.all([
-        api.put(`/medicines/${selected.id}/threshold`, {
-          low_stock_threshold: thresholdValue === "" ? null : Number(thresholdValue),
-        }),
-        api.put(`/medicines/${selected.id}/sold`, {
-          sold_units: soldUnitsValue === "" ? 0 : Number(soldUnitsValue),
-        }),
-      ]);
-
-      setSelected((current) =>
-        current
-          ? {
-              ...current,
-              low_stock_threshold: thresholdValue === "" ? null : Number(thresholdValue),
-              sold_units: soldUnitsValue === "" ? 0 : Number(soldUnitsValue),
-            }
-          : current
-      );
-      toast.success("Medicine saved successfully");
-      await load(selected.id);
-    } catch (e) {
-      toast.error(formatApiError(e));
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const deleteMedicine = async () => {
@@ -181,7 +185,7 @@ export default function Inventory() {
   const query = search.trim().toLowerCase();
   const visibleMeds = query
     ? meds.filter((medicine) =>
-        [medicine.name, medicine.manufacturer, medicine.category].some((value) =>
+        [medicine.name, medicine.manufacturer, medicine.category, ...(medicine.batches || []).map((batch) => batch.batch_no)].some((value) =>
           String(value || "").toLowerCase().includes(query)
         )
       )
@@ -197,14 +201,10 @@ export default function Inventory() {
         <h1 className="text-2xl font-bold">Inventory</h1>
       </div>
 
-      <Input
-        placeholder="Search medicine..."
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-      />
+      <div className="relative max-w-3xl"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><Input className="pl-10" placeholder="Search medicine, batch, manufacturer, or category..." value={search} onChange={(event) => setSearch(event.target.value)} /></div>
 
-      <div className="overflow-x-auto rounded-sm border bg-white">
-        <table className="w-full min-w-[720px] text-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full min-w-[680px] text-sm">
           <thead className="bg-slate-50">
             <tr>
               <th className="p-3 text-left">Medicine</th>
@@ -212,6 +212,7 @@ export default function Inventory() {
               <th className="p-3 text-right">Total Stock</th>
               <th className="p-3 text-center">Batches</th>
               <th className="p-3 text-center">Category</th>
+              <th className="p-3 text-center">Status</th>
               <th className="p-3 text-center">Actions</th>
             </tr>
           </thead>
@@ -256,7 +257,8 @@ export default function Inventory() {
                     {getAvailableQty(medicine)}
                   </td>
                   <td className="p-3 text-center">{medicine.batches?.length || 0}</td>
-                  <td className="p-3 text-center">{medicine.category || "-"}</td>
+                  <td className="p-3 text-center"><CategoryBadge category={medicine.category} /></td>
+                  <td className="p-3 text-center"><HealthBadge item={medicine} /></td>
                   <td className="p-3 text-center">
                     <button
                       type="button"
@@ -316,12 +318,9 @@ export default function Inventory() {
               <SectionCard eyebrow="Medicine summary" title={selected.name} className="border-t-2 border-t-emerald-600">
                 <p className="-mt-2 mb-4 text-xs text-slate-500">{selected.manufacturer || "Manufacturer not set"}</p>
                 <div className="grid grid-cols-2 gap-4 rounded-lg bg-slate-50 p-3">
-                  <DetailItem label="Category" value={selected.category || "—"} />
-                  <DetailItem
-                    label="Total stock"
-                    value={getAvailableQty(selected)}
-                    valueClassName="text-emerald-700"
-                  />
+                  <div><div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Category</div><CategoryBadge category={selected.category} /></div>
+                  <DetailItem label="Total stock" value={getAvailableQty(selected)} valueClassName={getAvailableQty(selected) > 0 ? "text-emerald-700" : "text-red-700"} />
+                  <div><div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Inventory health</div><HealthBadge item={selected} /></div>
                 </div>
               </SectionCard>
 
@@ -357,14 +356,14 @@ export default function Inventory() {
                               {batch.batch_no || "—"}
                             </div>
                           </div>
-                          {(isExpired || isNearExpiry || isEmptyBatch) && (
+                          {(isExpired || isNearExpiry || isEmptyBatch) ? (
                             <div className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold uppercase ${
                               isExpired || isEmptyBatch ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
                             }`}>
                               <AlertTriangle className="h-3 w-3" />
                               {isExpired ? "Expired" : isEmptyBatch ? "Empty" : "Expiring soon"}
                             </div>
-                          )}
+                          ) : <HealthBadge item={batch} />}
                         </div>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                           <DetailItem label="Expiry" value={batch.expiry_date || "—"} />
@@ -380,66 +379,12 @@ export default function Inventory() {
                 </div>
               </SectionCard>
 
-              <SectionCard eyebrow="Stock management" title="Inventory Controls" className="border-t-2 border-t-amber-500">
-                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-1.5 block text-xs font-bold text-slate-700">Low Stock Threshold</span>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={thresholdValue}
-                      onChange={(event) => setThresholdValue(event.target.value)}
-                      className="border-slate-300 bg-white focus-visible:ring-emerald-600"
-                    />
-                    <span className="mt-1.5 block text-[11px] leading-4 text-slate-500">Alert when available stock reaches this level.</span>
-                  </label>
-                  <label className="block">
-                    <span className="mb-1.5 block text-xs font-bold text-slate-700">Sold Quantity <span className="font-semibold text-amber-700">(Legacy/Admin correction)</span></span>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={soldUnitsValue}
-                      onChange={(event) => setSoldUnitsValue(event.target.value)}
-                      className="border-slate-300 bg-white focus-visible:ring-emerald-600"
-                    />
-                    <span className="mt-1.5 block text-[11px] leading-4 text-slate-500">
-                      Recorded sold units for legacy/admin correction only. For auditable inventory corrections, use{" "}
-                      <Link to="/stock-adjustments" className="font-bold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-800">
-                        Stock Adjustments
-                      </Link>.
-                    </span>
-                  </label>
-                </div>
+              <SectionCard eyebrow="Stock policy" title="Low-stock threshold" className="border-t-2 border-t-amber-500">
+                {selected.low_stock_threshold !== null && selected.low_stock_threshold !== undefined ? <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3"><div><div className="text-sm font-bold text-slate-800">{selected.low_stock_threshold} units</div><div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500"><Lock className="h-3 w-3" /> Set once for this medicine · Read-only</div></div><Lock className="h-5 w-5 text-slate-400" /></div> : <p className="text-sm text-slate-500">No low-stock threshold has been set.</p>}
               </SectionCard>
             </div>
 
-            <footer className="sticky bottom-0 z-10 grid grid-cols-3 gap-2 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-12px_30px_-24px_rgba(15,23,42,0.6)] backdrop-blur sm:px-4">
-              <button
-                type="button"
-                onClick={() => toast.info("Inventory edit panel coming next 😄")}
-                className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2 py-2.5 text-xs font-bold text-slate-700 transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:text-sm"
-              >
-                <Pencil className="h-4 w-4 shrink-0" />
-                <span className="truncate">Edit Medicine</span>
-              </button>
-              <button
-                type="button"
-                onClick={saveMedicine}
-                disabled={isSaving}
-                className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-700 px-2 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70 sm:text-sm"
-              >
-                <Save className="h-4 w-4 shrink-0" />
-                <span className="truncate">{isSaving ? "Saving..." : "Save Medicine"}</span>
-              </button>
-              <button
-                type="button"
-                onClick={deleteMedicine}
-                className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2 py-2.5 text-xs font-bold text-red-700 transition hover:border-red-300 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 sm:text-sm"
-              >
-                <Trash2 className="h-4 w-4 shrink-0" />
-                <span className="truncate">Delete Medicine</span>
-              </button>
-            </footer>
+            <footer className="sticky bottom-0 z-10 grid grid-cols-2 gap-2 border-t border-slate-200 bg-white/95 px-4 py-3"><button type="button" onClick={() => toast.info("Inventory edit panel coming next 😄")} className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-bold text-slate-700"><Pencil className="h-4 w-4" /> Edit Medicine</button><button type="button" onClick={deleteMedicine} className="flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-bold text-red-700"><Trash2 className="h-4 w-4" /> Delete Medicine</button></footer>
           </aside>
         </>
       )}
