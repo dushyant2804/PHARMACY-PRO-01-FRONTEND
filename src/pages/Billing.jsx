@@ -78,6 +78,7 @@ export default function Billing() {
     phone: "",
     gstin: "",
   });
+  const [customerType, setCustomerType] = useState("walkin");
 
   const [referringDoctor, setReferringDoctor] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(getTodayDateInputValue);
@@ -125,6 +126,7 @@ export default function Billing() {
       phone: "",
       gstin: "",
     });
+    setCustomerType("walkin");
 
     setReferringDoctor("");
     setInvoiceDate(getTodayDateInputValue());
@@ -361,6 +363,10 @@ export default function Billing() {
 
     if (invoiceDateError) {
       return toast.error(invoiceDateError);
+    }
+    if (payment.mode === "credit" && !customer.id) {
+      customerSearchRef.current?.focus();
+      return toast.error("Select an existing customer for a credit bill");
     }
 
     const invalidDiscount = cart.find(
@@ -874,7 +880,7 @@ export default function Billing() {
         {/* Sidebar */}
         <div className="space-y-4">
           <div className="bg-white border border-slate-200 rounded-sm p-4 space-y-3">
-            <div className="font-heading font-semibold">Customer & Billing</div>
+            <div className="font-heading font-semibold">Bill Details</div>
 
             <div>
               <Label
@@ -907,51 +913,68 @@ export default function Billing() {
               )}
             </div>
 
-            <Select
-              value={customer.id || "walkin"}
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-sm p-4 space-y-3">
+            <div>
+              <div className="font-heading font-semibold">Customer</div>
+              <p className="text-xs text-slate-500">Who is this bill for?</p>
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">Customer Type</Label>
+              <Select
+              value={customerType}
               onValueChange={(v) => {
                 if (v === "walkin") {
+                  setCustomerType("walkin");
                   setCustomer({
                     id: "",
                     name: "Walk-in",
                     phone: "",
                     gstin: "",
                   });
+                } else if (v === "new") {
+                  setCustomerType("new");
+                  setCustomer({ id: "", name: "", phone: "", gstin: "" });
                 } else {
-                  const c = customers.find((x) => String(x.id) === String(v));
-
-                  if (c) {
-                    setCustomer({
-                      id: c.id,
-                      name: c.name,
-                      phone: c.phone,
-                      gstin: c.gstin,
-                    });
-                  }
+                  setCustomerType("existing");
                 }
               }}
             >
               <SelectTrigger
                 ref={customerSearchRef}
-                aria-label="Customer search"
+                aria-label="Customer type"
                 className="rounded-sm"
               >
                 <SelectValue />
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="walkin">Walk-in (cash)</SelectItem>
-
-                {customers.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </SelectItem>
-                ))}
+                <SelectItem value="walkin">Walk-in</SelectItem>
+                <SelectItem value="existing">Existing Customer</SelectItem>
+                <SelectItem value="new">New Customer</SelectItem>
               </SelectContent>
             </Select>
+            </div>
 
+            {customerType === "existing" && (
+              <div>
+                <Label className="text-xs uppercase font-semibold text-slate-600">Select Customer</Label>
+                <Select value={customer.id ? String(customer.id) : undefined} onValueChange={(v) => {
+                  const c = customers.find((x) => String(x.id) === String(v));
+                  if (c) setCustomer({ id: c.id, name: c.name, phone: c.phone || "", gstin: c.gstin || "" });
+                }}>
+                  <SelectTrigger ref={customerSearchRef} className="rounded-sm"><SelectValue placeholder="Search existing customer" /></SelectTrigger>
+                  <SelectContent>{customers.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div>
+            <Label className="text-xs uppercase font-semibold text-slate-600">Customer Name</Label>
             <Input
-              placeholder="Name"
+              placeholder={customerType === "walkin" ? "Walk-in" : "Enter customer name"}
               value={customer.name}
               onChange={(e) =>
                 setCustomer({
@@ -961,9 +984,12 @@ export default function Billing() {
               }
               className="rounded-sm"
             />
+            </div>
 
+            <div>
+            <Label className="text-xs uppercase font-semibold text-slate-600">Phone</Label>
             <Input
-              placeholder="Phone"
+              placeholder="Phone (optional)"
               value={customer.phone}
               onChange={(e) =>
                 setCustomer({
@@ -973,6 +999,7 @@ export default function Billing() {
               }
               className="rounded-sm"
             />
+            </div>
 
             <div>
               <Label className="text-xs uppercase font-semibold text-slate-600">
@@ -993,6 +1020,32 @@ export default function Billing() {
             </div>
           </div>
 
+          <div className="bg-white border border-blue-200 rounded-sm p-4 space-y-3">
+            <div>
+              <div className="font-heading font-semibold">Payment</div>
+              <p className="text-xs text-slate-500">Choose how this invoice will be settled.</p>
+            </div>
+            <div>
+              <Label className="text-xs uppercase font-semibold text-slate-600">Payment Mode</Label>
+              <Select value={payment.mode} onValueChange={(mode) => setPayment({ ...payment, mode })}>
+                <SelectTrigger className="mt-1 rounded-sm" aria-label="Payment mode"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="upi">UPI</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="credit">Credit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {payment.mode === "credit" && (
+              <div>
+                <Label className="text-xs uppercase font-semibold text-slate-600">Paid Now</Label>
+                <Input type="number" min="0" step="0.01" value={payment.paid} onChange={(e) => setPayment({ ...payment, paid: e.target.value })} placeholder="0.00" className="mt-1 rounded-sm text-right" />
+                <p className="mt-1 text-xs text-amber-700">Credit requires an existing customer for ledger tracking.</p>
+              </div>
+            )}
+          </div>
+
           <div className="bg-slate-900 text-white rounded-sm p-5 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-slate-400">Subtotal</span>
@@ -1000,8 +1053,18 @@ export default function Billing() {
             </div>
 
             <div className="flex justify-between text-sm">
+              <span className="text-slate-400">Discount</span>
+              <span className="font-mono-nums">−{fmtINR(totals.bill_disc)}</span>
+            </div>
+
+            <div className="flex justify-between text-sm">
               <span className="text-slate-400">GST</span>
               <span className="font-mono-nums">{fmtINR(totals.gst)}</span>
+            </div>
+
+            <div className="border-t border-slate-700 pt-2 space-y-1">
+              <div className="flex justify-between text-sm"><span className="text-slate-400">Paid</span><span className="font-mono-nums">{fmtINR(payment.mode === "credit" ? Number(payment.paid || 0) : totals.total)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">Due</span><span className="font-mono-nums">{fmtINR(payment.mode === "credit" ? Math.max(totals.total - Number(payment.paid || 0), 0) : 0)}</span></div>
             </div>
 
             <div className="border-t border-slate-700 pt-2 flex justify-between">
