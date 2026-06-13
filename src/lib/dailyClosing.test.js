@@ -18,16 +18,16 @@ beforeEach(() => jest.clearAllMocks());
 
 test("calculates expected totals and cash mismatch", () => {
   expect(calculateClosing({ cash_sales: 1000, upi_sales: 500, card_sales: 250, credit_sales: 100, expenses: 200, counted_cash: 775 }))
-    .toEqual({ grossSales: 1850, expectedCash: 800, expectedTotal: 1650, mismatch: -25 });
+    .toEqual({ grossSales: 1850, openingCash: 0, collectedAmount: 1750, outstanding: 100, expectedCash: 800, expectedTotal: 1650, mismatch: -25 });
 });
 
 test.each([[0, "balanced"], [-10, "shortage"], [10, "excess"]])("maps %s to the %s badge", (mismatch, status) => {
   expect(getMismatchStatus(mismatch)).toBe(status);
 });
 
-test("normalizes backend calculations and lock fields", () => {
-  expect(normalizeClosing({ id: "c1", date: "2026-06-12", cash_sales: 100, expenses: 20, counted_cash: 80, is_locked: true }))
-    .toMatchObject({ id: "c1", closing_date: "2026-06-12", expectedTotal: 80, mismatch: 0, locked: true, lock_day: true });
+test("normalizes backend calculations, imported totals, and lock fields", () => {
+  expect(normalizeClosing({ id: "c1", date: "2026-06-12", cash_sales: 100, expenses: 20, counted_cash: 80, collected_amount: 125, outstanding_amount: 15, expected_cash: 90, expected_total: 140, is_locked: true }))
+    .toMatchObject({ id: "c1", closing_date: "2026-06-12", expectedTotal: 140, expectedCash: 90, collectedAmount: 125, outstanding: 15, mismatch: 0, locked: true, lock_day: true });
 });
 
 test("lists and loads daily closings through the authenticated API client", async () => {
