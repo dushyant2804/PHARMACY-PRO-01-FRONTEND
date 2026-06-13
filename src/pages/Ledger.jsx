@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import api, { fmtINR, fmtDate, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
 const currentMonthValue = () => new Date().toISOString().slice(0, 7);
@@ -73,6 +73,7 @@ const getDistributorDocumentNumber = (transaction) => {
 
   return getFirstAvailableValue([transaction.receipt_number, transaction.reference_number]);
 };
+const getPurchaseOrderId = (transaction) => transaction.purchase_order_id || transaction.po_id;
 
 const isEditableDistributorTransaction = (transaction) => {
   const kind = getTransactionKind(transaction);
@@ -154,6 +155,8 @@ export default function Ledger() {
   const [open, setOpen] = useState(false);
   const [txnType, setTxnType] = useState(type === "distributor" ? "payment" : "sale");
   const [selectedMonth, setSelectedMonth] = useState(currentMonthValue());
+  const [ledgerSearch, setLedgerSearch] = useState("");
+  const [ledgerTypeFilter, setLedgerTypeFilter] = useState("all");
   const [selectedFinancialYear, setSelectedFinancialYear] = useState(getCurrentIndianFinancialYear);
   const syncedBackendFinancialYearRef = useRef(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -261,7 +264,19 @@ export default function Ledger() {
   if (!data) return <div className="text-slate-500">Loading…</div>;
   const entity = type === "distributor" ? data.distributor : data.customer;
   const transactions = data.transactions || [];
-  const ledgerTransactions = transactions;
+  const ledgerTransactions = type === "distributor"
+    ? transactions.filter((transaction) => {
+        const query = ledgerSearch.trim().toLowerCase();
+        const matchesType = ledgerTypeFilter === "all" || getTransactionKind(transaction) === ledgerTypeFilter;
+        const matchesQuery = !query || [
+          getTransactionTypeLabel(transaction),
+          getReferenceNotes(transaction),
+          getDistributorDocumentNumber(transaction),
+          getTransactionMode(transaction)
+        ].some((value) => String(value || "").toLowerCase().includes(query));
+        return matchesType && matchesQuery;
+      })
+    : transactions;
   const newTransactionModeOptions = getNewTransactionModeOptions(type, txnType);
   const currentFinancialYear = data.current_financial_year || getCurrentIndianFinancialYear();
   const financialYearOptions = [
@@ -637,6 +652,26 @@ const handleDelete = async (transaction) => {
         </div>
       )}
 
+      {type === "distributor" && (
+        <div className="flex flex-col gap-3 rounded-sm border border-slate-200 bg-white p-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input value={ledgerSearch} onChange={(e) => setLedgerSearch(e.target.value)} placeholder="Search reference, invoice, notes, or payment mode" className="rounded-sm pl-9" />
+          </div>
+          <Select value={ledgerTypeFilter} onValueChange={setLedgerTypeFilter}>
+            <SelectTrigger className="w-full rounded-sm sm:w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All transaction types</SelectItem>
+              <SelectItem value="purchase">Purchases</SelectItem>
+              <SelectItem value="payment">Payments</SelectItem>
+              <SelectItem value="opening_balance">Opening balance</SelectItem>
+              <SelectItem value="adjustment">Adjustments</SelectItem>
+            </SelectContent>
+          </Select>
+          {/* TODO: Add export/print when a supported distributor-ledger endpoint is available. */}
+        </div>
+      )}
+
       <div className="bg-white border border-slate-200 rounded-sm overflow-x-auto">
         <table className="data-table">
           <thead>
@@ -670,7 +705,7 @@ const handleDelete = async (transaction) => {
                   </td>
                   <td className="uppercase text-xs tracking-wider font-semibold">
                     <div className="flex flex-col items-start gap-1">
-                      <span>{getTransactionTypeLabel(t)}</span>
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getTransactionKind(t) === "payment" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : isDistributorPurchase ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>{getTransactionTypeLabel(t)}</span>
                       {billStatusDisplay && (
                         <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${billStatusDisplay.badgeClassName}`}>
                           {billStatusDisplay.label}
@@ -708,12 +743,12 @@ const handleDelete = async (transaction) => {
                       </div>
                     )}
                   </td>
-                  {type === "distributor" && <td className="text-sm font-medium">{getDistributorDocumentNumber(t)}</td>}
+                  {type === "distributor" && <td className="text-sm font-medium">{getPurchaseOrderId(t) ? <Link to={`/purchase-orders/${getPurchaseOrderId(t)}`} className="text-blue-600 hover:underline">{getDistributorDocumentNumber(t)}</Link> : getDistributorDocumentNumber(t)}</td>}
                   <td className="text-xs uppercase">{getTransactionMode(t) || "—"}</td>
                   <td className={`num-cell font-semibold ${getTransactionKind(t) === "payment" ? "text-emerald-600" : "text-slate-800"}`}>
                     {getTransactionKind(t) === "payment" ? "−" : Number(t.amount || 0) < 0 ? "" : "+"}{fmtINR(t.amount)}
                   </td>
-                  <td className="num-cell">{fmtINR(t.running_balance)}</td>
+                  <td className={`num-cell font-bold ${Number(t.running_balance || 0) > 0 ? "text-red-700" : "text-emerald-700"}`}>{fmtINR(t.running_balance)}</td>
                   <td>
                     <div className="flex items-center gap-3">
                       {type === "distributor" && isEditableDistributorTransaction(t) && (
