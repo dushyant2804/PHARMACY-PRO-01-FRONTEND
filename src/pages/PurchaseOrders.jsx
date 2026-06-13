@@ -814,7 +814,7 @@ export default function PurchaseOrders() {
           <form onSubmit={submit} className="space-y-4">
 
             {/* BASIC FIELDS */}
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 
               <div>
                 <Label>{requiredLabel("Distributor")}</Label>
@@ -879,6 +879,7 @@ export default function PurchaseOrders() {
         <th className="p-2">MRP*</th>
         <th className="p-2">GST %*</th>
         <th className="p-2">Pack Size</th>
+        <th className="p-2 text-right">Item Total</th>
         <th className="p-2">Action</th>
 
       </tr>
@@ -1090,6 +1091,10 @@ export default function PurchaseOrders() {
             />
           </td>
 
+          <td className="p-2 whitespace-nowrap text-right font-semibold text-slate-700">
+            {fmtINR(Number(it.quantity || 0) * Number(it.purchase_price || 0))}
+          </td>
+
           <td className="p-2">
             <button
               type="button"
@@ -1111,16 +1116,26 @@ export default function PurchaseOrders() {
    {/* TABLE CONTROLS */}
 <div className="flex flex-wrap justify-start gap-2 p-3 border-t bg-slate-50">
   <Button type="button" onClick={addRow}><Plus className="w-4 h-4 mr-1" />Add Row</Button>
-  <Button type="button" variant="outline" onClick={addReturnRow} disabled={!distId}><Plus className="w-4 h-4 mr-1" />Add Purchase Return</Button>
+  <Button type="button" variant="outline" onClick={addReturnRow} disabled={!distId}><Plus className="w-4 h-4 mr-1" />Apply Existing Return Credit</Button>
 </div>
 
-{!distId && <p className="border-t bg-amber-50 px-4 py-2 text-xs text-amber-800">Select a distributor before adding a purchase return.</p>}
-{returnItems.length > 0 && <div className="border-t border-amber-200 bg-amber-50/50 p-4"><div className="mb-3"><h3 className="font-bold text-amber-950">Purchase return credit</h3><p className="text-xs text-amber-800">Select only eligible batches supplied by the selected distributor. Credit is calculated from return quantity × purchase rate.</p></div><div className="overflow-x-auto"><table className="min-w-[1180px] w-full text-xs"><thead><tr className="text-left text-slate-500"><th className="p-2">Medicine Name</th><th className="p-2">Batch No</th><th className="p-2">Expiry</th><th className="p-2">Manufacturer</th><th className="p-2">Category</th><th className="p-2">Purchase Rate</th><th className="p-2">MRP</th><th className="p-2">GST</th><th className="p-2">Available</th><th className="p-2">Return Qty</th><th className="p-2">Return Credit</th><th /></tr></thead><tbody>{returnItems.map((item, rowIndex) => <tr key={rowIndex} className="border-t border-amber-200 align-top"><td className="relative p-2"><Input value={item.medicine_name} placeholder="Type medicine" onChange={(event) => searchReturnMedicines(rowIndex, event.target.value)} onFocus={() => setActiveReturnMedicineRow(rowIndex)} onBlur={() => setTimeout(() => setActiveReturnMedicineRow(null), 120)} />{activeReturnMedicineRow === rowIndex && (returnMedicineSuggestions[rowIndex] || []).length > 0 && <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded border bg-white shadow">{returnMedicineSuggestions[rowIndex].map((medicine) => <button type="button" key={getMedicineId(medicine)} className="block w-full p-2 text-left hover:bg-slate-50" onMouseDown={(event) => event.preventDefault()} onClick={() => applyReturnMedicine(rowIndex, medicine)}>{getMedicineName(medicine)}</button>)}</div>}</td><td className="relative p-2"><Input value={item.batch_no} readOnly placeholder="Select batch" onFocus={() => setActiveReturnBatchRow(rowIndex)} />{activeReturnBatchRow === rowIndex && (returnBatchOptions[rowIndex] || []).length > 0 && <div className="absolute z-50 mt-1 max-h-52 min-w-[320px] overflow-y-auto rounded border bg-white shadow">{returnBatchOptions[rowIndex].map((batch, index) => <button type="button" key={`${batch.batch_no}-${index}`} className="block w-full p-2 text-left hover:bg-slate-50" onMouseDown={(event) => event.preventDefault()} onClick={() => applyReturnBatch(rowIndex, batch)}>{batchOptionLabel(batch)}</button>)}</div>}</td><td className="p-2"><Input value={item.expiry_date} readOnly /></td><td className="p-2"><Input value={item.manufacturer} readOnly /></td><td className="p-2"><Input value={item.category} readOnly /></td><td className="p-2"><Input value={item.purchase_price} readOnly /></td><td className="p-2"><Input value={item.mrp} readOnly /></td><td className="p-2"><Input value={item.gst_rate} readOnly /></td><td className="p-2"><Input value={item.available_quantity} readOnly /></td><td className="p-2"><Input type="number" min="0" max={item.available_quantity} value={item.return_quantity} onChange={(event) => updateReturnItem(rowIndex, "return_quantity", event.target.value)} /></td><td className="p-2 font-bold text-amber-800">{fmtINR(Number(item.return_quantity || 0) * Number(item.purchase_price || 0))}</td><td className="p-2"><button type="button" onClick={() => removeReturnRow(rowIndex)} className="text-red-600"><Trash2 className="h-4 w-4" /></button></td></tr>)}</tbody></table></div></div>}
+{!distId && <p className="border-t bg-amber-50 px-4 py-2 text-xs text-amber-800">Select a distributor before applying an existing purchase return credit.</p>}
+{returnItems.length > 0 && <div className="border-t border-amber-200 bg-amber-50/50 p-4"><div className="mb-3"><h3 className="font-bold text-amber-950">Apply Existing Purchase Return Credit</h3><p className="text-xs text-amber-900">Use this when a return was already recorded earlier and its credit is being adjusted in this invoice.</p><p className="mt-1 text-xs text-amber-800">Matching a batch here consumes and settles its already-recorded return credit; it does not create a new purchase return. Credit is calculated from return quantity × purchase rate.</p></div><div className="overflow-x-auto"><table className="min-w-[1180px] w-full text-xs"><thead><tr className="text-left text-slate-500"><th className="p-2">Medicine Name</th><th className="p-2">Batch No</th><th className="p-2">Expiry</th><th className="p-2">Manufacturer</th><th className="p-2">Category</th><th className="p-2">Purchase Rate</th><th className="p-2">MRP</th><th className="p-2">GST</th><th className="p-2">Available</th><th className="p-2">Return Qty</th><th className="p-2">Return Credit</th><th /></tr></thead><tbody>{returnItems.map((item, rowIndex) => <tr key={rowIndex} className="border-t border-amber-200 align-top"><td className="relative p-2"><Input value={item.medicine_name} placeholder="Type medicine" onChange={(event) => searchReturnMedicines(rowIndex, event.target.value)} onFocus={() => setActiveReturnMedicineRow(rowIndex)} onBlur={() => setTimeout(() => setActiveReturnMedicineRow(null), 120)} />{activeReturnMedicineRow === rowIndex && (returnMedicineSuggestions[rowIndex] || []).length > 0 && <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded border bg-white shadow">{returnMedicineSuggestions[rowIndex].map((medicine) => <button type="button" key={getMedicineId(medicine)} className="block w-full p-2 text-left hover:bg-slate-50" onMouseDown={(event) => event.preventDefault()} onClick={() => applyReturnMedicine(rowIndex, medicine)}>{getMedicineName(medicine)}</button>)}</div>}</td><td className="relative p-2"><Input value={item.batch_no} readOnly placeholder="Select batch" onFocus={() => setActiveReturnBatchRow(rowIndex)} />{activeReturnBatchRow === rowIndex && (returnBatchOptions[rowIndex] || []).length > 0 && <div className="absolute z-50 mt-1 max-h-52 min-w-[320px] overflow-y-auto rounded border bg-white shadow">{returnBatchOptions[rowIndex].map((batch, index) => <button type="button" key={`${batch.batch_no}-${index}`} className="block w-full p-2 text-left hover:bg-slate-50" onMouseDown={(event) => event.preventDefault()} onClick={() => applyReturnBatch(rowIndex, batch)}>{batchOptionLabel(batch)}</button>)}</div>}</td><td className="p-2"><Input value={item.expiry_date} readOnly /></td><td className="p-2"><Input value={item.manufacturer} readOnly /></td><td className="p-2"><Input value={item.category} readOnly /></td><td className="p-2"><Input value={item.purchase_price} readOnly /></td><td className="p-2"><Input value={item.mrp} readOnly /></td><td className="p-2"><Input value={item.gst_rate} readOnly /></td><td className="p-2"><Input value={item.available_quantity} readOnly /></td><td className="p-2"><Input type="number" min="0" max={item.available_quantity} value={item.return_quantity} onChange={(event) => updateReturnItem(rowIndex, "return_quantity", event.target.value)} /></td><td className="p-2 font-bold text-amber-800">{fmtINR(Number(item.return_quantity || 0) * Number(item.purchase_price || 0))}</td><td className="p-2"><button type="button" onClick={() => removeReturnRow(rowIndex)} className="text-red-600"><Trash2 className="h-4 w-4" /></button></td></tr>)}</tbody></table></div></div>}
 
-  <div className="grid gap-3 border-t bg-white p-4 sm:grid-cols-3">
-    <div className="rounded-lg border p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">PO subtotal</div><div className="mt-1 text-lg font-bold">{fmtINR(grandTotal)}</div></div>
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Purchase return credit</div><div className="mt-1 text-lg font-bold text-amber-800">− {fmtINR(purchaseReturnAdjustment)}</div></div>
-    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Final payable total</div><div className="mt-1 text-lg font-bold text-emerald-800">{fmtINR(finalPayableTotal)}</div></div>
+  <div className="sticky bottom-[88px] z-10 grid gap-2 border-t bg-white/95 p-3 shadow-[0_-4px_12px_rgba(15,23,42,0.08)] backdrop-blur sm:grid-cols-3 xl:grid-cols-6">
+    {[
+      ["Subtotal", fmtINR(subTotal), "text-slate-800"],
+      ["Discounts", `− ${fmtINR(displayTotals.discount)}`, "text-rose-700"],
+      ["GST", fmtINR(totalCGST + totalSGST), "text-blue-700"],
+      ["Purchase Return Credit", `− ${fmtINR(purchaseReturnAdjustment)}`, "text-amber-800"],
+      ["Round Off", fmtINR(roundOff), "text-slate-700"],
+      ["Final Payable", fmtINR(finalPayableTotal), "text-emerald-800"],
+    ].map(([label, value, color]) => (
+      <div key={label} className={`rounded-lg border bg-white p-3 ${label === "Final Payable" ? "border-emerald-300 bg-emerald-50" : ""}`}>
+        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
+        <div className={`mt-1 whitespace-nowrap text-base font-bold ${color}`}>{value}</div>
+      </div>
+    ))}
   </div>
 
   {/* BILL SUMMARY */}
@@ -1137,7 +1152,9 @@ export default function PurchaseOrders() {
       <Label>Scheme Discount</Label>
       <Input
         type="number"
+        step="0.01"
         value={schemeDiscount}
+        onBlur={() => setSchemeDiscount(roundCurrency(schemeDiscount).toFixed(2))}
         onChange={(e) =>
           setSchemeDiscount(e.target.value)
         }
@@ -1148,7 +1165,9 @@ export default function PurchaseOrders() {
       <Label>Cash Discount</Label>
       <Input
         type="number"
+        step="0.01"
         value={cashDiscount}
+        onBlur={() => setCashDiscount(roundCurrency(cashDiscount).toFixed(2))}
         onChange={(e) =>
           setCashDiscount(e.target.value)
         }
