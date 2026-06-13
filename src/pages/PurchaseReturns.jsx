@@ -210,6 +210,35 @@ const parseBoolean = (value) => {
   return ["true", "1", "yes", "y", "adjusted", "ledger_adjusted"].includes(normalized);
 };
 
+const getSettlementState = (item) => {
+  const status = String(firstDefined(item.settlement_status, item.credit_status, item.status, "")).toLowerCase();
+  if (parseBoolean(firstDefined(item.adjust_distributor_ledger, item.ledger_adjusted, false))) {
+    return { label: "Ledger Adjusted", className: "border-emerald-200 bg-emerald-50 text-emerald-800" };
+  }
+
+  if (parseBoolean(firstDefined(
+    item.settled_in_po,
+    item.purchase_order_settled,
+    item.credit_consumed,
+    item.is_settled,
+    false
+  )) || firstDefined(item.settlement_purchase_order_id, item.settled_purchase_order_id, item.purchase_order_id)
+    || ["settled", "settled_in_po", "consumed", "applied"].includes(status)) {
+    return { label: "Settled in PO", className: "border-blue-200 bg-blue-50 text-blue-800" };
+  }
+
+  return { label: "Unsettled", className: "border-amber-200 bg-amber-50 text-amber-800" };
+};
+
+function SettlementBadge({ item }) {
+  const settlement = getSettlementState(item);
+  return (
+    <span className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${settlement.className}`}>
+      {settlement.label}
+    </span>
+  );
+}
+
 const addBreakdownRecord = (groups, key, name, record) => {
   const safeKey = String(firstDefined(key, name, "—"));
   const safeName = formatBreakdownName(name);
@@ -481,41 +510,27 @@ function BreakdownCardList({ title, items }) {
         <h3 className="font-semibold text-slate-800">{title}</h3>
       </div>
 
-      <div className="p-4 space-y-3">
+      <div className="overflow-x-auto">
         {items.length === 0 ? (
-          <div className="rounded-sm border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+          <div className="m-4 rounded-sm border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
             No breakdown data.
           </div>
         ) : (
-          items.map((item) => (
-            <div
-              key={item.id}
-              className="w-full rounded-sm border border-slate-200 bg-white p-4 shadow-[0_1px_0_rgba(15,23,42,0.03)]"
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="break-words text-sm font-semibold text-slate-900">
-                    {item.name}
-                  </div>
-                </div>
-
-                <div className="grid gap-2 text-sm text-slate-600 sm:min-w-[300px] sm:grid-cols-3 sm:text-right">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-wider text-slate-400">Quantity</div>
-                    <div className="font-semibold text-slate-800">{item.quantity}</div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] uppercase tracking-wider text-slate-400">Amount</div>
-                    <div className="font-semibold text-slate-800">{fmtINR(item.value)}</div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] uppercase tracking-wider text-slate-400">Returns</div>
-                    <div className="font-semibold text-slate-800">{item.count}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))
+          <table className="w-full min-w-[560px] text-sm">
+            <thead className="text-left text-xs uppercase tracking-wider text-slate-500">
+              <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3 text-right">Quantity</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3 text-right">Returns</th></tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {items.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-50/70">
+                  <td className="px-4 py-3.5 font-semibold text-slate-900">{item.name}</td>
+                  <td className="px-4 py-3.5 text-right tabular-nums">{item.quantity}</td>
+                  <td className="px-4 py-3.5 text-right font-semibold tabular-nums">{fmtINR(item.value)}</td>
+                  <td className="px-4 py-3.5 text-right tabular-nums">{item.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </section>
@@ -911,8 +926,8 @@ export default function PurchaseReturns() {
         <BreakdownCardList title="Ledger-wise Breakdown" items={report.ledgerBreakdown} />
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-sm overflow-x-auto">
-        <table className="data-table">
+      <div className="bg-white border border-slate-200 rounded-sm overflow-x-auto shadow-sm">
+        <table className="data-table min-w-[1120px]">
           <thead>
             <tr>
               <th>Return Date</th>
@@ -923,7 +938,7 @@ export default function PurchaseReturns() {
               <th className="text-right">Purchase Rate</th>
               <th className="text-right">Return Amount</th>
               <th>Reason</th>
-              <th>Ledger Adjusted</th>
+              <th>Settlement</th>
               <th>Notes</th>
             </tr>
           </thead>
@@ -956,22 +971,17 @@ export default function PurchaseReturns() {
             )}
 
             {!loading && !error && returns.map((item) => {
-              const adjusted = parseBoolean(firstDefined(item.adjust_distributor_ledger, item.ledger_adjusted, false));
               return (
-                <tr key={item.id || `${item.medicine_name}-${item.batch_number}-${item.return_date}`}>
+                <tr className="align-top [&>td]:py-4" key={item.id || `${item.medicine_name}-${item.batch_number}-${item.return_date}`}>
                   <td className="font-mono-nums text-xs">{fmtDate(firstDefined(item.return_date, item.date, item.created_at))}</td>
-                  <td className="font-medium">{firstDefined(item.distributor_name, item.distributor, "—")}</td>
-                  <td>{firstDefined(item.medicine_name, item.medicine, "—")}</td>
-                  <td className="font-mono text-xs">{firstDefined(item.batch_number, item.batch_no, item.batch, "—")}</td>
-                  <td className="num-cell">{firstDefined(item.return_quantity, item.quantity, 0)}</td>
-                  <td className="num-cell">{fmtINR(firstDefined(item.purchase_rate, item.purchase_price, 0))}</td>
-                  <td className="num-cell font-semibold">{fmtINR(firstDefined(item.return_amount, item.amount, 0))}</td>
+                  <td className="max-w-[180px] font-semibold text-slate-900">{firstDefined(item.distributor_name, item.distributor, "—")}</td>
+                  <td className="max-w-[200px] font-medium text-slate-800">{firstDefined(item.medicine_name, item.medicine, "—")}</td>
+                  <td className="font-mono text-xs font-semibold text-slate-700">{firstDefined(item.batch_number, item.batch_no, item.batch, "—")}</td>
+                  <td className="num-cell tabular-nums">{firstDefined(item.return_quantity, item.quantity, 0)}</td>
+                  <td className="num-cell tabular-nums">{fmtINR(firstDefined(item.purchase_rate, item.purchase_price, 0))}</td>
+                  <td className="num-cell font-semibold tabular-nums">{fmtINR(firstDefined(item.return_amount, item.amount, 0))}</td>
                   <td>{item.reason || "—"}</td>
-                  <td>
-                    <span className={`text-xs font-semibold ${adjusted ? "text-emerald-600" : "text-slate-500"}`}>
-                      {adjusted ? "Yes" : "No"}
-                    </span>
-                  </td>
+                  <td><SettlementBadge item={item} /></td>
                   <td className="text-xs text-slate-600">{item.notes || "—"}</td>
                 </tr>
               );
@@ -1152,15 +1162,18 @@ export default function PurchaseReturns() {
               </div>
             </div>
 
-            <div className="border border-slate-200 rounded-sm p-3 bg-slate-50 flex items-start justify-between gap-3">
+            <div className="border border-slate-300 rounded-sm p-4 bg-slate-50 flex items-start justify-between gap-4">
               <div>
                 <Label className="text-sm font-semibold text-slate-700">
                   Adjust Distributor Ledger
                 </Label>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-sm font-medium text-slate-700 mt-1">
                   {form.adjust_distributor_ledger
-                    ? "When ON, inventory is reduced and distributor outstanding/payable is adjusted."
-                    : "When OFF, inventory is reduced but distributor ledger is not adjusted."}
+                    ? "ON — Inventory is reversed and the distributor ledger is adjusted immediately."
+                    : "OFF — Inventory is reversed and the return credit is saved for future settlement."}
+                </p>
+                <p className="text-xs text-slate-500 mt-2">
+                  If ledger adjustment is OFF, this return credit can later be consumed in a future Purchase Order.
                 </p>
               </div>
               <Switch
