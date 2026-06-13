@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Pencil, Plus, Search } from "lucide-react";
+import { Download, MessageCircle, Pencil, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
+import { ledgerShareMessage, whatsappUrl } from "@/lib/sharing";
 
 const currentMonthValue = () => new Date().toISOString().slice(0, 7);
 
@@ -162,6 +163,7 @@ export default function Ledger() {
   const [editOpen, setEditOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [editForm, setEditForm] = useState({
     receipt_number: "",
     reference_number: "",
@@ -393,6 +395,29 @@ const handleDelete = async (transaction) => {
   }
 };
 
+const downloadLedger = async () => {
+  setExporting(true);
+  try {
+    const response = await api.get(`/ledger/${type}/${id}/export`, {
+      params: type === "distributor" && selectedFinancialYear !== ALL_FINANCIAL_YEARS ? { financial_year: selectedFinancialYear } : undefined,
+      responseType: "blob"
+    });
+    const contentType = response.headers["content-type"] || "application/octet-stream";
+    const extension = contentType.includes("pdf") ? "pdf" : contentType.includes("csv") ? "csv" : "txt";
+    const url = URL.createObjectURL(new Blob([response.data], { type: contentType }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${type}-ledger-${entity.name || id}.${extension}`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("Ledger downloaded");
+  } catch (error) {
+    toast.error("Ledger export is not available from the server.");
+  } finally {
+    setExporting(false);
+  }
+};
+
   const editingIsOpeningBalance = type === "distributor" && editingTransaction && isOpeningBalanceTransaction(editingTransaction);
   const editingIsPurchase = editingTransaction && isPurchaseTransaction(editingTransaction);
   const editingDate = editingIsOpeningBalance
@@ -403,6 +428,7 @@ const handleDelete = async (transaction) => {
   const displayedBalance = type === "distributor"
     ? distributorTotalBalance ?? getDistributorTotalBalance(entity) ?? (selectedFinancialYear === ALL_FINANCIAL_YEARS ? Number(data.balance || 0) : 0)
     : data.balance;
+  const ledgerWhatsappUrl = whatsappUrl(entity.phone, ledgerShareMessage({ type, entity, balance: displayedBalance, transactions }));
   const isDistributorSpecificFinancialYear = type === "distributor" && selectedFinancialYear !== ALL_FINANCIAL_YEARS;
   const broughtForwardBalance = Number(data.brought_forward_balance || 0);
   const showBroughtForwardBox = isDistributorSpecificFinancialYear && broughtForwardBalance !== 0;
@@ -503,6 +529,16 @@ const handleDelete = async (transaction) => {
 )}
 
   </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" size="sm" className="rounded-sm" onClick={downloadLedger} disabled={exporting}>
+            <Download className="mr-1.5 h-4 w-4" />{exporting ? "Exporting…" : "Export"}
+          </Button>
+          <a href={ledgerWhatsappUrl || undefined} target="_blank" rel="noreferrer" aria-disabled={!ledgerWhatsappUrl} title={ledgerWhatsappUrl ? "Share ledger summary on WhatsApp" : "Phone number required"}>
+            <Button variant="outline" size="sm" className="rounded-sm" disabled={!ledgerWhatsappUrl}>
+              <MessageCircle className="mr-1.5 h-4 w-4" />WhatsApp
+            </Button>
+          </a>
+        </div>
       </div>
       </div>
 
