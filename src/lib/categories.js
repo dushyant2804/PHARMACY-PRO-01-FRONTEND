@@ -36,18 +36,19 @@ export function categoryBadgeClass(category) {
       return "badge-otc";
 
     case "Schedule G":
-      return "badge-sch-h1";
+      return "badge-sch-g";
 
     case "Schedule H":
+      return "badge-sch-h";
     case "Schedule H1":
       return "badge-sch-h1";
 
     case "Schedule X":
-      return "badge-sch-h";
+      return "badge-sch-x";
 
     default:
       if (category.startsWith("NDPS")) {
-        return "badge-sch-h";
+        return "badge-sch-x";
       }
 
       return "badge-other";

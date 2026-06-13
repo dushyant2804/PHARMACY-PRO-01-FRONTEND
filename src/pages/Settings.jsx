@@ -263,11 +263,11 @@ export default function Settings() {
       {/* ================= FONT SETTINGS (NEW SECTION) ================= */}
       <div className="bg-white border border-slate-200 rounded-sm p-5">
         <div className="font-heading font-semibold mb-3">
-          Fonts & Themes
+          Fonts
         </div>
 
         <p className="text-sm text-slate-600 mb-4">
-          Change how your app feels instantly.
+          Choose the font used throughout the app.
         </p>
 
         <div className="grid gap-5 lg:grid-cols-2">

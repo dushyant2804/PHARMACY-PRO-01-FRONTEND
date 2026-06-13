@@ -8,6 +8,7 @@ import {
   Eye,
   Lock,
   Pencil,
+  Save,
   Search,
   Trash2,
   X,
@@ -65,10 +66,14 @@ const getExpiryStatus = (expiry, backendStatus) => {
 
 const categoryStyles = {
   OTC: "bg-emerald-100 text-emerald-800 ring-emerald-600/20",
+  "SCHEDULE H": "bg-amber-100 text-amber-900 ring-amber-600/30",
   H: "bg-amber-100 text-amber-800 ring-amber-600/20",
+  "SCHEDULE H1": "bg-red-900 text-white ring-red-950/30",
   H1: "bg-red-900 text-white ring-red-950/30",
+  "SCHEDULE X": "bg-slate-950 text-white ring-slate-950/40",
   X: "bg-slate-950 text-white ring-slate-950/30",
   NRX: "bg-slate-950 text-white ring-slate-950/30",
+  "SCHEDULE G": "bg-indigo-100 text-indigo-900 ring-indigo-600/30",
   G: "bg-purple-100 text-purple-800 ring-purple-600/20",
 };
 
@@ -137,6 +142,8 @@ export default function Inventory() {
   const [search, setSearch] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [threshold, setThreshold] = useState("");
+  const [savingThreshold, setSavingThreshold] = useState(false);
   const { setInspectorMode } = useLayout();
 
   useEffect(() => {
@@ -166,7 +173,28 @@ export default function Inventory() {
 
   const openDetails = (medicine) => {
     setSelected(medicine);
+    setThreshold("");
     setDetailsOpen(true);
+  };
+
+  const saveThreshold = async () => {
+    const value = Number(threshold);
+    if (!selected || !Number.isInteger(value) || value < 0) {
+      toast.error("Enter a whole-number threshold of 0 or more");
+      return;
+    }
+    try {
+      setSavingThreshold(true);
+      const { data } = await api.patch(`/medicines/${selected.id}`, { low_stock_threshold: value });
+      const updated = { ...selected, ...(data || {}), low_stock_threshold: value };
+      setSelected(updated);
+      setMeds((current) => current.map((medicine) => medicine.id === selected.id ? { ...medicine, ...updated } : medicine));
+      toast.success("Low-stock threshold set");
+    } catch (e) {
+      toast.error(formatApiError(e));
+    } finally {
+      setSavingThreshold(false);
+    }
   };
 
   const deleteMedicine = async () => {
@@ -245,9 +273,9 @@ export default function Inventory() {
                     isSelected
                       ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300"
                       : expiryStatus === "expired"
-                      ? "bg-red-50"
+                      ? "border-l-4 border-l-red-700 bg-red-100 text-red-950"
                       : expiryStatus === "expiring_soon"
-                      ? "bg-orange-50"
+                      ? "border-l-4 border-l-orange-600 bg-orange-100 text-orange-950"
                       : ""
                   }`}
                 >
@@ -380,7 +408,7 @@ export default function Inventory() {
               </SectionCard>
 
               <SectionCard eyebrow="Stock policy" title="Low-stock threshold" className="border-t-2 border-t-amber-500">
-                {selected.low_stock_threshold !== null && selected.low_stock_threshold !== undefined ? <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3"><div><div className="text-sm font-bold text-slate-800">{selected.low_stock_threshold} units</div><div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500"><Lock className="h-3 w-3" /> Set once for this medicine · Read-only</div></div><Lock className="h-5 w-5 text-slate-400" /></div> : <p className="text-sm text-slate-500">No low-stock threshold has been set.</p>}
+                {selected.low_stock_threshold !== null && selected.low_stock_threshold !== undefined ? <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3"><div><div className="text-sm font-bold text-slate-800">{selected.low_stock_threshold} units</div><div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500"><Lock className="h-3 w-3" /> Set once for this medicine · Read-only</div></div><Lock className="h-5 w-5 text-slate-400" /></div> : <div className="space-y-3"><p className="text-sm text-slate-600">No low-stock threshold has been set. Once saved, it is read-only.</p><div className="flex gap-2"><Input aria-label="Low stock threshold" type="number" min="0" step="1" value={threshold} onChange={(event) => setThreshold(event.target.value)} placeholder="Units" /><button type="button" disabled={savingThreshold || threshold === ""} onClick={saveThreshold} className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" />{savingThreshold ? "Saving…" : "Set Low Stock Threshold"}</button></div></div>}
               </SectionCard>
             </div>
 
