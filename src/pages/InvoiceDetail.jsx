@@ -4,6 +4,8 @@ import api, { fmtINR, fmtDate } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Printer, Mail, MessageCircle, Download } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { getInvoicePaymentStatus, getInvoiceProfit, PAYMENT_STATUS } from "@/lib/invoices";
 
 export default function InvoiceDetail() {
   const { id } = useParams();
@@ -11,6 +13,7 @@ export default function InvoiceDetail() {
   const [settings, setSettings] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const printRef = useRef(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     api.get(`/invoices/${id}`).then((r) => setInv(r.data)).catch(() => setInv(false));
@@ -62,12 +65,15 @@ export default function InvoiceDetail() {
     ? `https://wa.me/${inv.customer_phone.replace(/\D/g, "")}?text=${waMsg}`
     : `https://wa.me/?text=${waMsg}`;
   const mailto = `mailto:?subject=Invoice ${inv.invoice_no}&body=${waMsg}`;
+  const paymentStatus = PAYMENT_STATUS[getInvoicePaymentStatus(inv)];
+  const profitability = getInvoiceProfit(inv);
+  const canSeeProfit = user?.role === "admin" && (profitability.profit != null || profitability.margin != null);
 
   return (
     <div className="space-y-4" data-testid="invoice-detail">
-      <div className="flex justify-between items-center no-print">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between no-print">
         <h1 className="font-heading text-2xl md:text-3xl font-bold">Invoice {inv.invoice_no}</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" className="rounded-sm" onClick={() => window.print()} data-testid="print-btn">
             <Printer className="w-4 h-4 mr-2" />Print
           </Button>
@@ -83,7 +89,17 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      <div className="print-area bg-white border border-slate-200 rounded-sm p-6 md:p-10 max-w-4xl" ref={printRef}>
+      {canSeeProfit && (
+        <div className="no-print max-w-4xl rounded-lg border border-slate-200 bg-slate-50 px-4 py-3" data-testid="internal-profit-summary">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Internal profitability · Admin only</div>
+          <div className="mt-2 flex gap-8 text-sm">
+            {profitability.profit != null && <div><span className="text-slate-500">Profit </span><span className="font-semibold text-slate-700">{fmtINR(profitability.profit)}</span></div>}
+            {profitability.margin != null && <div><span className="text-slate-500">Margin </span><span className="font-semibold text-slate-700">{profitability.margin.toLocaleString("en-IN", { maximumFractionDigits: 2 })}%</span></div>}
+          </div>
+        </div>
+      )}
+
+      <div className="print-area max-w-4xl overflow-x-auto rounded-sm border border-slate-200 bg-white p-4 sm:p-6 md:p-10" ref={printRef}>
         <div className="flex justify-between items-start border-b border-slate-300 pb-4">
           <div>
             <div className="font-heading text-2xl font-bold">{settings?.business_name || "PharmacyOS"}</div>
@@ -115,11 +131,12 @@ export default function InvoiceDetail() {
           <div className="md:text-right">
             <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Payment</div>
             <div className="mt-1 uppercase tracking-wider text-sm font-semibold">{inv.payment_mode}</div>
+            <span className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold normal-case tracking-normal ${paymentStatus.className}`}>{paymentStatus.label}</span>
             {inv.due_amount > 0 && <div className="text-xs text-red-600 font-semibold">Due: {fmtINR(inv.due_amount)}</div>}
           </div>
         </div>
 
-        <table className="data-table mt-6">
+        <table className="data-table mt-6 min-w-[720px]">
           <thead>
             <tr>
               <th>Medicine</th><th>Batch</th><th>Exp</th>
