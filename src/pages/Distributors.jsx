@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, BookOpen, Pencil, Search, Truck, WalletCards, ShoppingCart, BadgeIndianRupee } from "lucide-react";
+import { Plus, BookOpen, Pencil, Search, Truck, WalletCards, ShoppingCart, BadgeIndianRupee, CircleDollarSign, Scale } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
@@ -16,7 +16,13 @@ const getCurrentBalance = (distributor) =>
 const getStatus = (distributor) => distributor.status || distributor.distributor_status;
 const getLastPurchaseDate = (distributor) => distributor.last_purchase_date || distributor.last_purchase_at;
 const getTotalPurchases = (distributor) => Number(distributor.total_purchases ?? distributor.purchase_total ?? 0);
-const getTotalPaid = (distributor) => Number(distributor.total_paid ?? distributor.paid_total ?? 0);
+const getTotalPaidAdjusted = (distributor) => Number(distributor.total_paid_adjusted ?? distributor.total_paid ?? distributor.paid_total ?? 0);
+const getTotalPayable = (distributor) =>
+  Number(distributor.total_payable ?? Math.max(0, Number(getCurrentBalance(distributor) || 0)));
+const getDistributorReceivable = (distributor) =>
+  Number(distributor.total_receivable_from_distributors ?? Math.max(0, -Number(getCurrentBalance(distributor) || 0)));
+const getNetDistributorBalance = (distributor) =>
+  Number(distributor.net_distributor_balance ?? (getTotalPayable(distributor) - getDistributorReceivable(distributor)));
 const formatDate = (value) => value ? new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 const balanceTone = (balance) => {
   if (Number(balance) <= 0) return "border-emerald-200 bg-emerald-50 text-emerald-700";
@@ -81,15 +87,19 @@ export default function Distributors() {
     return list.filter((d) => [d.name, d.phone, d.gstin].some((value) => String(value || "").toLowerCase().includes(query)));
   }, [list, search]);
   const summary = useMemo(() => ({
-    payable: list.reduce((sum, d) => sum + Math.max(0, Number(getCurrentBalance(d) || 0)), 0),
+    payable: list.reduce((sum, d) => sum + getTotalPayable(d), 0),
+    receivable: list.reduce((sum, d) => sum + getDistributorReceivable(d), 0),
+    netBalance: list.reduce((sum, d) => sum + getNetDistributorBalance(d), 0),
     purchases: list.reduce((sum, d) => sum + getTotalPurchases(d), 0),
-    paid: list.reduce((sum, d) => sum + getTotalPaid(d), 0),
+    paidAdjusted: list.reduce((sum, d) => sum + getTotalPaidAdjusted(d), 0),
     active: list.filter((d) => String(getStatus(d) || "active").toLowerCase() === "active").length
   }), [list]);
   const cards = [
     { label: "Total Payable", value: fmtINR(summary.payable), icon: WalletCards, tone: "text-red-600" },
     { label: "Total Purchases", value: fmtINR(summary.purchases), icon: ShoppingCart, tone: "text-slate-800" },
-    { label: "Total Paid", value: fmtINR(summary.paid), icon: BadgeIndianRupee, tone: "text-emerald-600" },
+    { label: "Total Paid / Adjusted", value: fmtINR(summary.paidAdjusted), icon: BadgeIndianRupee, tone: "text-emerald-600" },
+    { label: "Distributor Receivable", value: fmtINR(summary.receivable), icon: CircleDollarSign, tone: "text-emerald-700" },
+    { label: "Net Distributor Balance", value: fmtINR(summary.netBalance), icon: Scale, tone: summary.netBalance < 0 ? "text-emerald-700" : "text-slate-800" },
     { label: "Active Distributors", value: summary.active, icon: Truck, tone: "text-slate-800" }
   ];
 
@@ -106,11 +116,11 @@ export default function Distributors() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {cards.map(({ label, value, icon: Icon, tone }) => (
-          <div key={label} className="rounded-sm border border-slate-200 bg-white p-4">
-            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500"><span>{label}</span><Icon className="h-4 w-4" /></div>
-            <div className={`mt-2 text-xl font-bold font-mono-nums ${tone}`}>{value}</div>
+          <div key={label} className="min-w-0 rounded-sm border border-slate-200 bg-white p-4">
+            <div className="flex items-start justify-between gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500"><span>{label}</span><Icon className="h-4 w-4 shrink-0" /></div>
+            <div className={`mt-2 break-words text-xl font-bold font-mono-nums ${tone}`}>{value}</div>
           </div>
         ))}
       </div>
