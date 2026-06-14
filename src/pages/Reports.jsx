@@ -148,13 +148,13 @@ export default function Reports() {
   const topSelling = useMemo(() => normalizeTopSelling(topSellingPayload), [topSellingPayload]);
   const payments = useMemo(() => normalizePayments(paymentsPayload), [paymentsPayload]);
   const expiry = useMemo(() => normalizeExpiry(expiryPayload), [expiryPayload]);
-  const expiryValueRiskChartData = useMemo(() => buildExpiryValueRiskChartData(expiryPayload), [expiryPayload]);
-  const hasExpiryValueRisk = hasExpiryValueRiskData(expiryValueRiskChartData);
   const recovery = useMemo(() => normalizeRecovery(recoveryPayload), [recoveryPayload]);
   const customerOutstanding = asArray(outstanding?.customers).reduce((sum, row) => sum + number(firstDefined(row.outstanding, row.balance)), 0);
   const distributorOutstanding = asArray(outstanding?.distributors).reduce((sum, row) => sum + number(firstDefined(row.outstanding, row.balance)), 0);
   const expiryCount = expiry.filter((row) => row.name !== "Safe").reduce((sum, row) => sum + row.value, 0);
   const expiryValue = number(firstDefined(expiryPayload?.expiry_value_at_risk, stock?.expiry_value_at_risk, 0));
+  const expiryValueRiskChartData = useMemo(() => buildExpiryValueRiskChartData(expiryPayload, expiryValue), [expiryPayload, expiryValue]);
+  const hasExpiryValueRisk = hasExpiryValueRiskData(expiryValueRiskChartData);
   const aging = (side) => firstDefined(outstanding?.aging?.[side], outstanding?.aging_buckets?.[side], outstanding?.[`${side}_aging`], {});
   const agingBuckets = (side) => [["0–30 days", "0_30"], ["31–60 days", "31_60"], ["61–90 days", "61_90"], ["90+ days", "90_plus"]].map(([label, key]) => ({ label, value: number(firstDefined(aging(side)?.[key], aging(side)?.[key.replace("_", "-")], aging(side)?.[label], aging(side)?.[`${key}_days`])) }));
   const returns = firstDefined(analytics?.purchase_returns, {});
