@@ -6,6 +6,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Legend,
   Line,
   LineChart,
@@ -150,7 +151,7 @@ export default function Reports() {
   const customerOutstanding = asArray(outstanding?.customers).reduce((sum, row) => sum + number(firstDefined(row.outstanding, row.balance)), 0);
   const distributorOutstanding = asArray(outstanding?.distributors).reduce((sum, row) => sum + number(firstDefined(row.outstanding, row.balance)), 0);
   const expiryCount = expiry.filter((row) => row.name !== "Safe").reduce((sum, row) => sum + row.value, 0);
-  const expiryValue = number(firstDefined(expiryPayload?.value_at_risk, expiryPayload?.expiry_value_at_risk, expiryPayload?.total_value_at_risk, expiryPayload?.summary?.value_at_risk, stock?.expiry_value_at_risk, stock?.expiry?.value_at_risk));
+  const expiryValue = number(firstDefined(expiryPayload?.expiry_value_at_risk, stock?.expiry_value_at_risk, 0));
   const aging = (side) => firstDefined(outstanding?.aging?.[side], outstanding?.aging_buckets?.[side], outstanding?.[`${side}_aging`], {});
   const agingBuckets = (side) => [["0–30 days", "0_30"], ["31–60 days", "31_60"], ["61–90 days", "61_90"], ["90+ days", "90_plus"]].map(([label, key]) => ({ label, value: number(firstDefined(aging(side)?.[key], aging(side)?.[key.replace("_", "-")], aging(side)?.[label], aging(side)?.[`${key}_days`])) }));
   const returns = firstDefined(analytics?.purchase_returns, {});
@@ -166,7 +167,7 @@ export default function Reports() {
       </TabsContent>
       <TabsContent value="stock" className="mt-5 space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"><Kpi label="Items" value={number(stock?.total_items)} /><Kpi label="Units" value={number(stock?.total_units)} /><Kpi label="Cost value" value={fmtINR(stock?.cost_value)} /><Kpi label="MRP value" value={fmtINR(stock?.mrp_value)} /><Kpi label="Expiry risk count" value={expiryCount} icon={AlertTriangle} /><Kpi label="Expiry value at risk" value={fmtINR(expiryValue)} tone="text-rose-700" icon={AlertTriangle} emphasis help="Prioritize this value when planning returns and clearance." /></div>
-        <ChartCard title="Expiry risk analysis" subtitle="Backend expiry analytics: expired, 30-day, 90-day, and safe stock." empty={!hasValues(expiry, ["value"])} emptyText="No expiry analytics yet"><ResponsiveContainer><BarChart data={expiry}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis /><Tooltip /><Bar dataKey="value" name="Stock"><Cell fill="#dc2626" /><Cell fill="#ea580c" /><Cell fill="#d4a72c" /><Cell fill="#0f766e" /></Bar></BarChart></ResponsiveContainer></ChartCard>
+        <ChartCard title="Expiry risk analysis" subtitle="Backend expiry analytics: expired, 30-day, 90-day, and safe stock." empty={!hasValues(expiry, ["value"])} emptyText="No expiry analytics yet"><ResponsiveContainer><BarChart data={expiry} margin={{ top: 24, right: 8, left: -12, bottom: 8 }}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="name" interval={0} tick={{ fontSize: 10 }} tickMargin={8} /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" name="Stock"><LabelList dataKey="value" position="top" offset={8} fill="#334155" fontSize={12} fontWeight={700} /><Cell fill="#dc2626" /><Cell fill="#ea580c" /><Cell fill="#d4a72c" /><Cell fill="#0f766e" /></Bar></BarChart></ResponsiveContainer></ChartCard>
       </TabsContent>
       <TabsContent value="outstanding" className="mt-5 space-y-5">
         <div className="grid gap-5 lg:grid-cols-2">{[["Customer Receivables", customerOutstanding, "customers", "text-rose-700"], ["Distributor Payables", distributorOutstanding, "distributors", "text-amber-700"]].map(([title, total, side, tone]) => <section key={side} className="premium-panel p-5"><h3 className="font-heading text-lg font-bold">{title}</h3><div className={`mt-2 text-3xl font-extrabold ${tone}`}>{fmtINR(total)}</div><div className="mt-5 grid grid-cols-2 gap-3">{agingBuckets(side).map((bucket) => <div key={bucket.label} className="rounded-lg bg-slate-50 p-3"><div className="text-xs font-semibold text-slate-500">{bucket.label}</div><div className="mt-1 font-bold">{fmtINR(bucket.value)}</div></div>)}</div></section>)}</div>
