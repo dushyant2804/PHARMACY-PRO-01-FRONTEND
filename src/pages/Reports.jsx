@@ -79,6 +79,15 @@ const normalizeExpiry = (payload) => {
   ];
 };
 
+const normalizeExpiryValueRisk = (payload) => {
+  const source = firstDefined(payload?.expiry_analytics, payload?.expiry, payload, {});
+  return [
+    { name: "Expired", value: number(source.expired_value_at_risk) },
+    { name: "≤ 30 days", value: number(source.expiring_30_value_at_risk) },
+    { name: "≤ 90 days", value: number(source.expiring_90_value_at_risk) },
+  ];
+};
+
 const normalizeRecovery = (payload) => asArray(firstDefined(payload?.recovery_movement, payload?.recovery_trend, payload?.movement, payload)).map((row) => ({
   period: firstDefined(row.month, row.period, row.date, row.label, ""),
   customerOutstanding: number(firstDefined(row.customer_outstanding, row.customers, row.customer)),
@@ -147,6 +156,7 @@ export default function Reports() {
   const topSelling = useMemo(() => normalizeTopSelling(topSellingPayload), [topSellingPayload]);
   const payments = useMemo(() => normalizePayments(paymentsPayload), [paymentsPayload]);
   const expiry = useMemo(() => normalizeExpiry(expiryPayload), [expiryPayload]);
+  const expiryValueRisk = useMemo(() => normalizeExpiryValueRisk(expiryPayload), [expiryPayload]);
   const recovery = useMemo(() => normalizeRecovery(recoveryPayload), [recoveryPayload]);
   const customerOutstanding = asArray(outstanding?.customers).reduce((sum, row) => sum + number(firstDefined(row.outstanding, row.balance)), 0);
   const distributorOutstanding = asArray(outstanding?.distributors).reduce((sum, row) => sum + number(firstDefined(row.outstanding, row.balance)), 0);
@@ -167,7 +177,7 @@ export default function Reports() {
       </TabsContent>
       <TabsContent value="stock" className="mt-5 space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"><Kpi label="Items" value={number(stock?.total_items)} /><Kpi label="Units" value={number(stock?.total_units)} /><Kpi label="Cost value" value={fmtINR(stock?.cost_value)} /><Kpi label="MRP value" value={fmtINR(stock?.mrp_value)} /><Kpi label="Expiry risk count" value={expiryCount} icon={AlertTriangle} /><Kpi label="Expiry value at risk" value={fmtINR(expiryValue)} tone="text-rose-700" icon={AlertTriangle} emphasis help="Prioritize this value when planning returns and clearance." /></div>
-        <ChartCard title="Expiry risk analysis" subtitle="Backend expiry analytics: expired, 30-day, 90-day, and safe stock." empty={!hasValues(expiry, ["value"])} emptyText="No expiry analytics yet"><ResponsiveContainer><BarChart data={expiry} margin={{ top: 24, right: 8, left: -12, bottom: 8 }}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="name" interval={0} tick={{ fontSize: 10 }} tickMargin={8} /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" name="Stock"><LabelList dataKey="value" position="top" offset={8} fill="#334155" fontSize={12} fontWeight={700} /><Cell fill="#dc2626" /><Cell fill="#ea580c" /><Cell fill="#d4a72c" /><Cell fill="#0f766e" /></Bar></BarChart></ResponsiveContainer></ChartCard>
+        <ChartCard title="Expiry value-at-risk analysis" subtitle="Cost value of expired and expiring available stock." empty={!hasValues(expiryValueRisk, ["value"])} emptyText="No expiry value-at-risk analytics yet"><ResponsiveContainer><BarChart data={expiryValueRisk} margin={{ top: 24, right: 8, left: 4, bottom: 8 }}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="name" interval={0} tick={{ fontSize: 10 }} tickMargin={8} /><YAxis width={76} tickFormatter={fmtINR} /><Tooltip formatter={moneyTip} /><Bar dataKey="value" name="Value at risk"><LabelList dataKey="value" formatter={fmtINR} position="top" offset={8} fill="#334155" fontSize={12} fontWeight={700} /><Cell fill="#dc2626" /><Cell fill="#ea580c" /><Cell fill="#d4a72c" /></Bar></BarChart></ResponsiveContainer></ChartCard>
       </TabsContent>
       <TabsContent value="outstanding" className="mt-5 space-y-5">
         <div className="grid gap-5 lg:grid-cols-2">{[["Customer Receivables", customerOutstanding, "customers", "text-rose-700"], ["Distributor Payables", distributorOutstanding, "distributors", "text-amber-700"]].map(([title, total, side, tone]) => <section key={side} className="premium-panel p-5"><h3 className="font-heading text-lg font-bold">{title}</h3><div className={`mt-2 text-3xl font-extrabold ${tone}`}>{fmtINR(total)}</div><div className="mt-5 grid grid-cols-2 gap-3">{agingBuckets(side).map((bucket) => <div key={bucket.label} className="rounded-lg bg-slate-50 p-3"><div className="text-xs font-semibold text-slate-500">{bucket.label}</div><div className="mt-1 font-bold">{fmtINR(bucket.value)}</div></div>)}</div></section>)}</div>
