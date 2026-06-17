@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import api, { fmtINR, formatApiError } from "@/lib/api";
+import { getDistributorBalanceLabel } from "@/lib/sharing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -132,7 +133,7 @@ export default function Distributors() {
 
       <div className="bg-white border border-slate-200 rounded-sm overflow-x-auto">
         <table className="data-table">
-          <thead><tr><th>Name</th><th>Phone</th><th>GSTIN</th><th>Status</th><th>Last Purchase</th><th className="text-right">Current Balance / Payable</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Phone</th><th>GSTIN</th><th>Status</th><th>Last Purchase</th><th className="text-right">Current Balance / Status</th><th></th></tr></thead>
           <tbody>
             {filteredList.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate-500">{search ? "No distributors match your search." : "No distributors yet."}</td></tr>}
             {filteredList.map((d) => (
@@ -142,7 +143,7 @@ export default function Distributors() {
                 <td className="font-mono text-xs">{d.gstin || "—"}</td>
                 <td>{getStatus(d) && <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${statusTone(getStatus(d))}`}>{String(getStatus(d)).replace(/[_-]/g, " ")}</span>}</td>
                 <td className="whitespace-nowrap text-sm text-slate-600">{formatDate(getLastPurchaseDate(d))}</td>
-                <td className="num-cell"><span className={`inline-flex rounded-sm border px-2 py-1 font-semibold ${balanceTone(getCurrentBalance(d))}`}>{fmtINR(getCurrentBalance(d))}</span></td>
+                <td className="num-cell"><span className={`inline-flex rounded-sm border px-2 py-1 font-semibold ${balanceTone(getCurrentBalance(d))}`}>{fmtINR(getCurrentBalance(d))} · {getDistributorBalanceLabel(getCurrentBalance(d))}</span></td>
                 <td className="text-right">
                   <Link to={`/ledger/distributor/${d.id}`} className="text-blue-600 text-xs hover:underline inline-flex items-center gap-1">
                     <BookOpen className="w-3 h-3" />Ledger

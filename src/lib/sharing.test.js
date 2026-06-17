@@ -1,4 +1,4 @@
-import { invoiceShareMessage, ledgerShareMessage, patientShareMessage, whatsappUrl } from "./sharing";
+import { getDistributorBalanceLabel, invoiceShareMessage, ledgerShareMessage, patientShareMessage, whatsappUrl } from "./sharing";
 
 jest.mock("./api", () => ({
   fmtDate: (value) => String(value || "—"),
@@ -20,4 +20,16 @@ test("patient and ledger messages are polite summaries", () => {
   expect(patientShareMessage({ name: "Asha", medicine_name: "Medicine A" })).toMatch(/friendly reminder/i);
   expect(ledgerShareMessage({ type: "customer", entity: { name: "Asha" }, balance: 50 })).toMatch(/polite reminder/i);
   expect(ledgerShareMessage({ type: "distributor", entity: { name: "Supplier" }, balance: 50 })).toMatch(/payable/i);
+});
+
+test("distributor balance labels distinguish payable, receivable, and settled balances", () => {
+  expect(getDistributorBalanceLabel(500)).toBe("Payable");
+  expect(getDistributorBalanceLabel(0)).toBe("Settled");
+  expect(getDistributorBalanceLabel(-500)).toBe("Receivable");
+});
+
+test("distributor ledger WhatsApp messages label payable, receivable, and settled balances", () => {
+  expect(ledgerShareMessage({ type: "distributor", entity: { name: "Supplier" }, balance: 500 })).toContain("Current Payable Balance: ₹500");
+  expect(ledgerShareMessage({ type: "distributor", entity: { name: "Supplier" }, balance: 0 })).toContain("Current Settled Balance: ₹0");
+  expect(ledgerShareMessage({ type: "distributor", entity: { name: "Supplier" }, balance: -500 })).toContain("Current Receivable Balance: ₹-500");
 });

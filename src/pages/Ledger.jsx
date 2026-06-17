@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Download, MessageCircle, Pencil, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
-import { ledgerShareMessage, whatsappUrl } from "@/lib/sharing";
+import { getDistributorBalanceLabel, ledgerShareMessage, whatsappUrl } from "@/lib/sharing";
 
 const currentMonthValue = () => new Date().toISOString().slice(0, 7);
 
@@ -428,6 +428,7 @@ const downloadLedger = async () => {
   const displayedBalance = type === "distributor"
     ? distributorTotalBalance ?? getDistributorTotalBalance(entity) ?? (selectedFinancialYear === ALL_FINANCIAL_YEARS ? Number(data.balance || 0) : 0)
     : data.balance;
+  const distributorBalanceLabel = getDistributorBalanceLabel(displayedBalance);
   const ledgerWhatsappUrl = whatsappUrl(entity.phone, ledgerShareMessage({ type, entity, balance: displayedBalance, transactions }));
   const isDistributorSpecificFinancialYear = type === "distributor" && selectedFinancialYear !== ALL_FINANCIAL_YEARS;
   const broughtForwardBalance = Number(data.brought_forward_balance || 0);
@@ -498,7 +499,7 @@ const downloadLedger = async () => {
 
     <div className="text-xs text-slate-500">
       {type === "distributor"
-        ? "Payable"
+        ? distributorBalanceLabel
         : "Receivable"}
     </div>
  
