@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Download, MessageCircle, Pencil, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { ledgerShareMessage, whatsappUrl } from "@/lib/sharing";
+import { getDistributorDocumentNumber, getLedgerTxnDate, getReferenceNotes, getTransactionKind, getTransactionTypeLabel, isOpeningBalanceTransaction, isPurchaseTransaction } from "./ledgerUtils";
 
 const currentMonthValue = () => new Date().toISOString().slice(0, 7);
 
@@ -27,62 +28,26 @@ const getCurrentIndianFinancialYear = () => {
 };
 
 const getTransactionDate = (transaction) =>
-  transaction.date || transaction.transaction_date || transaction.created_at;
-
-const getLedgerTxnDate = (transaction) => {
-  const isOpeningBalance =
-    String(transaction?.type || "").toLowerCase() === "opening_balance" ||
-    Boolean(transaction?.is_opening_balance || transaction?.opening_balance);
-
-  return isOpeningBalance
-    ? transaction.opening_balance_date || transaction.date || transaction.transaction_date || transaction.created_at
-    : transaction.transaction_date || transaction.date || transaction.opening_balance_date || transaction.created_at;
-};
+  transaction.transaction_date || transaction.date || transaction.opening_balance_date || transaction.created_at;
 
 const getTransactionMonth = (transaction) => {
   const date = getTransactionDate(transaction);
   return date ? String(date).slice(0, 7) : "";
 };
 
-const getTransactionKind = (transaction) => String(transaction?.type || "").toLowerCase();
-
 const getTransactionMode = (transaction) => transaction?.payment_mode || transaction?.mode;
-
-const getTransactionTypeLabel = (transaction) =>
-  transaction?.display_type || transaction?.type || "-";
 
 const getCleanFieldValue = (value) => String(value || "").trim();
 
 const getFirstAvailableValue = (values) =>
   values.map(getCleanFieldValue).find(Boolean) || "-";
 
-const isOpeningBalanceTransaction = (transaction) =>
-  getTransactionKind(transaction) === "opening_balance" ||
-  Boolean(transaction?.is_opening_balance || transaction?.opening_balance);
-
-const isPurchaseTransaction = (transaction) =>
-  isOpeningBalanceTransaction(transaction) || getTransactionKind(transaction).includes("purchase");
-
-const getDistributorDocumentNumber = (transaction) => {
-  if (isPurchaseTransaction(transaction)) {
-    return getFirstAvailableValue([
-      transaction.invoice_number,
-      transaction.bill_number,
-      transaction.reference_number
-    ]);
-  }
-
-  return getFirstAvailableValue([transaction.receipt_number, transaction.reference_number]);
-};
 const getPurchaseOrderId = (transaction) => transaction.purchase_order_id || transaction.po_id;
 
 const isEditableDistributorTransaction = (transaction) => {
   const kind = getTransactionKind(transaction);
   return ["opening_balance", "payment", "purchase", "manual", "manual_payment", "manual_purchase", "adjustment", "payment_adjustment"].includes(kind);
 };
-
-const getReferenceNotes = (transaction) =>
-  isOpeningBalanceTransaction(transaction) ? "Opening Balance" : (transaction.reference || transaction.notes || "—");
 
 const getNewTransactionModeOptions = (type, txnType) => {
   if (type === "distributor" && txnType === "purchase") {
@@ -145,7 +110,7 @@ const getBillWiseInfo = (transaction) => {
 };
 
 const getAdjustedAgainstItems = (transaction) =>
-  Array.isArray(transaction?.adjusted_against)
+  isOpeningBalanceTransaction(transaction) ? [] : Array.isArray(transaction?.adjusted_against)
     ? transaction.adjusted_against.filter((item) => item && hasFieldValue(item.amount))
     : [];
 
@@ -293,7 +258,7 @@ export default function Ledger() {
     ])
   ];
   const monthlyTransactions = transactions.filter(
-    (transaction) => getTransactionMonth(transaction) === selectedMonth
+    (transaction) => !isOpeningBalanceTransaction(transaction) && getTransactionMonth(transaction) === selectedMonth
   );
   const monthlyPurchases = monthlyTransactions.filter(
     (transaction) => getTransactionKind(transaction) === "purchase"
@@ -731,6 +696,7 @@ const downloadLedger = async () => {
             {ledgerTransactions.length === 0 && <tr><td colSpan={type === "distributor" ? 8 : 7} className="text-center py-8 text-slate-500">No transactions yet.</td></tr>}
             {ledgerTransactions.map((t) => {
               const isDistributorLedger = type === "distributor";
+              const isOpeningBalance = isDistributorLedger && isOpeningBalanceTransaction(t);
               const isDistributorPurchase = isDistributorLedger && isPurchaseTransaction(t);
               const billStatusDisplay = isDistributorPurchase ? getBillStatusDisplay(t) : null;
               const billWiseInfo = isDistributorPurchase ? getBillWiseInfo(t) : [];
@@ -746,7 +712,7 @@ const downloadLedger = async () => {
                   </td>
                   <td className="uppercase text-xs tracking-wider font-semibold">
                     <div className="flex flex-col items-start gap-1">
-                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getTransactionKind(t) === "payment" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : isDistributorPurchase ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>{getTransactionTypeLabel(t)}</span>
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isOpeningBalance ? "border-slate-200 bg-slate-50 text-slate-700" : getTransactionKind(t) === "payment" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : isDistributorPurchase ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>{getTransactionTypeLabel(t)}</span>
                       {billStatusDisplay && (
                         <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${billStatusDisplay.badgeClassName}`}>
                           {billStatusDisplay.label}
@@ -787,9 +753,9 @@ const downloadLedger = async () => {
                     )}
                   </td>
                   {type === "distributor" && <td className="text-sm font-medium">{getPurchaseOrderId(t) ? <Link to={`/purchase-orders/${getPurchaseOrderId(t)}`} className="text-blue-600 hover:underline">{getDistributorDocumentNumber(t)}</Link> : getDistributorDocumentNumber(t)}</td>}
-                  <td className="text-xs uppercase">{getTransactionMode(t) || "—"}</td>
-                  <td className={`num-cell font-semibold ${getTransactionKind(t) === "payment" ? "text-emerald-600" : "text-slate-800"}`}>
-                    {getTransactionKind(t) === "payment" ? "−" : Number(t.amount || 0) < 0 ? "" : "+"}{fmtINR(t.amount)}
+                  <td className="text-xs uppercase">{isOpeningBalance ? "—" : (getTransactionMode(t) || "—")}</td>
+                  <td className={`num-cell font-semibold ${!isOpeningBalance && getTransactionKind(t) === "payment" ? "text-emerald-600" : "text-slate-800"}`}>
+                    {!isOpeningBalance && getTransactionKind(t) === "payment" ? "−" : Number(t.amount || 0) < 0 ? "" : "+"}{fmtINR(t.amount)}
                   </td>
                   <td className={`num-cell font-bold ${Number(t.running_balance || 0) > 0 ? "text-red-700" : "text-emerald-700"}`}>{fmtINR(t.running_balance)}</td>
                   <td>
