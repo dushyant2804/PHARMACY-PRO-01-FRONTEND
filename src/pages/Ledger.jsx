@@ -9,10 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Download, MessageCircle, Pencil, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { getDistributorBalanceLabel, ledgerShareMessage, whatsappUrl } from "@/lib/sharing";
+import {
+  ALL_FINANCIAL_YEARS,
+  getDistributorLedgerParams,
+  normalizeFinancialYear
+} from "@/lib/ledger";
 
 const currentMonthValue = () => new Date().toISOString().slice(0, 7);
-
-const ALL_FINANCIAL_YEARS = "all";
 
 const getCurrentIndianFinancialYear = () => {
   const parts = new Intl.DateTimeFormat("en-IN", {
@@ -145,6 +148,8 @@ const getAdjustedAgainstItems = (transaction) =>
 export default function Ledger() {
   const { type, id } = useParams(); // type: distributor | customer
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [open, setOpen] = useState(false);
   const [txnType, setTxnType] = useState(type === "distributor" ? "payment" : "sale");
   const [selectedMonth, setSelectedMonth] = useState(currentMonthValue());
@@ -180,32 +185,47 @@ export default function Ledger() {
   const load = async () => {
     const requestId = ++loadRequestRef.current;
     setData(null);
+    setLoadError("");
+    setLoading(true);
 
     const config = type === "distributor"
-      ? { params: { financial_year: selectedFinancialYear } }
+      ? { params: getDistributorLedgerParams(selectedFinancialYear) }
       : undefined;
-    const response = await api.get(`/ledger/${type}/${id}`, config);
-    if (requestId !== loadRequestRef.current) return;
+    try {
+      const response = await api.get(`/ledger/${type}/${id}`, config);
+      if (requestId !== loadRequestRef.current) return;
 
-    const nextData = response.data;
-    setData(nextData);
+      const nextData = response.data;
+      setData(nextData);
 
-    if (type === "distributor" && !syncedBackendFinancialYearRef.current) {
-      syncedBackendFinancialYearRef.current = true;
-      if (nextData.current_financial_year && nextData.current_financial_year !== selectedFinancialYear) {
-        setSelectedFinancialYear(nextData.current_financial_year);
+      if (type === "distributor" && !syncedBackendFinancialYearRef.current) {
+        syncedBackendFinancialYearRef.current = true;
+        if (nextData.current_financial_year && nextData.current_financial_year !== selectedFinancialYear) {
+          setSelectedFinancialYear(nextData.current_financial_year);
+        }
+      }
+    } catch (error) {
+      if (requestId !== loadRequestRef.current) return;
+      setLoadError(formatApiError(error));
+    } finally {
+      if (requestId === loadRequestRef.current) {
+        setLoading(false);
       }
     }
   };
   useEffect(() => {
     loadRequestRef.current += 1;
     setData(null);
+    setLoadError("");
+    setLoading(true);
     if (type === "distributor") {
       syncedBackendFinancialYearRef.current = false;
       setSelectedFinancialYear(getCurrentIndianFinancialYear());
     }
   }, [type, id]);
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [type, id, selectedFinancialYear]);
+  // `load` intentionally follows the current route and selected FY values.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [type, id, selectedFinancialYear]);
 
   useEffect(() => {
     if (type !== "distributor" || !data) return;
@@ -260,7 +280,19 @@ export default function Ledger() {
     } catch (e) { toast.error(formatApiError(e)); }
   };
 
-  if (!data) return <div className="text-slate-500">Loading…</div>;
+  if (loading) return <div className="text-slate-500">Loading…</div>;
+  if (loadError) {
+    return (
+      <div className="rounded-sm border border-red-200 bg-red-50 p-4 text-red-800" role="alert">
+        <div className="font-semibold">Unable to load ledger</div>
+        <div className="mt-1 text-sm">{loadError}</div>
+        <Button variant="outline" size="sm" className="mt-3 rounded-sm" onClick={load}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+  if (!data) return <div className="text-slate-500">No ledger data was returned.</div>;
   const entity = type === "distributor" ? data.distributor : data.customer;
   const transactions = data.transactions || [];
   const ledgerTransactions = type === "distributor"
@@ -396,7 +428,7 @@ const downloadLedger = async () => {
   setExporting(true);
   try {
     const response = await api.get(`/ledger/${type}/${id}/export`, {
-      params: type === "distributor" && selectedFinancialYear !== ALL_FINANCIAL_YEARS ? { financial_year: selectedFinancialYear } : undefined,
+      params: type === "distributor" ? getDistributorLedgerParams(selectedFinancialYear) : undefined,
       responseType: "blob"
     });
     const contentType = response.headers["content-type"] || "application/octet-stream";
@@ -548,7 +580,10 @@ const downloadLedger = async () => {
             <Label className="text-xs uppercase font-semibold text-slate-600">
               Financial Year
             </Label>
-            <Select value={selectedFinancialYear} onValueChange={setSelectedFinancialYear}>
+            <Select
+              value={normalizeFinancialYear(selectedFinancialYear)}
+              onValueChange={(value) => setSelectedFinancialYear(normalizeFinancialYear(value))}
+            >
               <SelectTrigger className="rounded-sm mt-1 bg-white" data-testid="financial-year-filter">
                 <SelectValue />
               </SelectTrigger>
