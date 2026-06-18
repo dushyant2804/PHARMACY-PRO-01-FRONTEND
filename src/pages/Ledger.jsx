@@ -102,13 +102,6 @@ const getNewTransactionModeOptions = (type, txnType) => {
   ];
 };
 
-const getDistributorTotalBalance = (distributor) => {
-  if (!distributor) return null;
-  const balance = distributor.current_balance ?? distributor.outstanding_balance;
-  return balance === undefined || balance === null ? null : Number(balance || 0);
-};
-
-
 const BILL_STATUS_DISPLAY = {
   cleared: {
     label: "Cleared",
@@ -152,7 +145,6 @@ const getAdjustedAgainstItems = (transaction) =>
 export default function Ledger() {
   const { type, id } = useParams(); // type: distributor | customer
   const [data, setData] = useState(null);
-  const [distributorTotalBalance, setDistributorTotalBalance] = useState(null);
   const [open, setOpen] = useState(false);
   const [txnType, setTxnType] = useState(type === "distributor" ? "payment" : "sale");
   const [selectedMonth, setSelectedMonth] = useState(currentMonthValue());
@@ -160,6 +152,7 @@ export default function Ledger() {
   const [ledgerTypeFilter, setLedgerTypeFilter] = useState("all");
   const [selectedFinancialYear, setSelectedFinancialYear] = useState(getCurrentIndianFinancialYear);
   const syncedBackendFinancialYearRef = useRef(false);
+  const loadRequestRef = useRef(0);
   const [editOpen, setEditOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -185,54 +178,58 @@ export default function Ledger() {
   });
 
   const load = async () => {
-    const config = type === "distributor" && selectedFinancialYear !== ALL_FINANCIAL_YEARS
+    const requestId = ++loadRequestRef.current;
+    setData(null);
+
+    const config = type === "distributor"
       ? { params: { financial_year: selectedFinancialYear } }
       : undefined;
-    const { data } = await api.get(`/ledger/${type}/${id}`, config);
-    setData(data);
+    const response = await api.get(`/ledger/${type}/${id}`, config);
+    if (requestId !== loadRequestRef.current) return;
 
-    if (type === "distributor") {
-      const ledgerDistributorBalance = getDistributorTotalBalance(data.distributor);
-
-      if (ledgerDistributorBalance !== null) {
-        setDistributorTotalBalance(ledgerDistributorBalance);
-      } else {
-        try {
-          const { data: distributors } = await api.get("/distributors");
-          const matchingDistributor = Array.isArray(distributors)
-            ? distributors.find((distributor) => String(distributor.id) === String(id))
-            : null;
-          const listDistributorBalance = getDistributorTotalBalance(matchingDistributor);
-
-          if (listDistributorBalance !== null) {
-            setDistributorTotalBalance(listDistributorBalance);
-          } else if (selectedFinancialYear === ALL_FINANCIAL_YEARS) {
-            setDistributorTotalBalance(Number(data.balance || 0));
-          }
-        } catch {
-          if (selectedFinancialYear === ALL_FINANCIAL_YEARS) {
-            setDistributorTotalBalance(Number(data.balance || 0));
-          }
-        }
-      }
-    }
+    const nextData = response.data;
+    setData(nextData);
 
     if (type === "distributor" && !syncedBackendFinancialYearRef.current) {
       syncedBackendFinancialYearRef.current = true;
-      if (data.current_financial_year && data.current_financial_year !== selectedFinancialYear) {
-        setSelectedFinancialYear(data.current_financial_year);
+      if (nextData.current_financial_year && nextData.current_financial_year !== selectedFinancialYear) {
+        setSelectedFinancialYear(nextData.current_financial_year);
       }
     }
   };
   useEffect(() => {
+    loadRequestRef.current += 1;
     setData(null);
-    setDistributorTotalBalance(null);
     if (type === "distributor") {
       syncedBackendFinancialYearRef.current = false;
       setSelectedFinancialYear(getCurrentIndianFinancialYear());
     }
   }, [type, id]);
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [type, id, selectedFinancialYear]);
+
+  useEffect(() => {
+    if (type !== "distributor" || !data) return;
+
+    const debugSnapshot = {
+      _debug_candidate_row_count: data._debug_candidate_row_count,
+      _debug_removed_synthetic_po_count: data._debug_removed_synthetic_po_count,
+      _debug_final_row_count: data._debug_final_row_count,
+      _debug_total_purchase_source: data._debug_total_purchase_source,
+      transactions_length: Array.isArray(data.transactions) ? data.transactions.length : 0,
+      total_purchases: data.total_purchases,
+      balance: data.balance
+    };
+    const syntheticRows = (Array.isArray(data.transactions) ? data.transactions : []).filter(
+      (transaction) =>
+        (transaction.source === "purchase_orders" || transaction.backend_row_source === "purchase_orders") &&
+        transaction.is_synthetic === true
+    );
+
+    console.debug("[Distributor ledger response]", debugSnapshot);
+    if (syntheticRows.length) {
+      console.warn("[Distributor ledger] Backend final transactions still include synthetic purchase_order rows.", syntheticRows);
+    }
+  }, [data, type]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -425,9 +422,7 @@ const downloadLedger = async () => {
     : editingTransaction
       ? String((type === "distributor" ? getLedgerTxnDate(editingTransaction) : getTransactionDate(editingTransaction)) || "").slice(0, 10)
       : "";
-  const displayedBalance = type === "distributor"
-    ? distributorTotalBalance ?? getDistributorTotalBalance(entity) ?? (selectedFinancialYear === ALL_FINANCIAL_YEARS ? Number(data.balance || 0) : 0)
-    : data.balance;
+  const displayedBalance = Number(data.balance || 0);
   const distributorBalanceLabel = getDistributorBalanceLabel(displayedBalance);
   const ledgerWhatsappUrl = whatsappUrl(entity.phone, ledgerShareMessage({ type, entity, balance: displayedBalance, transactions }));
   const isDistributorSpecificFinancialYear = type === "distributor" && selectedFinancialYear !== ALL_FINANCIAL_YEARS;
@@ -570,6 +565,32 @@ const downloadLedger = async () => {
           </div>
         )}
       </div>
+
+      {type === "distributor" && (
+        <div className="rounded-sm border border-amber-200 bg-amber-50 p-4 text-sm" data-testid="distributor-ledger-debug">
+          <div className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-amber-800">
+            Temporary ledger response debug
+          </div>
+          <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["response._debug_candidate_row_count", data._debug_candidate_row_count],
+              ["response._debug_removed_synthetic_po_count", data._debug_removed_synthetic_po_count],
+              ["response._debug_final_row_count", data._debug_final_row_count],
+              ["response._debug_total_purchase_source", data._debug_total_purchase_source],
+              ["response.transactions.length", transactions.length],
+              ["response.total_purchases", data.total_purchases],
+              ["response.balance", data.balance]
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="font-mono text-xs text-amber-800">{label}</dt>
+                <dd className="mt-0.5 break-words font-semibold text-slate-900">
+                  {value === undefined || value === null ? "not returned" : String(value)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
 
       {type === "distributor" && (
         <div className="bg-white border border-slate-200 rounded-sm p-4 space-y-4">
