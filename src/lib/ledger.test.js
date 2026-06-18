@@ -6,16 +6,19 @@ import {
 
 describe("distributor ledger financial year normalization", () => {
   test.each(["all", "All", "ALL", " all ", "", null, undefined])(
-    "normalizes %p to the backend All sentinel",
+    "normalizes %p to the backend all sentinel",
     (financialYear) => {
       expect(normalizeFinancialYear(financialYear)).toBe(ALL_FINANCIAL_YEARS);
       expect(getDistributorLedgerParams(financialYear)).toEqual({
-        financial_year: "All"
+        financial_year: "all"
       });
     }
   );
 
   test("preserves a specific financial year", () => {
+    expect(getDistributorLedgerParams("2025-26")).toEqual({
+      financial_year: "2025-26"
+    });
     expect(getDistributorLedgerParams("2026-27")).toEqual({
       financial_year: "2026-27"
     });
