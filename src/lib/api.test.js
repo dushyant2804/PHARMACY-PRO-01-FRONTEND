@@ -7,9 +7,13 @@ jest.mock("axios", () => ({
   }),
 }));
 
-import { formatAuthError } from "./api";
+import { API, formatAuthError } from "./api";
 
 const apiError = (detail) => ({ response: { data: { detail } } });
+
+test("uses /api as the shared client base path when no backend URL is configured", () => {
+  expect(API).toBe("/api");
+});
 
 describe("formatAuthError", () => {
   test.each([

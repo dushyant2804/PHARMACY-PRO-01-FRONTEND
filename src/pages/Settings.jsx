@@ -1,6 +1,10 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api, { formatApiError } from "@/lib/api";
+import {
+  formatPrivacyPasswordSaveError,
+  savePrivacyPasswordRequest,
+} from "@/lib/privacyPassword";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -217,13 +221,13 @@ export default function Settings() {
 
     setSavingPrivacyPassword(true);
     try {
-      await api.put("/settings/privacy-password", {
-        privacy_password: privacyPasswordForm.password,
-      });
+      await savePrivacyPasswordRequest(api, privacyPasswordForm.password);
       setPrivacyPasswordForm({ password: "", confirm: "" });
       toast.success("Privacy Password updated.");
     } catch (e) {
-      toast.error(`Could not update Privacy Password: ${formatApiError(e)}`);
+      toast.error(
+        `Could not update Privacy Password: ${formatPrivacyPasswordSaveError(e)}`,
+      );
     } finally {
       setSavingPrivacyPassword(false);
     }
@@ -312,6 +316,7 @@ export default function Settings() {
           </p>
           <form
             onSubmit={savePrivacyPassword}
+            data-api-path="/settings/privacy-password"
             className="grid max-w-2xl gap-3 md:grid-cols-[1fr_1fr_auto]"
           >
             <div>
