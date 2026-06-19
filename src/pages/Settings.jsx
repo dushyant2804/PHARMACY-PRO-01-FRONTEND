@@ -506,17 +506,6 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* ================= ADMIN TOOLS ================= */}
-      {user?.role === "admin" && (
-        <div className="bg-white border border-slate-200 rounded-sm p-5" data-testid="admin-tools-section">
-          <div className="font-heading font-semibold mb-3">Admin Tools</div>
-          <p className="text-sm text-slate-600 mb-4">Restricted operational tools for administrators only.</p>
-          <Button asChild variant="outline" className="rounded-sm">
-            <Link to="/settings/admin-tools/stale-sold-units">Temporary Sold Units Repair</Link>
-          </Button>
-        </div>
-      )}
-
       {/* ================= USERS ================= */}
       {user?.role === "admin" && (
         <div className="bg-white border border-slate-200 rounded-sm p-5">

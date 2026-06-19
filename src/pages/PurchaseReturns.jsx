@@ -236,6 +236,7 @@ const isVoided = (item) => parseBoolean(firstDefined(item.is_voided, item.voided
 const actionAllowed = (item, action) => {
   const explicit = firstDefined(item[`can_${action}`], item.permissions?.[action], item.allowed_actions?.includes?.(action));
   if (explicit !== undefined) return parseBoolean(explicit);
+  if (["edit", "delete"].includes(action)) return !isVoided(item);
   return !isVoided(item) && getSettlementState(item).label === "Unsettled";
 };
 
@@ -562,7 +563,7 @@ export default function PurchaseReturns() {
   const [reportLoading, setReportLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [editForm, setEditForm] = useState({ return_date: "", reason: "", notes: "", return_quantity: "", purchase_rate: "" });
+  const [editForm, setEditForm] = useState({ ...emptyForm });
   const [actionError, setActionError] = useState("");
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
@@ -768,22 +769,64 @@ export default function PurchaseReturns() {
   };
 
   const openEdit = (item) => {
+    const batchNumber = firstDefined(item.batch_number, item.batch_no, item.batch, "");
+    const expiryDate = firstDefined(item.expiry_date, item.expiry, "");
+    const selectedOption = {
+      medicine_id: firstDefined(item.medicine_id, ""),
+      medicine_key: firstDefined(item.medicine_key, item.medicine_id, ""),
+      medicine_name: firstDefined(item.medicine_name, item.medicine, ""),
+      batch_number: batchNumber,
+      expiry_date: expiryDate,
+      distributor_id: firstDefined(item.distributor_id, ""),
+      distributor: firstDefined(item.distributor_name, item.distributor, ""),
+      available_stock: firstDefined(item.available_stock, item.current_stock, item.return_quantity, item.quantity, 0),
+      purchase_rate: firstDefined(item.purchase_rate, item.purchase_price, ""),
+      mrp: firstDefined(item.mrp, ""),
+    };
+
     setActionError("");
     setEditing(item);
+    setBatchOptions([selectedOption]);
+    setSelectedBatchKey(getBatchOptionKey(selectedOption, 0));
+    setBatchSearchOpen(false);
     setEditForm({
+      ...emptyForm,
       return_date: String(firstDefined(item.return_date, item.date, "")).slice(0, 10),
-      reason: item.reason || "Other",
-      notes: item.notes || "",
+      distributor_id: String(firstDefined(item.distributor_id, "")),
+      distributor_name: firstDefined(item.distributor_name, item.distributor, ""),
+      medicine_id: firstDefined(item.medicine_id, ""),
+      medicine_key: firstDefined(item.medicine_key, item.medicine_id, ""),
+      medicine_name: firstDefined(item.medicine_name, item.medicine, ""),
+      batch_number: batchNumber,
+      expiry_date: expiryDate,
+      available_stock: firstDefined(item.available_stock, item.current_stock, item.return_quantity, item.quantity, 0),
       return_quantity: firstDefined(item.return_quantity, item.quantity, ""),
       purchase_rate: firstDefined(item.purchase_rate, item.purchase_price, ""),
+      mrp: firstDefined(item.mrp, ""),
+      reason: item.reason || "Other",
+      notes: item.notes || "",
+      adjust_distributor_ledger: parseBoolean(firstDefined(item.adjust_distributor_ledger, item.ledger_adjusted, false)),
     });
   };
 
   const saveEdit = async (event) => {
     event.preventDefault();
-    const payload = { return_date: editForm.return_date, reason: editForm.reason, notes: editForm.notes.trim() };
-    if (parseBoolean(editing.can_edit_quantity)) payload.return_quantity = Number(editForm.return_quantity);
-    if (parseBoolean(editing.can_edit_rate)) payload.purchase_rate = Number(editForm.purchase_rate);
+    const payload = {
+      return_date: editForm.return_date,
+      distributor_id: editForm.distributor_id,
+      distributor_name: editForm.distributor_name,
+      medicine_id: editForm.medicine_id,
+      medicine_key: editForm.medicine_key,
+      medicine_name: editForm.medicine_name.trim(),
+      batch_number: editForm.batch_number.trim(),
+      expiry_date: editForm.expiry_date,
+      return_quantity: Number(editForm.return_quantity),
+      purchase_rate: Number(editForm.purchase_rate),
+      return_amount: getReturnAmount(editForm),
+      reason: editForm.reason,
+      notes: editForm.notes.trim(),
+      adjust_distributor_ledger: editForm.adjust_distributor_ledger,
+    };
     try {
       setSaving(true);
       setActionError("");
@@ -800,12 +843,12 @@ export default function PurchaseReturns() {
     }
   };
 
-  const voidReturn = async (item) => {
-    if (!window.confirm("This will void the return and restore stock if allowed. Continue?")) return;
+  const deleteReturn = async (item) => {
+    if (!window.confirm("Delete Purchase Return\n\nDeleting this purchase return will reverse its stock impact. If it was ledger-adjusted, the linked distributor ledger entry will also be removed or reversed. Continue?")) return;
     try {
       setActionError("");
-      await api.post(`/purchase-returns/${item.id}/void`);
-      toast.success("Purchase return voided");
+      await api.delete(`/purchase-returns/${item.id}`);
+      toast.success("Purchase return deleted");
       await loadAll(page, appliedFilters);
     } catch (e) {
       const message = formatApiError(e);
@@ -1046,7 +1089,7 @@ export default function PurchaseReturns() {
                   <td className="text-xs text-slate-600">{item.notes || "—"}</td>
                   <td><div className="flex gap-2">
                     {actionAllowed(item, "edit") && <Button size="sm" variant="outline" onClick={() => openEdit(item)}><Pencil className="mr-1 h-3 w-3" />Edit</Button>}
-                    {actionAllowed(item, "void") && <Button size="sm" variant="outline" className="text-red-700" onClick={() => voidReturn(item)}>Void Return</Button>}
+                    {actionAllowed(item, "delete") && <Button size="sm" variant="outline" className="text-red-700" onClick={() => deleteReturn(item)}>Delete</Button>}
                   </div></td>
                 </tr>
               );
@@ -1260,15 +1303,31 @@ export default function PurchaseReturns() {
       </Dialog>
 
       <Dialog open={Boolean(editing)} onOpenChange={(next) => !next && setEditing(null)}>
-        <DialogContent className="rounded-sm max-w-lg">
+        <DialogContent className="rounded-sm max-w-3xl">
           <DialogHeader><DialogTitle>Edit Purchase Return</DialogTitle></DialogHeader>
           <form onSubmit={saveEdit} className="space-y-4">
             {actionError && <div role="alert" className="rounded-sm bg-red-50 p-3 text-sm font-medium text-red-700">{actionError}</div>}
-            <div><Label>Return Date</Label><Input type="date" required value={editForm.return_date} onChange={(e) => setEditForm({ ...editForm, return_date: e.target.value })} /></div>
-            <div><Label>Reason</Label><Select value={editForm.reason} onValueChange={(reason) => setEditForm({ ...editForm, reason })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{reasons.map((reason) => <SelectItem key={reason} value={reason}>{reason}</SelectItem>)}</SelectContent></Select></div>
-            <div><Label>Notes</Label><Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} /></div>
-            {parseBoolean(editing?.can_edit_quantity) && <div><Label>Return Quantity</Label><Input type="number" min="1" required value={editForm.return_quantity} onChange={(e) => setEditForm({ ...editForm, return_quantity: e.target.value })} /></div>}
-            {parseBoolean(editing?.can_edit_rate) && <div><Label>Purchase Rate</Label><Input type="number" min="0" step="0.01" required value={editForm.purchase_rate} onChange={(e) => setEditForm({ ...editForm, purchase_rate: e.target.value })} /></div>}
+            {editForm.adjust_distributor_ledger && (
+              <div className="rounded-sm border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900">
+                This return has a distributor ledger impact. Editing it will update the linked ledger transaction.
+              </div>
+            )}
+            <div className="grid md:grid-cols-2 gap-3">
+              <div><Label>Return Date</Label><Input type="date" required value={editForm.return_date} onChange={(e) => setEditForm({ ...editForm, return_date: e.target.value })} /></div>
+              <div><Label>Distributor</Label><Select value={editForm.distributor_id} onValueChange={(value) => { const distributor = distributors.find((item) => String(item.id) === String(value)); setEditForm({ ...editForm, distributor_id: value, distributor_name: distributor?.name || editForm.distributor_name }); }}><SelectTrigger><SelectValue placeholder="Select distributor" /></SelectTrigger><SelectContent>{distributors.map((distributor) => <SelectItem key={distributor.id} value={String(distributor.id)}>{distributor.name}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-2"><Label>Medicine / Batch</Label><Input required value={editForm.medicine_name} onChange={(e) => setEditForm({ ...editForm, medicine_name: e.target.value })} /></div>
+              <div><Label>Batch Number</Label><Input required value={editForm.batch_number} onChange={(e) => setEditForm({ ...editForm, batch_number: e.target.value })} /></div>
+              <div><Label>Expiry Date</Label><Input type="date" value={editForm.expiry_date} onChange={(e) => setEditForm({ ...editForm, expiry_date: e.target.value })} /></div>
+              <div><Label>Return Quantity</Label><Input type="number" min="1" required value={editForm.return_quantity} onChange={(e) => setEditForm({ ...editForm, return_quantity: e.target.value })} /></div>
+              <div><Label>Purchase Rate</Label><Input type="number" min="0" step="0.01" required value={editForm.purchase_rate} onChange={(e) => setEditForm({ ...editForm, purchase_rate: e.target.value })} /></div>
+              <div><Label>Reason</Label><Select value={editForm.reason} onValueChange={(reason) => setEditForm({ ...editForm, reason })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{reasons.map((reason) => <SelectItem key={reason} value={reason}>{reason}</SelectItem>)}</SelectContent></Select></div>
+              <div><Label>Return Amount</Label><Input value={fmtINR(getReturnAmount(editForm))} readOnly className="font-bold text-blue-700" /></div>
+              <div className="md:col-span-2"><Label>Notes</Label><Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} /></div>
+            </div>
+            <div className="border border-slate-300 rounded-sm p-4 bg-slate-50 flex items-center justify-between gap-4">
+              <div><Label className="text-sm font-semibold text-slate-700">Adjust Distributor Ledger</Label><p className="text-xs text-slate-500 mt-1">Toggle only when backend permissions allow changing ledger treatment for this return.</p></div>
+              <Switch checked={editForm.adjust_distributor_ledger} onCheckedChange={(checked) => setEditForm({ ...editForm, adjust_distributor_ledger: checked })} />
+            </div>
             <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button><Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button></div>
           </form>
         </DialogContent>

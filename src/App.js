@@ -38,7 +38,6 @@ import DailySales from "@/pages/DailySales";
 import DailyClosing from "@/pages/DailyClosing";
 import Patients from "@/pages/Patients";
 import Onboarding from "@/pages/Onboarding";
-import StaleSoldUnitsRepair from "@/pages/StaleSoldUnitsRepair";
 
 import Layout from "@/components/Layout";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -311,14 +310,6 @@ function App() {
               }
             />
 
-            <Route
-              path="/settings/admin-tools/stale-sold-units"
-              element={
-                <Protected>
-                  <StaleSoldUnitsRepair />
-                </Protected>
-              }
-            />
 
             <Route
               path="*"
