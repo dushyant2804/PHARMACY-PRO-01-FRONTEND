@@ -6,15 +6,12 @@ import {
   AlertTriangle,
   Boxes,
   Eye,
-  Lock,
   Pencil,
-  Save,
   Search,
   Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import LowStockWorkflowControl from "@/components/LowStockWorkflowControl";
 
 const getAvailableQty = (item) =>
   Number(
@@ -143,8 +140,6 @@ export default function Inventory() {
   const [search, setSearch] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [threshold, setThreshold] = useState("");
-  const [savingThreshold, setSavingThreshold] = useState(false);
   const { setInspectorMode } = useLayout();
 
   useEffect(() => {
@@ -174,28 +169,7 @@ export default function Inventory() {
 
   const openDetails = (medicine) => {
     setSelected(medicine);
-    setThreshold("");
     setDetailsOpen(true);
-  };
-
-  const saveThreshold = async () => {
-    const value = Number(threshold);
-    if (!selected || !Number.isInteger(value) || value < 0) {
-      toast.error("Enter a whole-number threshold of 0 or more");
-      return;
-    }
-    try {
-      setSavingThreshold(true);
-      const { data } = await api.patch(`/medicines/${selected.id}`, { low_stock_threshold: value });
-      const updated = { ...selected, ...(data || {}), low_stock_threshold: value };
-      setSelected(updated);
-      setMeds((current) => current.map((medicine) => medicine.id === selected.id ? { ...medicine, ...updated } : medicine));
-      toast.success("Low-stock threshold set");
-    } catch (e) {
-      toast.error(formatApiError(e));
-    } finally {
-      setSavingThreshold(false);
-    }
   };
 
   const deleteMedicine = async () => {
@@ -209,11 +183,6 @@ export default function Inventory() {
     } catch (e) {
       toast.error(formatApiError(e));
     }
-  };
-
-  const updateWorkflowStatus = (updated) => {
-    setSelected(updated);
-    setMeds((current) => current.map((medicine) => medicine.id === updated.id ? { ...medicine, ...updated } : medicine));
   };
 
   const query = search.trim().toLowerCase();
@@ -411,15 +380,6 @@ export default function Inventory() {
                     );
                   })}
                 </div>
-              </SectionCard>
-
-              <SectionCard eyebrow="Stock policy" title="Low-stock threshold" className="border-t-2 border-t-amber-500">
-                {selected.low_stock_threshold !== null && selected.low_stock_threshold !== undefined ? <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3"><div><div className="text-sm font-bold text-slate-800">{selected.low_stock_threshold} units</div><div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500"><Lock className="h-3 w-3" /> Set once for this medicine · Read-only</div></div><Lock className="h-5 w-5 text-slate-400" /></div> : <div className="space-y-3"><p className="text-sm text-slate-600">No low-stock threshold has been set. Once saved, it is read-only.</p><div className="flex gap-2"><Input aria-label="Low stock threshold" type="number" min="0" step="1" value={threshold} onChange={(event) => setThreshold(event.target.value)} placeholder="Units" /><button type="button" disabled={savingThreshold || threshold === ""} onClick={saveThreshold} className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" />{savingThreshold ? "Saving…" : "Set Low Stock Threshold"}</button></div></div>}
-              </SectionCard>
-
-              <SectionCard eyebrow="Replenishment tracking" title="Low-stock workflow" className="border-t-2 border-t-blue-500">
-                <p className="mb-3 text-xs leading-5 text-slate-500">Track the replenishment decision without changing stock quantity.</p>
-                <LowStockWorkflowControl item={selected} onUpdated={updateWorkflowStatus} />
               </SectionCard>
             </div>
 

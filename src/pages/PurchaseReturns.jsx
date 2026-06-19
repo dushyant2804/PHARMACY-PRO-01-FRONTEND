@@ -27,6 +27,27 @@ const ledgerFilterValues = [
   { value: "false", label: "Not Adjusted" },
 ];
 
+
+const toExpiryMonthYear = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const monthYear = raw.match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
+  if (monthYear) return monthYear[0];
+
+  const canonical = raw.match(/^(\d{4})[-/](0[1-9]|1[0-2])(?:[-/]\d{1,2})?$/);
+  if (canonical) return `${canonical[2]}/${canonical[1].slice(-2)}`;
+
+  const date = new Date(raw);
+  if (!Number.isNaN(date.getTime())) {
+    return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getFullYear()).slice(-2)}`;
+  }
+
+  return raw;
+};
+
+const isExpiryMonthYear = (value) => /^(0[1-9]|1[0-2])\/\d{2}$/.test(String(value || "").trim());
+
 const emptyForm = {
   return_date: new Date().toISOString().split("T")[0],
   distributor_id: "",
@@ -715,7 +736,8 @@ export default function PurchaseReturns() {
     if (!form.batch_number.trim()) return "Batch is required";
     if (!selectedBatchKey) return "Select an exact medicine batch";
     if (!getSelectedBatchOption()) return "Selected medicine batch was not found. Please select it again";
-    if (!form.expiry_date) return "Expiry date is required";
+    if (!form.expiry_date) return "Expiry MM/YY is required";
+    if (!isExpiryMonthYear(form.expiry_date)) return "Expiry must be in MM/YY format";
     if (form.return_quantity === "") return "Return quantity is required";
     if (!Number.isFinite(returnQuantity) || returnQuantity <= 0) return "Return quantity must be greater than 0";
     if (!Number.isFinite(availableStock) || returnQuantity > availableStock) return "Return quantity cannot exceed available stock";
@@ -741,7 +763,7 @@ export default function PurchaseReturns() {
       medicine_key: form.medicine_key,
       medicine_name: form.medicine_name.trim(),
       batch_number: form.batch_number.trim(),
-      expiry_date: form.expiry_date,
+      expiry_date: toExpiryMonthYear(form.expiry_date),
       available_stock: Number(form.available_stock || 0),
       return_quantity: Number(form.return_quantity),
       purchase_rate: Number(form.purchase_rate),
@@ -770,7 +792,7 @@ export default function PurchaseReturns() {
 
   const openEdit = (item) => {
     const batchNumber = firstDefined(item.batch_number, item.batch_no, item.batch, "");
-    const expiryDate = firstDefined(item.expiry_date, item.expiry, "");
+    const expiryDate = toExpiryMonthYear(firstDefined(item.expiry_date, item.expiry, ""));
     const selectedOption = {
       medicine_id: firstDefined(item.medicine_id, ""),
       medicine_key: firstDefined(item.medicine_key, item.medicine_id, ""),
@@ -811,6 +833,14 @@ export default function PurchaseReturns() {
 
   const saveEdit = async (event) => {
     event.preventDefault();
+    if (!editForm.expiry_date) {
+      toast.error("Expiry MM/YY is required");
+      return;
+    }
+    if (!isExpiryMonthYear(editForm.expiry_date)) {
+      toast.error("Expiry must be in MM/YY format");
+      return;
+    }
     const payload = {
       return_date: editForm.return_date,
       distributor_id: editForm.distributor_id,
@@ -819,7 +849,7 @@ export default function PurchaseReturns() {
       medicine_key: editForm.medicine_key,
       medicine_name: editForm.medicine_name.trim(),
       batch_number: editForm.batch_number.trim(),
-      expiry_date: editForm.expiry_date,
+      expiry_date: toExpiryMonthYear(editForm.expiry_date),
       return_quantity: Number(editForm.return_quantity),
       purchase_rate: Number(editForm.purchase_rate),
       return_amount: getReturnAmount(editForm),
@@ -1200,8 +1230,8 @@ export default function PurchaseReturns() {
               </div>
 
               <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">Expiry Date</Label>
-                <Input value={form.expiry_date} readOnly className="rounded-sm mt-1 bg-slate-50" required />
+                <Label className="text-xs uppercase font-semibold text-slate-600">Expiry (MM/YY)</Label>
+                <Input value={form.expiry_date} readOnly placeholder="MM/YY" className="rounded-sm mt-1 bg-slate-50" required />
               </div>
 
               <div>
@@ -1317,7 +1347,7 @@ export default function PurchaseReturns() {
               <div><Label>Distributor</Label><Select value={editForm.distributor_id} onValueChange={(value) => { const distributor = distributors.find((item) => String(item.id) === String(value)); setEditForm({ ...editForm, distributor_id: value, distributor_name: distributor?.name || editForm.distributor_name }); }}><SelectTrigger><SelectValue placeholder="Select distributor" /></SelectTrigger><SelectContent>{distributors.map((distributor) => <SelectItem key={distributor.id} value={String(distributor.id)}>{distributor.name}</SelectItem>)}</SelectContent></Select></div>
               <div className="md:col-span-2"><Label>Medicine / Batch</Label><Input required value={editForm.medicine_name} onChange={(e) => setEditForm({ ...editForm, medicine_name: e.target.value })} /></div>
               <div><Label>Batch Number</Label><Input required value={editForm.batch_number} onChange={(e) => setEditForm({ ...editForm, batch_number: e.target.value })} /></div>
-              <div><Label>Expiry Date</Label><Input type="date" value={editForm.expiry_date} onChange={(e) => setEditForm({ ...editForm, expiry_date: e.target.value })} /></div>
+              <div><Label>Expiry (MM/YY)</Label><Input placeholder="MM/YY" inputMode="numeric" pattern="(0[1-9]|1[0-2])/\d{2}" value={editForm.expiry_date} onChange={(e) => setEditForm({ ...editForm, expiry_date: toExpiryMonthYear(e.target.value) })} /></div>
               <div><Label>Return Quantity</Label><Input type="number" min="1" required value={editForm.return_quantity} onChange={(e) => setEditForm({ ...editForm, return_quantity: e.target.value })} /></div>
               <div><Label>Purchase Rate</Label><Input type="number" min="0" step="0.01" required value={editForm.purchase_rate} onChange={(e) => setEditForm({ ...editForm, purchase_rate: e.target.value })} /></div>
               <div><Label>Reason</Label><Select value={editForm.reason} onValueChange={(reason) => setEditForm({ ...editForm, reason })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{reasons.map((reason) => <SelectItem key={reason} value={reason}>{reason}</SelectItem>)}</SelectContent></Select></div>
