@@ -45,6 +45,11 @@ export default function Settings() {
 
   const [users, setUsers] = useState([]);
   const [deletingUserId, setDeletingUserId] = useState(null);
+  const [privacyPasswordForm, setPrivacyPasswordForm] = useState({
+    password: "",
+    confirm: "",
+  });
+  const [savingPrivacyPassword, setSavingPrivacyPassword] = useState(false);
 
   const [form, setForm] = useState({
     email: "",
@@ -67,48 +72,47 @@ export default function Settings() {
   const [versionInfo, setVersionInfo] = useState(null);
 
   const [welcomeText, setWelcomeText] = useState(
-    localStorage.getItem("welcomeText") || 
-    "WELCOME TO YOUR PHARMACY" 
+    localStorage.getItem("welcomeText") || "WELCOME TO YOUR PHARMACY",
   );
 
   const [welcomeLogo, setWelcomeLogo] = useState(
-    localStorage.getItem("welcomeLogo") || "💊"
+    localStorage.getItem("welcomeLogo") || "💊",
   );
 
   const [welcomeEffect, setWelcomeEffect] = useState(
-    localStorage.getItem("welcomeEffect") || "typing"
+    localStorage.getItem("welcomeEffect") || "typing",
   );
 
   const [welcomeTextColor, setWelcomeTextColor] = useState(
-    localStorage.getItem("welcomeTextColor") || "#ffffff"
+    localStorage.getItem("welcomeTextColor") || "#ffffff",
   );
 
   const [welcomeTextSize, setWelcomeTextSize] = useState(
-    localStorage.getItem("welcomeTextSize") || "48"
+    localStorage.getItem("welcomeTextSize") || "48",
   );
 
   const [welcomeLogoSize, setWelcomeLogoSize] = useState(
-    localStorage.getItem("welcomeLogoSize") || "72"
+    localStorage.getItem("welcomeLogoSize") || "72",
   );
 
   const [welcomeBgColor, setWelcomeBgColor] = useState(
-    localStorage.getItem("welcomeBgColor") || "#020617"
+    localStorage.getItem("welcomeBgColor") || "#020617",
   );
 
   const [welcomeBgImage, setWelcomeBgImage] = useState(
-    localStorage.getItem("welcomeBgImage") || ""
+    localStorage.getItem("welcomeBgImage") || "",
   );
 
   const [welcomeShowLogo, setWelcomeShowLogo] = useState(
-    localStorage.getItem("welcomeShowLogo") !== "false"
+    localStorage.getItem("welcomeShowLogo") !== "false",
   );
 
   const [welcomeShowText, setWelcomeShowText] = useState(
-    localStorage.getItem("welcomeShowText") !== "false"
+    localStorage.getItem("welcomeShowText") !== "false",
   );
 
   const [welcomeEnabled, setWelcomeEnabled] = useState(
-    localStorage.getItem("welcomeEnabled") !== "false"
+    localStorage.getItem("welcomeEnabled") !== "false",
   );
 
   const loadUsers = () => {
@@ -129,13 +133,25 @@ export default function Settings() {
     if (user?.role === "admin") loadUsers();
     loadSettings();
     Promise.all([
-      fetch("/version.json").then((response) => response.ok ? response.json() : null),
-      fetch("/release-notes.json").then((response) => response.ok ? response.json() : null).catch(() => null),
-    ]).then(([version, notes]) => {
-      const primary = normalizeVersionMetadata(version || {});
-      const release = normalizeVersionMetadata(notes || {});
-      if (primary) setVersionInfo({ ...primary, releaseNotes: release?.releaseNotes?.length ? release.releaseNotes : primary.releaseNotes });
-    }).catch(() => {});
+      fetch("/version.json").then((response) =>
+        response.ok ? response.json() : null,
+      ),
+      fetch("/release-notes.json")
+        .then((response) => (response.ok ? response.json() : null))
+        .catch(() => null),
+    ])
+      .then(([version, notes]) => {
+        const primary = normalizeVersionMetadata(version || {});
+        const release = normalizeVersionMetadata(notes || {});
+        if (primary)
+          setVersionInfo({
+            ...primary,
+            releaseNotes: release?.releaseNotes?.length
+              ? release.releaseNotes
+              : primary.releaseNotes,
+          });
+      })
+      .catch(() => {});
     // eslint-disable-next-line
   }, [user]);
 
@@ -169,7 +185,7 @@ export default function Settings() {
       toast.success(
         `Imported: ${Object.entries(data.imported)
           .map(([k, v]) => `${k}=${v}`)
-          .join(", ")}`
+          .join(", ")}`,
       );
     } catch (e) {
       toast.error("Invalid backup file");
@@ -185,6 +201,31 @@ export default function Settings() {
       loadUsers();
     } catch (e) {
       toast.error(formatApiError(e));
+    }
+  };
+
+  const savePrivacyPassword = async (event) => {
+    event.preventDefault();
+    if (privacyPasswordForm.password.length < 1) {
+      toast.error("Enter a Privacy Password.");
+      return;
+    }
+    if (privacyPasswordForm.password !== privacyPasswordForm.confirm) {
+      toast.error("Privacy Password confirmation does not match.");
+      return;
+    }
+
+    setSavingPrivacyPassword(true);
+    try {
+      await api.put("/settings/privacy-password", {
+        privacy_password: privacyPasswordForm.password,
+      });
+      setPrivacyPasswordForm({ password: "", confirm: "" });
+      toast.success("Privacy Password updated.");
+    } catch (e) {
+      toast.error(`Could not update Privacy Password: ${formatApiError(e)}`);
+    } finally {
+      setSavingPrivacyPassword(false);
     }
   };
 
@@ -206,20 +247,11 @@ export default function Settings() {
   };
 
   const saveWelcomeSettings = () => {
-    localStorage.setItem(
-      "welcomeText",
-      welcomeText
-    );
+    localStorage.setItem("welcomeText", welcomeText);
 
-    localStorage.setItem(
-      "welcomeLogo",
-      welcomeLogo
-    );
+    localStorage.setItem("welcomeLogo", welcomeLogo);
 
-    localStorage.setItem(
-      "welcomeEffect",
-      welcomeEffect
-    );
+    localStorage.setItem("welcomeEffect", welcomeEffect);
 
     localStorage.setItem("welcomeTextColor", welcomeTextColor);
     localStorage.setItem("welcomeTextSize", welcomeTextSize);
@@ -251,21 +283,99 @@ export default function Settings() {
       </div>
 
       {/* ================= SECURITY ================= */}
-      <div className="bg-white border border-slate-200 rounded-sm p-5" data-testid="change-password-section">
+      <div
+        className="bg-white border border-slate-200 rounded-sm p-5"
+        data-testid="change-password-section"
+      >
         <div className="font-heading font-semibold mb-1">Security</div>
         <p className="text-sm text-slate-600 mb-4">
-          Update your own password. Password policy and authorization are enforced by the server.
+          Update your own password. Password policy and authorization are
+          enforced by the server.
         </p>
         <div className="max-w-md">
           <PasswordChangeForm />
         </div>
       </div>
 
+      {user?.role === "admin" && (
+        <div
+          className="bg-white border border-slate-200 rounded-sm p-5"
+          data-testid="privacy-password-section"
+        >
+          <div className="font-heading font-semibold mb-1">
+            Admin Privacy Password
+          </div>
+          <p className="text-sm text-slate-600 mb-4">
+            Set or update the masked Privacy Password used to unlock locked
+            Inventory threshold controls. Existing passwords are never
+            displayed.
+          </p>
+          <form
+            onSubmit={savePrivacyPassword}
+            className="grid max-w-2xl gap-3 md:grid-cols-[1fr_1fr_auto]"
+          >
+            <div>
+              <Label
+                className="text-xs uppercase font-semibold text-slate-600"
+                htmlFor="privacy-password-new"
+              >
+                Privacy Password
+              </Label>
+              <Input
+                id="privacy-password-new"
+                data-testid="privacy-password-new"
+                type="password"
+                value={privacyPasswordForm.password}
+                onChange={(event) =>
+                  setPrivacyPasswordForm({
+                    ...privacyPasswordForm,
+                    password: event.target.value,
+                  })
+                }
+                className="rounded-sm mt-1"
+                placeholder="Enter new password"
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <Label
+                className="text-xs uppercase font-semibold text-slate-600"
+                htmlFor="privacy-password-confirm"
+              >
+                Confirm Password
+              </Label>
+              <Input
+                id="privacy-password-confirm"
+                data-testid="privacy-password-confirm"
+                type="password"
+                value={privacyPasswordForm.confirm}
+                onChange={(event) =>
+                  setPrivacyPasswordForm({
+                    ...privacyPasswordForm,
+                    confirm: event.target.value,
+                  })
+                }
+                className="rounded-sm mt-1"
+                placeholder="Confirm new password"
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="submit"
+                disabled={savingPrivacyPassword}
+                className="w-full rounded-sm bg-blue-600 hover:bg-blue-700"
+              >
+                {savingPrivacyPassword ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* ================= FONT SETTINGS (NEW SECTION) ================= */}
       <div className="bg-white border border-slate-200 rounded-sm p-5">
-        <div className="font-heading font-semibold mb-3">
-          Fonts
-        </div>
+        <div className="font-heading font-semibold mb-3">Fonts</div>
 
         <p className="text-sm text-slate-600 mb-4">
           Choose the font used throughout the app.
@@ -273,15 +383,36 @@ export default function Settings() {
 
         <div className="grid gap-5 lg:grid-cols-2">
           {Object.entries({
-            Professional: ["ibmPlex", "inter", "roboto", "openSans", "sourceSans3", "workSans"],
+            Professional: [
+              "ibmPlex",
+              "inter",
+              "roboto",
+              "openSans",
+              "sourceSans3",
+              "workSans",
+            ],
             Elegant: ["poppins", "montserrat", "raleway", "playfair"],
             Classic: ["lato", "merriweather", "ubuntu", "cabin", "ptSans"],
             Experimental: ["nunito", "cormorant", "calligraphy"],
           }).map(([category, keys]) => (
             <div key={category}>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{category}</div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                {category}
+              </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                {keys.map((key) => { const f = fonts[key]; return <button key={key} onClick={() => setFont(f.value)} className={`rounded border px-3 py-2 text-left text-sm transition ${font === f.value ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 hover:bg-slate-50"}`} style={{ fontFamily: f.value }}>{f.name}</button>; })}
+                {keys.map((key) => {
+                  const f = fonts[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setFont(f.value)}
+                      className={`rounded border px-3 py-2 text-left text-sm transition ${font === f.value ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 hover:bg-slate-50"}`}
+                      style={{ fontFamily: f.value }}
+                    >
+                      {f.name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -362,10 +493,22 @@ export default function Settings() {
               className="rounded-sm mt-1"
             />
           </div>
-          {[["DL Number 1", "business_dl_number_1"], ["DL Number 2", "business_dl_number_2"]].map(([label, key]) => (
+          {[
+            ["DL Number 1", "business_dl_number_1"],
+            ["DL Number 2", "business_dl_number_2"],
+          ].map(([label, key]) => (
             <div key={key}>
-              <Label className="text-xs uppercase font-semibold text-slate-600">{label}</Label>
-              <Input value={settings[key] || ""} onChange={(e) => setSettings({ ...settings, [key]: e.target.value })} className="rounded-sm mt-1" placeholder="Drug licence number" />
+              <Label className="text-xs uppercase font-semibold text-slate-600">
+                {label}
+              </Label>
+              <Input
+                value={settings[key] || ""}
+                onChange={(e) =>
+                  setSettings({ ...settings, [key]: e.target.value })
+                }
+                className="rounded-sm mt-1"
+                placeholder="Drug licence number"
+              />
             </div>
           ))}
         </div>
@@ -373,18 +516,63 @@ export default function Settings() {
         <div className="mb-4 rounded-sm border border-slate-200 bg-slate-50 p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dashed border-slate-300 bg-white">
-              {settings.logo_b64 ? <img src={settings.logo_b64} alt="Pharmacy logo preview" className="h-full w-full object-contain p-2" /> : <Building2 className="h-7 w-7 text-slate-300" />}
+              {settings.logo_b64 ? (
+                <img
+                  src={settings.logo_b64}
+                  alt="Pharmacy logo preview"
+                  className="h-full w-full object-contain p-2"
+                />
+              ) : (
+                <Building2 className="h-7 w-7 text-slate-300" />
+              )}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-600">Pharmacy Logo</div>
-              <p className="mt-1 text-xs leading-5 text-slate-500">Used as your brand mark on invoices, PDFs, and printable documents.</p>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+                Pharmacy Logo
+              </div>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Used as your brand mark on invoices, PDFs, and printable
+                documents.
+              </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => logoRef.current?.click()}><Upload className="mr-2 h-3.5 w-3.5" />{settings.logo_b64 ? "Replace logo" : "Upload logo"}</Button>
-                {settings.logo_b64 && <Button type="button" variant="ghost" size="sm" onClick={() => setSettings({ ...settings, logo_b64: "" })}><X className="mr-1 h-3.5 w-3.5" />Remove</Button>}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => logoRef.current?.click()}
+                >
+                  <Upload className="mr-2 h-3.5 w-3.5" />
+                  {settings.logo_b64 ? "Replace logo" : "Upload logo"}
+                </Button>
+                {settings.logo_b64 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSettings({ ...settings, logo_b64: "" })}
+                  >
+                    <X className="mr-1 h-3.5 w-3.5" />
+                    Remove
+                  </Button>
+                )}
               </div>
             </div>
           </div>
-          <input ref={logoRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; if (f.size > 1024 * 1024) return toast.error("Max 1MB image"); const reader = new FileReader(); reader.onload = () => setSettings({ ...settings, logo_b64: reader.result }); reader.readAsDataURL(f); }} />
+          <input
+            ref={logoRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              if (f.size > 1024 * 1024) return toast.error("Max 1MB image");
+              const reader = new FileReader();
+              reader.onload = () =>
+                setSettings({ ...settings, logo_b64: reader.result });
+              reader.readAsDataURL(f);
+            }}
+          />
         </div>
 
         <div className="border border-slate-200 rounded-sm p-4 bg-slate-50">
@@ -402,9 +590,7 @@ export default function Settings() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() =>
-                  setSettings({ ...settings, signature_b64: "" })
-                }
+                onClick={() => setSettings({ ...settings, signature_b64: "" })}
                 className="rounded-sm"
               >
                 <X className="w-3 h-3 mr-1" />
@@ -425,8 +611,7 @@ export default function Settings() {
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (!f) return;
-              if (f.size > 1024 * 1024)
-                return toast.error("Max 1MB image");
+              if (f.size > 1024 * 1024) return toast.error("Max 1MB image");
 
               const reader = new FileReader();
               reader.onload = () =>
@@ -469,13 +654,11 @@ export default function Settings() {
 
       {/* ================= BACKUP ================= */}
       <div className="bg-white border border-slate-200 rounded-sm p-5">
-        <div className="font-heading font-semibold mb-3">
-          Backup & Restore
-        </div>
+        <div className="font-heading font-semibold mb-3">Backup & Restore</div>
 
         <p className="text-sm text-slate-600 mb-4">
-          Download a JSON snapshot of all data, or restore from a
-          previously exported file.
+          Download a JSON snapshot of all data, or restore from a previously
+          exported file.
         </p>
 
         <div className="flex gap-2 flex-wrap">
@@ -509,21 +692,14 @@ export default function Settings() {
       {/* ================= USERS ================= */}
       {user?.role === "admin" && (
         <div className="bg-white border border-slate-200 rounded-sm p-5">
-          <div className="font-heading font-semibold mb-3">
-            User Management
-          </div>
+          <div className="font-heading font-semibold mb-3">User Management</div>
 
-          <form
-            onSubmit={addUser}
-            className="grid md:grid-cols-4 gap-3 mb-4"
-          >
+          <form onSubmit={addUser} className="grid md:grid-cols-4 gap-3 mb-4">
             <Input
               placeholder="Name"
               required
               value={form.name}
-              onChange={(e) =>
-                setForm({ ...form, name: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
 
             <Input
@@ -531,9 +707,7 @@ export default function Settings() {
               type="email"
               required
               value={form.email}
-              onChange={(e) =>
-                setForm({ ...form, email: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
 
             <Input
@@ -541,17 +715,13 @@ export default function Settings() {
               type="password"
               required
               value={form.password}
-              onChange={(e) =>
-                setForm({ ...form, password: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
 
             <div className="flex gap-2">
               <Select
                 value={form.role}
-                onValueChange={(v) =>
-                  setForm({ ...form, role: v })
-                }
+                onValueChange={(v) => setForm({ ...form, role: v })}
               >
                 <SelectTrigger className="rounded-sm">
                   <SelectValue />
@@ -559,12 +729,8 @@ export default function Settings() {
 
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="pharmacist">
-                    Pharmacist
-                  </SelectItem>
-                  <SelectItem value="cashier">
-                    Cashier
-                  </SelectItem>
+                  <SelectItem value="pharmacist">Pharmacist</SelectItem>
+                  <SelectItem value="cashier">Cashier</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -593,9 +759,7 @@ export default function Settings() {
                 return (
                   <tr key={userId ?? u.email}>
                     <td>{u.name}</td>
-                    <td className="font-mono text-xs">
-                      {u.email}
-                    </td>
+                    <td className="font-mono text-xs">{u.email}</td>
                     <td className="uppercase text-xs tracking-wider font-semibold">
                       {u.role}
                     </td>
@@ -605,8 +769,12 @@ export default function Settings() {
                         variant="destructive"
                         size="sm"
                         disabled={Boolean(deleteProtection) || isDeleting}
-                        title={deleteProtection || `Delete ${u.name || u.email}`}
-                        aria-label={deleteProtection || `Delete ${u.name || u.email}`}
+                        title={
+                          deleteProtection || `Delete ${u.name || u.email}`
+                        }
+                        aria-label={
+                          deleteProtection || `Delete ${u.name || u.email}`
+                        }
                         onClick={() => deleteUser(u)}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -621,13 +789,13 @@ export default function Settings() {
         </div>
       )}
       <div className="bg-white border rounded-xl p-5 space-y-5">
-
         <div>
           <div className="text-xl font-semibold">
             Welcome Screen Customization
           </div>
           <p className="text-sm text-slate-600 mt-1">
-            Preview and customize the intro screen shown after login. Existing saved text, logo, and effect settings are preserved.
+            Preview and customize the intro screen shown after login. Existing
+            saved text, logo, and effect settings are preserved.
           </p>
         </div>
 
@@ -679,37 +847,27 @@ export default function Settings() {
 
         <div className="grid md:grid-cols-2 gap-4">
           <div>
-            <Label className="text-sm font-medium">
-              Welcome Text
-            </Label>
+            <Label className="text-sm font-medium">Welcome Text</Label>
 
             <Input
               value={welcomeText}
-              onChange={(e) =>
-                setWelcomeText(e.target.value)
-              }
+              onChange={(e) => setWelcomeText(e.target.value)}
               placeholder="WELCOME TO YOUR PHARMACY"
             />
           </div>
 
           <div>
-            <Label className="text-sm font-medium">
-              Logo / Emoji
-            </Label>
+            <Label className="text-sm font-medium">Logo / Emoji</Label>
 
             <Input
               value={welcomeLogo}
-              onChange={(e) =>
-                setWelcomeLogo(e.target.value)
-              }
+              onChange={(e) => setWelcomeLogo(e.target.value)}
               placeholder="💊"
             />
           </div>
 
           <div>
-            <Label className="text-sm font-medium">
-              Welcome Text Color
-            </Label>
+            <Label className="text-sm font-medium">Welcome Text Color</Label>
             <div className="flex gap-2">
               <Input
                 type="color"
@@ -780,15 +938,11 @@ export default function Settings() {
           </div>
 
           <div>
-            <Label className="text-sm font-medium">
-              Welcome Effect
-            </Label>
+            <Label className="text-sm font-medium">Welcome Effect</Label>
 
             <select
               value={welcomeEffect}
-              onChange={(e) =>
-                setWelcomeEffect(e.target.value)
-              }
+              onChange={(e) => setWelcomeEffect(e.target.value)}
               className="w-full border rounded-md h-10 px-3"
             >
               <option value="typing">Typing Effect</option>
@@ -801,19 +955,56 @@ export default function Settings() {
           </div>
         </div>
 
-        <Button onClick={saveWelcomeSettings}>
-          Save Welcome Screen
-        </Button>
-
+        <Button onClick={saveWelcomeSettings}>Save Welcome Screen</Button>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5" data-testid="update-center-section">
+      <section
+        className="rounded-xl border border-slate-200 bg-white p-5"
+        data-testid="update-center-section"
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div><div className="font-heading font-semibold">Update Center</div><p className="mt-1 text-sm text-slate-600">Version details and the latest improvements available to your pharmacy.</p></div>
-          <div className="rounded-lg bg-slate-950 px-3 py-2 text-left text-white sm:text-right"><div className="text-xs text-slate-400">App version</div><div className="font-mono text-sm">v{(versionInfo?.version || FRONTEND_VERSION).split("+")[0]}</div>{(versionInfo?.version || FRONTEND_VERSION).includes("+") && <div className="mt-1 text-[11px] text-slate-400">Build {(versionInfo?.version || FRONTEND_VERSION).split("+")[1]}</div>}</div>
+          <div>
+            <div className="font-heading font-semibold">Update Center</div>
+            <p className="mt-1 text-sm text-slate-600">
+              Version details and the latest improvements available to your
+              pharmacy.
+            </p>
+          </div>
+          <div className="rounded-lg bg-slate-950 px-3 py-2 text-left text-white sm:text-right">
+            <div className="text-xs text-slate-400">App version</div>
+            <div className="font-mono text-sm">
+              v{(versionInfo?.version || FRONTEND_VERSION).split("+")[0]}
+            </div>
+            {(versionInfo?.version || FRONTEND_VERSION).includes("+") && (
+              <div className="mt-1 text-[11px] text-slate-400">
+                Build {(versionInfo?.version || FRONTEND_VERSION).split("+")[1]}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="mt-5"><div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-600"><RefreshCw className="h-4 w-4" />What’s new / Release notes</div>
-          {versionInfo?.releaseNotes?.length ? <ul className="grid gap-2 sm:grid-cols-2">{versionInfo.releaseNotes.map((note) => <li key={note} className="flex gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{note}</li>)}</ul> : <p className="text-sm text-slate-500">Release information will appear when provided by the update service.</p>}
+        <div className="mt-5">
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-600">
+            <RefreshCw className="h-4 w-4" />
+            What’s new / Release notes
+          </div>
+          {versionInfo?.releaseNotes?.length ? (
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {versionInfo.releaseNotes.map((note) => (
+                <li
+                  key={note}
+                  className="flex gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700"
+                >
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  {note}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-500">
+              Release information will appear when provided by the update
+              service.
+            </p>
+          )}
         </div>
       </section>
     </div>

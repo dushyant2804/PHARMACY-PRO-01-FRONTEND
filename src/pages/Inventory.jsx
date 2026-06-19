@@ -1,14 +1,26 @@
 import React, { useCallback, useEffect, useState } from "react";
 import api, { fmtINR, formatApiError } from "@/lib/api";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useLayout } from "@/contexts/LayoutContext";
 import {
   AlertTriangle,
   Boxes,
   Eye,
+  Lock,
   Pencil,
   Search,
+  ShieldCheck,
   Trash2,
+  Unlock,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -20,11 +32,13 @@ const getAvailableQty = (item) =>
       item?.available_quantity ??
       item?.quantity_units ??
       item?.total_stock ??
-      0
+      0,
   );
 
 const normalizeExpiryStatus = (status) => {
-  const value = String(status || "").toLowerCase().replace(/[ -]/g, "_");
+  const value = String(status || "")
+    .toLowerCase()
+    .replace(/[ -]/g, "_");
 
   if (["expired", "expiry_expired"].includes(value)) return "expired";
   if (["expiring_soon", "critical", "warning", "near_expiry"].includes(value)) {
@@ -45,15 +59,24 @@ const getExpiryStatus = (expiry, backendStatus) => {
   const month = Number(mm);
   const year = Number(`20${yy}`);
 
-  if (!Number.isFinite(month) || !Number.isFinite(year) || month < 1 || month > 12) {
+  if (
+    !Number.isFinite(month) ||
+    !Number.isFinite(year) ||
+    month < 1 ||
+    month > 12
+  ) {
     return "normal";
   }
 
   const expiryMonthEnd = new Date(year, month, 0, 23, 59, 59, 999);
   const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const todayStart = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
   const daysToExpiry = Math.ceil(
-    (expiryMonthEnd.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24)
+    (expiryMonthEnd.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24),
   );
 
   if (daysToExpiry < 0) return "expired";
@@ -76,23 +99,41 @@ const categoryStyles = {
 };
 
 function CategoryBadge({ category }) {
-  const key = String(category || "").trim().toUpperCase();
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ring-1 ring-inset ${categoryStyles[key] || "bg-slate-100 text-slate-700 ring-slate-500/20"}`}>{category || "Uncategorized"}</span>;
+  const key = String(category || "")
+    .trim()
+    .toUpperCase();
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ring-1 ring-inset ${categoryStyles[key] || "bg-slate-100 text-slate-700 ring-slate-500/20"}`}
+    >
+      {category || "Uncategorized"}
+    </span>
+  );
 }
 
-const normalizeHealth = (value) => String(value || "").toLowerCase().replace(/[ _-]/g, "");
+const normalizeHealth = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[ _-]/g, "");
 const getHealthStatus = (item) => {
-  const backend = normalizeHealth(item?.inventory_status ?? item?.stock_status ?? item?.status);
+  const backend = normalizeHealth(
+    item?.inventory_status ?? item?.stock_status ?? item?.status,
+  );
   if (["expired"].includes(backend)) return "Expired";
   if (["soldout", "outofstock", "empty"].includes(backend)) return "Sold Out";
   if (["critical"].includes(backend)) return "Critical";
   if (["lowstock", "low"].includes(backend)) return "Low Stock";
   if (["healthy", "instock", "normal"].includes(backend)) return "Healthy";
-  if (getExpiryStatus(item?.expiry_date, item?.expiry_status) === "expired") return "Expired";
+  if (getExpiryStatus(item?.expiry_date, item?.expiry_status) === "expired")
+    return "Expired";
   const stock = getAvailableQty(item);
   if (stock <= 0) return "Sold Out";
   const threshold = Number(item?.low_stock_threshold);
-  if (item?.low_stock_threshold !== null && item?.low_stock_threshold !== undefined && Number.isFinite(threshold)) {
+  if (
+    item?.low_stock_threshold !== null &&
+    item?.low_stock_threshold !== undefined &&
+    Number.isFinite(threshold)
+  ) {
     if (stock <= Math.max(1, Math.floor(threshold / 2))) return "Critical";
     if (stock <= threshold) return "Low Stock";
   }
@@ -106,7 +147,16 @@ const healthStyles = {
   "Sold Out": "bg-slate-900 text-white",
   Expired: "bg-purple-100 text-purple-800",
 };
-function HealthBadge({ item }) { const status = getHealthStatus(item); return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ${healthStyles[status]}`}>{status}</span>; }
+function HealthBadge({ item }) {
+  const status = getHealthStatus(item);
+  return (
+    <span
+      className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ${healthStyles[status]}`}
+    >
+      {status}
+    </span>
+  );
+}
 
 function DetailItem({ label, value, valueClassName = "" }) {
   return (
@@ -114,7 +164,9 @@ function DetailItem({ label, value, valueClassName = "" }) {
       <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
         {label}
       </div>
-      <div className={`mt-1 truncate text-sm font-semibold text-slate-800 ${valueClassName}`}>
+      <div
+        className={`mt-1 truncate text-sm font-semibold text-slate-800 ${valueClassName}`}
+      >
         {value ?? "—"}
       </div>
     </div>
@@ -123,7 +175,9 @@ function DetailItem({ label, value, valueClassName = "" }) {
 
 function SectionCard({ eyebrow, title, children, className = "" }) {
   return (
-    <section className={`rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm ${className}`}>
+    <section
+      className={`rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm ${className}`}
+    >
       <div className="mb-4">
         <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600">
           {eyebrow}
@@ -140,6 +194,12 @@ export default function Inventory() {
   const [search, setSearch] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [thresholdValue, setThresholdValue] = useState("");
+  const [thresholdUnlocked, setThresholdUnlocked] = useState(false);
+  const [thresholdSaving, setThresholdSaving] = useState(false);
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [privacyPassword, setPrivacyPassword] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
   const { setInspectorMode } = useLayout();
 
   useEffect(() => {
@@ -148,20 +208,25 @@ export default function Inventory() {
     return () => setInspectorMode(false);
   }, [detailsOpen, setInspectorMode]);
 
-  const load = useCallback(async (selectedId) => {
-    try {
-      const { data } = await api.get("/medicines", { params: { search } });
-      const nextMeds = Array.isArray(data) ? data : [];
+  const load = useCallback(
+    async (selectedId) => {
+      try {
+        const { data } = await api.get("/medicines", { params: { search } });
+        const nextMeds = Array.isArray(data) ? data : [];
 
-      setMeds(nextMeds);
-      if (selectedId) {
-        const refreshedSelection = nextMeds.find((medicine) => medicine.id === selectedId);
-        if (refreshedSelection) setSelected(refreshedSelection);
+        setMeds(nextMeds);
+        if (selectedId) {
+          const refreshedSelection = nextMeds.find(
+            (medicine) => medicine.id === selectedId,
+          );
+          if (refreshedSelection) setSelected(refreshedSelection);
+        }
+      } catch (e) {
+        toast.error(formatApiError(e));
       }
-    } catch (e) {
-      toast.error(formatApiError(e));
-    }
-  }, [search]);
+    },
+    [search],
+  );
 
   useEffect(() => {
     load();
@@ -169,7 +234,75 @@ export default function Inventory() {
 
   const openDetails = (medicine) => {
     setSelected(medicine);
+    setThresholdValue(medicine?.low_stock_threshold ?? "");
+    setThresholdUnlocked(false);
+    setUnlockOpen(false);
+    setPrivacyPassword("");
     setDetailsOpen(true);
+  };
+
+  const refreshSelectedMedicine = (updated) => {
+    setSelected(updated);
+    setThresholdValue(updated?.low_stock_threshold ?? "");
+    setMeds((current) =>
+      current.map((medicine) =>
+        medicine.id === updated.id ? { ...medicine, ...updated } : medicine,
+      ),
+    );
+  };
+
+  const saveThreshold = async () => {
+    if (!selected) return;
+    const value = Number(thresholdValue);
+    if (!Number.isFinite(value) || value < 0) {
+      toast.error("Enter a valid low stock threshold.");
+      return;
+    }
+
+    setThresholdSaving(true);
+    try {
+      const payload = { low_stock_threshold: value, threshold: value };
+      const { data } = await api.patch(
+        `/medicines/${selected.id}/low-stock-threshold`,
+        payload,
+      );
+      const updated = {
+        ...selected,
+        ...(data || {}),
+        low_stock_threshold:
+          data?.low_stock_threshold ?? data?.threshold ?? value,
+      };
+      refreshSelectedMedicine(updated);
+      setThresholdUnlocked(false);
+      toast.success("Low stock threshold saved and locked.");
+      await load(selected.id);
+    } catch (e) {
+      toast.error(`Could not save low stock threshold: ${formatApiError(e)}`);
+    } finally {
+      setThresholdSaving(false);
+    }
+  };
+
+  const unlockThreshold = async (event) => {
+    event.preventDefault();
+    if (!selected || !privacyPassword) return;
+
+    setUnlocking(true);
+    try {
+      await api.post(`/medicines/${selected.id}/low-stock-threshold/unlock`, {
+        privacy_password: privacyPassword,
+      });
+      setThresholdUnlocked(true);
+      setUnlockOpen(false);
+      setPrivacyPassword("");
+      toast.success("Threshold unlocked. You can edit it now.");
+    } catch (e) {
+      toast.error(
+        `Privacy password could not unlock threshold: ${formatApiError(e)}`,
+      );
+    } finally {
+      setUnlocking(false);
+    }
   };
 
   const deleteMedicine = async () => {
@@ -177,7 +310,9 @@ export default function Inventory() {
 
     try {
       await api.delete(`/medicines/${selected.id}`);
-      setMeds((current) => current.filter((medicine) => medicine.id !== selected.id));
+      setMeds((current) =>
+        current.filter((medicine) => medicine.id !== selected.id),
+      );
       setDetailsOpen(false);
       toast.success("Medicine deleted");
     } catch (e) {
@@ -188,9 +323,16 @@ export default function Inventory() {
   const query = search.trim().toLowerCase();
   const visibleMeds = query
     ? meds.filter((medicine) =>
-        [medicine.name, medicine.manufacturer, medicine.category, ...(medicine.batches || []).map((batch) => batch.batch_no)].some((value) =>
-          String(value || "").toLowerCase().includes(query)
-        )
+        [
+          medicine.name,
+          medicine.manufacturer,
+          medicine.category,
+          ...(medicine.batches || []).map((batch) => batch.batch_no),
+        ].some((value) =>
+          String(value || "")
+            .toLowerCase()
+            .includes(query),
+        ),
       )
     : meds;
 
@@ -204,7 +346,15 @@ export default function Inventory() {
         <h1 className="text-2xl font-bold">Inventory</h1>
       </div>
 
-      <div className="relative max-w-3xl"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><Input className="pl-10" placeholder="Search medicine, batch, manufacturer, or category..." value={search} onChange={(event) => setSearch(event.target.value)} /></div>
+      <div className="relative max-w-3xl">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Input
+          className="pl-10"
+          placeholder="Search medicine, batch, manufacturer, or category..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </div>
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full min-w-[680px] text-sm">
@@ -227,13 +377,13 @@ export default function Inventory() {
                 medicine.low_stock_threshold !== undefined &&
                 getAvailableQty(medicine) <= medicine.low_stock_threshold;
               const batchStatus = (medicine.batches || []).map((batch) =>
-                getExpiryStatus(batch.expiry_date, batch.expiry_status)
+                getExpiryStatus(batch.expiry_date, batch.expiry_status),
               );
               const expiryStatus = batchStatus.includes("expired")
                 ? "expired"
                 : batchStatus.includes("expiring_soon")
-                ? "expiring_soon"
-                : "normal";
+                  ? "expiring_soon"
+                  : "normal";
               const isSelected = detailsOpen && selected?.id === medicine.id;
 
               return (
@@ -242,26 +392,37 @@ export default function Inventory() {
                   tabIndex={0}
                   onClick={() => openDetails(medicine)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") openDetails(medicine);
+                    if (event.key === "Enter" || event.key === " ")
+                      openDetails(medicine);
                   }}
                   className={`cursor-pointer border-t transition-colors hover:bg-emerald-50/70 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500 ${
                     isSelected
                       ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300"
                       : expiryStatus === "expired"
-                      ? "border-l-4 border-l-red-700 bg-red-100 text-red-950"
-                      : expiryStatus === "expiring_soon"
-                      ? "border-l-4 border-l-orange-600 bg-orange-100 text-orange-950"
-                      : ""
+                        ? "border-l-4 border-l-red-700 bg-red-100 text-red-950"
+                        : expiryStatus === "expiring_soon"
+                          ? "border-l-4 border-l-orange-600 bg-orange-100 text-orange-950"
+                          : ""
                   }`}
                 >
                   <td className="p-3 font-medium">{medicine.name}</td>
-                  <td className="p-3 text-slate-600">{medicine.manufacturer || "-"}</td>
-                  <td className={`p-3 text-right font-semibold ${low ? "text-red-600" : ""}`}>
+                  <td className="p-3 text-slate-600">
+                    {medicine.manufacturer || "-"}
+                  </td>
+                  <td
+                    className={`p-3 text-right font-semibold ${low ? "text-red-600" : ""}`}
+                  >
                     {getAvailableQty(medicine)}
                   </td>
-                  <td className="p-3 text-center">{medicine.batches?.length || 0}</td>
-                  <td className="p-3 text-center"><CategoryBadge category={medicine.category} /></td>
-                  <td className="p-3 text-center"><HealthBadge item={medicine} /></td>
+                  <td className="p-3 text-center">
+                    {medicine.batches?.length || 0}
+                  </td>
+                  <td className="p-3 text-center">
+                    <CategoryBadge category={medicine.category} />
+                  </td>
+                  <td className="p-3 text-center">
+                    <HealthBadge item={medicine} />
+                  </td>
                   <td className="p-3 text-center">
                     <button
                       type="button"
@@ -296,7 +457,9 @@ export default function Inventory() {
             aria-label="Medicine details inspector"
             aria-hidden={!detailsOpen}
             className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-slate-700/20 bg-slate-50/95 shadow-[-20px_0_55px_-28px_rgba(15,23,42,0.65)] backdrop-blur-sm transition-transform duration-300 ease-out md:w-[55vw] xl:w-[460px] ${
-              detailsOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
+              detailsOpen
+                ? "translate-x-0"
+                : "pointer-events-none translate-x-full"
             }`}
           >
             <header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-slate-950 px-5 py-4 text-white shadow-sm">
@@ -304,8 +467,12 @@ export default function Inventory() {
                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400">
                   <Boxes className="h-3.5 w-3.5" /> Inventory inspector
                 </div>
-                <h2 className="mt-2 truncate text-lg font-bold">Medicine Details</h2>
-                <p className="mt-0.5 truncate text-xs text-slate-400">Review batches and stock controls</p>
+                <h2 className="mt-2 truncate text-lg font-bold">
+                  Medicine Details
+                </h2>
+                <p className="mt-0.5 truncate text-xs text-slate-400">
+                  Review batches and stock controls
+                </p>
               </div>
               <button
                 type="button"
@@ -318,16 +485,155 @@ export default function Inventory() {
             </header>
 
             <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-28 sm:p-5 sm:pb-28">
-              <SectionCard eyebrow="Medicine summary" title={selected.name} className="border-t-2 border-t-emerald-600">
-                <p className="-mt-2 mb-4 text-xs text-slate-500">{selected.manufacturer || "Manufacturer not set"}</p>
+              <SectionCard
+                eyebrow="Medicine summary"
+                title={selected.name}
+                className="border-t-2 border-t-emerald-600"
+              >
+                <p className="-mt-2 mb-4 text-xs text-slate-500">
+                  {selected.manufacturer || "Manufacturer not set"}
+                </p>
                 <div className="grid grid-cols-2 gap-4 rounded-lg bg-slate-50 p-3">
-                  <div><div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Category</div><CategoryBadge category={selected.category} /></div>
-                  <DetailItem label="Total stock" value={getAvailableQty(selected)} valueClassName={getAvailableQty(selected) > 0 ? "text-emerald-700" : "text-red-700"} />
-                  <div><div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Inventory health</div><HealthBadge item={selected} /></div>
+                  <div>
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                      Category
+                    </div>
+                    <CategoryBadge category={selected.category} />
+                  </div>
+                  <DetailItem
+                    label="Total stock"
+                    value={getAvailableQty(selected)}
+                    valueClassName={
+                      getAvailableQty(selected) > 0
+                        ? "text-emerald-700"
+                        : "text-red-700"
+                    }
+                  />
+                  <div>
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                      Inventory health
+                    </div>
+                    <HealthBadge item={selected} />
+                  </div>
                 </div>
               </SectionCard>
 
-              <SectionCard eyebrow={`${selected.batches?.length || 0} recorded`} title="Batch Details">
+              <SectionCard
+                eyebrow="Low stock control"
+                title="Low Stock Threshold"
+              >
+                <div
+                  className="space-y-4"
+                  data-testid="inventory-low-stock-threshold-section"
+                >
+                  <div className="rounded-lg border border-amber-100 bg-amber-50/70 p-3 text-xs leading-5 text-amber-900">
+                    Configure when this medicine should be treated as low stock.
+                    Status workflow actions stay available on the Dashboard
+                    only.
+                  </div>
+                  {selected.low_stock_threshold === null ||
+                  selected.low_stock_threshold === undefined ? (
+                    <div className="space-y-3">
+                      <div>
+                        <Label
+                          htmlFor="low-stock-threshold"
+                          className="text-xs font-bold uppercase tracking-wider text-slate-500"
+                        >
+                          Current threshold
+                        </Label>
+                        <Input
+                          id="low-stock-threshold"
+                          data-testid="low-stock-threshold-input"
+                          type="number"
+                          min="0"
+                          value={thresholdValue}
+                          onChange={(event) =>
+                            setThresholdValue(event.target.value)
+                          }
+                          placeholder="Set threshold quantity"
+                          className="mt-1"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={saveThreshold}
+                        disabled={thresholdSaving}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700"
+                        data-testid="set-threshold-button"
+                      >
+                        {thresholdSaving ? "Saving..." : "Set Threshold"}
+                      </Button>
+                    </div>
+                  ) : thresholdUnlocked ? (
+                    <div className="space-y-3">
+                      <div>
+                        <Label
+                          htmlFor="low-stock-threshold-edit"
+                          className="text-xs font-bold uppercase tracking-wider text-slate-500"
+                        >
+                          Current threshold
+                        </Label>
+                        <Input
+                          id="low-stock-threshold-edit"
+                          data-testid="low-stock-threshold-edit-input"
+                          type="number"
+                          min="0"
+                          value={thresholdValue}
+                          onChange={(event) =>
+                            setThresholdValue(event.target.value)
+                          }
+                          className="mt-1"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={saveThreshold}
+                        disabled={thresholdSaving}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700"
+                        data-testid="save-threshold-button"
+                      >
+                        {thresholdSaving ? "Saving..." : "Save Threshold"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Current threshold
+                          </div>
+                          <div
+                            className="mt-1 text-lg font-extrabold text-slate-900"
+                            data-testid="locked-low-stock-threshold"
+                          >
+                            {selected.low_stock_threshold}
+                          </div>
+                        </div>
+                        <div
+                          className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[10px] font-bold uppercase text-slate-600"
+                          data-testid="threshold-lock-indicator"
+                        >
+                          <Lock className="h-3 w-3" /> Locked
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setUnlockOpen(true)}
+                        className="w-full"
+                        data-testid="unlock-threshold-button"
+                      >
+                        <Unlock className="mr-2 h-4 w-4" /> Unlock Threshold
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                eyebrow={`${selected.batches?.length || 0} recorded`}
+                title="Batch Details"
+              >
                 <div className="space-y-3">
                   {(selected.batches || []).length === 0 && (
                     <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
@@ -336,7 +642,10 @@ export default function Inventory() {
                   )}
 
                   {(selected.batches || []).map((batch, index) => {
-                    const status = getExpiryStatus(batch.expiry_date, batch.expiry_status);
+                    const status = getExpiryStatus(
+                      batch.expiry_date,
+                      batch.expiry_status,
+                    );
                     const isExpired = status === "expired";
                     const isNearExpiry = status === "expiring_soon";
                     const isEmptyBatch = getAvailableQty(batch) === 0;
@@ -348,33 +657,68 @@ export default function Inventory() {
                           isExpired
                             ? "border-red-200 bg-red-50/70"
                             : isNearExpiry
-                            ? "border-amber-200 bg-amber-50/70"
-                            : "border-slate-200 bg-slate-50/80"
+                              ? "border-amber-200 bg-amber-50/70"
+                              : "border-slate-200 bg-slate-50/80"
                         }`}
                       >
                         <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-200/80 pb-2">
                           <div className="min-w-0">
-                            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Batch</div>
-                            <div className={`truncate font-bold ${isEmptyBatch ? "text-red-700" : "text-slate-900"}`}>
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                              Batch
+                            </div>
+                            <div
+                              className={`truncate font-bold ${isEmptyBatch ? "text-red-700" : "text-slate-900"}`}
+                            >
                               {batch.batch_no || "—"}
                             </div>
                           </div>
-                          {(isExpired || isNearExpiry || isEmptyBatch) ? (
-                            <div className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold uppercase ${
-                              isExpired || isEmptyBatch ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
-                            }`}>
+                          {isExpired || isNearExpiry || isEmptyBatch ? (
+                            <div
+                              className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold uppercase ${
+                                isExpired || isEmptyBatch
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-amber-100 text-amber-700"
+                              }`}
+                            >
                               <AlertTriangle className="h-3 w-3" />
-                              {isExpired ? "Expired" : isEmptyBatch ? "Empty" : "Expiring soon"}
+                              {isExpired
+                                ? "Expired"
+                                : isEmptyBatch
+                                  ? "Empty"
+                                  : "Expiring soon"}
                             </div>
-                          ) : <HealthBadge item={batch} />}
+                          ) : (
+                            <HealthBadge item={batch} />
+                          )}
                         </div>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                          <DetailItem label="Expiry" value={batch.expiry_date || "—"} />
-                          <DetailItem label="Pack size" value={batch.pack_size || "—"} />
-                          <DetailItem label="Distributor" value={batch.distributor_name || "—"} />
-                          <DetailItem label="Available qty" value={getAvailableQty(batch)} valueClassName={isEmptyBatch ? "text-red-700" : "text-emerald-700"} />
-                          <DetailItem label="Purchase rate" value={fmtINR(batch.purchase_price || 0)} />
-                          <DetailItem label="MRP" value={fmtINR(batch.mrp || 0)} />
+                          <DetailItem
+                            label="Expiry"
+                            value={batch.expiry_date || "—"}
+                          />
+                          <DetailItem
+                            label="Pack size"
+                            value={batch.pack_size || "—"}
+                          />
+                          <DetailItem
+                            label="Distributor"
+                            value={batch.distributor_name || "—"}
+                          />
+                          <DetailItem
+                            label="Available qty"
+                            value={getAvailableQty(batch)}
+                            valueClassName={
+                              isEmptyBatch ? "text-red-700" : "text-emerald-700"
+                            }
+                          />
+                          <DetailItem
+                            label="Purchase rate"
+                            value={fmtINR(batch.purchase_price || 0)}
+                          />
+                          <DetailItem
+                            label="MRP"
+                            value={fmtINR(batch.mrp || 0)}
+                          />
                         </div>
                       </div>
                     );
@@ -383,8 +727,62 @@ export default function Inventory() {
               </SectionCard>
             </div>
 
-            <footer className="sticky bottom-0 z-10 grid grid-cols-2 gap-2 border-t border-slate-200 bg-white/95 px-4 py-3"><button type="button" onClick={() => toast.info("Inventory edit panel coming next 😄")} className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-bold text-slate-700"><Pencil className="h-4 w-4" /> Edit Medicine</button><button type="button" onClick={deleteMedicine} className="flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-bold text-red-700"><Trash2 className="h-4 w-4" /> Delete Medicine</button></footer>
+            <footer className="sticky bottom-0 z-10 grid grid-cols-2 gap-2 border-t border-slate-200 bg-white/95 px-4 py-3">
+              <button
+                type="button"
+                onClick={() =>
+                  toast.info("Inventory edit panel coming next 😄")
+                }
+                className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-bold text-slate-700"
+              >
+                <Pencil className="h-4 w-4" /> Edit Medicine
+              </button>
+              <button
+                type="button"
+                onClick={deleteMedicine}
+                className="flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-bold text-red-700"
+              >
+                <Trash2 className="h-4 w-4" /> Delete Medicine
+              </button>
+            </footer>
           </aside>
+          <Dialog open={unlockOpen} onOpenChange={setUnlockOpen}>
+            <DialogContent
+              className="rounded-sm max-w-md"
+              data-testid="threshold-unlock-modal"
+            >
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-emerald-600" /> Unlock
+                  low stock threshold
+                </DialogTitle>
+                <DialogDescription>
+                  Enter the Privacy Password to edit this locked threshold.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={unlockThreshold} className="space-y-4">
+                <div>
+                  <Label htmlFor="privacy-password">Privacy Password</Label>
+                  <Input
+                    id="privacy-password"
+                    data-testid="privacy-password-input"
+                    type="password"
+                    value={privacyPassword}
+                    onChange={(event) => setPrivacyPassword(event.target.value)}
+                    autoComplete="current-password"
+                    className="mt-1"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={unlocking || !privacyPassword}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                >
+                  {unlocking ? "Unlocking..." : "Unlock Threshold"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>
