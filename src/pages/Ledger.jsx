@@ -175,6 +175,11 @@ export const normalizeCustomerMonthlySummary = (payload) => {
 
 export const hasCustomerMonthlySummary = (payload) => normalizeCustomerMonthlySummary(payload).length > 0;
 
+export const hasNonZeroCustomerMonthlySummary = (payload) =>
+  normalizeCustomerMonthlySummary(payload).some((row) =>
+    [row.creditSales, row.paymentsReceived, row.netMovement, row.closingBalance].some((value) => Number(value || 0) !== 0)
+  );
+
 export default function Ledger() {
   const { type, id } = useParams(); // type: distributor | customer
   const [data, setData] = useState(null);
@@ -346,7 +351,7 @@ export default function Ledger() {
   );
   const monthlyNetMovement = monthlyPurchaseTotal - monthlyPaymentTotal;
   const customerMonthlySummary = normalizeCustomerMonthlySummary(data);
-  const showCustomerMonthlySummaryEmpty = type === "customer" && transactions.length > 0 && customerMonthlySummary.length === 0;
+  const showCustomerMonthlySummary = type === "customer" && hasNonZeroCustomerMonthlySummary(data);
 
   const handleTransactionTypeChange = (value) => {
     setTxnType(value);
@@ -717,43 +722,37 @@ const downloadLedger = async () => {
       )}
 
 
-      {type === "customer" && (
+      {showCustomerMonthlySummary && (
         <div className="bg-white border border-slate-200 rounded-sm p-4 space-y-4" data-testid="customer-monthly-summary">
           <div>
             <div className="text-xs uppercase tracking-[0.15em] font-semibold text-slate-500">Monthly summary</div>
             <h2 className="font-heading text-2xl font-bold">Customer movement</h2>
             <p className="text-sm text-slate-500">Credit sales, payments received, and closing balances from the customer ledger API response.</p>
           </div>
-          {customerMonthlySummary.length ? (
-            <div className="overflow-x-auto rounded-sm border border-slate-100">
-              <table className="data-table min-w-[760px]">
-                <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th className="text-right">Credit Sales</th>
-                    <th className="text-right">Payments Received</th>
-                    <th className="text-right">Net Movement</th>
-                    <th className="text-right">Closing Balance</th>
+          <div className="overflow-x-auto rounded-sm border border-slate-100">
+            <table className="data-table min-w-[760px]">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th className="text-right">Credit Sales</th>
+                  <th className="text-right">Payments Received</th>
+                  <th className="text-right">Net Movement</th>
+                  <th className="text-right">Closing Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customerMonthlySummary.map((row) => (
+                  <tr key={row.month}>
+                    <td className="font-semibold text-slate-800">{row.month}</td>
+                    <td className="num-cell font-semibold text-red-600">{fmtINR(row.creditSales)}</td>
+                    <td className="num-cell font-semibold text-emerald-600">{fmtINR(row.paymentsReceived)}</td>
+                    <td className={`num-cell font-bold ${row.netMovement > 0 ? "text-red-600" : "text-emerald-600"}`}>{fmtINR(row.netMovement)}</td>
+                    <td className={`num-cell font-bold ${row.closingBalance > 0 ? "text-red-700" : "text-emerald-700"}`}>{fmtINR(row.closingBalance)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {customerMonthlySummary.map((row) => (
-                    <tr key={row.month}>
-                      <td className="font-semibold text-slate-800">{row.month}</td>
-                      <td className="num-cell font-semibold text-red-600">{fmtINR(row.creditSales)}</td>
-                      <td className="num-cell font-semibold text-emerald-600">{fmtINR(row.paymentsReceived)}</td>
-                      <td className={`num-cell font-bold ${row.netMovement > 0 ? "text-red-600" : "text-emerald-600"}`}>{fmtINR(row.netMovement)}</td>
-                      <td className={`num-cell font-bold ${row.closingBalance > 0 ? "text-red-700" : "text-emerald-700"}`}>{fmtINR(row.closingBalance)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="rounded-sm border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
-              {showCustomerMonthlySummaryEmpty ? "Transactions are available, but the ledger response did not include monthly_summary or monthly_movement_summary data." : "No monthly summary is available for this customer yet."}
-            </div>
-          )}
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

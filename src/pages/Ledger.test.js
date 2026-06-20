@@ -1,8 +1,10 @@
+jest.mock("react-router-dom", () => ({ Link: "a", useParams: () => ({ type: "customer", id: "1" }) }), { virtual: true });
+
 jest.mock("@/lib/api", () => ({ __esModule: true, default: { get: jest.fn() }, fmtINR: (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`, fmtDate: (value) => value, formatApiError: () => "error" }));
 
 import fs from "fs";
 import path from "path";
-import { hasCustomerMonthlySummary, normalizeCustomerMonthlySummary } from "./Ledger";
+import { hasCustomerMonthlySummary, hasNonZeroCustomerMonthlySummary, normalizeCustomerMonthlySummary } from "./Ledger";
 
 describe("customer ledger monthly summary", () => {
   it("normalizes monthly_summary rows for customer ledgers", () => {
@@ -17,10 +19,13 @@ describe("customer ledger monthly summary", () => {
     ]);
   });
 
-  it("detects missing summary for fallback empty state", () => {
+  it("shows customer movement only for non-zero monthly summary data", () => {
     expect(hasCustomerMonthlySummary({ transactions: [{ id: 1 }] })).toBe(false);
+    expect(hasNonZeroCustomerMonthlySummary({ monthly_summary: [{ month: "2026-06", credit_sales: 0, payments_received: 0, net_movement: 0, closing_balance: 0 }] })).toBe(false);
+    expect(hasNonZeroCustomerMonthlySummary({ monthly_summary: [{ month: "2026-06", credit_sales: 1, payments_received: 0, net_movement: 1, closing_balance: 1 }] })).toBe(true);
     const source = fs.readFileSync(path.join(__dirname, "Ledger.jsx"), "utf8");
-    expect(source).toContain("Transactions are available, but the ledger response did not include monthly_summary or monthly_movement_summary data.");
+    expect(source).toContain("showCustomerMonthlySummary &&");
+    expect(source).not.toContain("No monthly summary is available for this customer yet.");
     expect(source).toContain("Credit Sales");
     expect(source).toContain("Payments Received");
   });

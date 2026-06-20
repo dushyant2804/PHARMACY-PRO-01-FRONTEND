@@ -2,7 +2,7 @@ jest.mock("@/lib/api", () => ({ __esModule: true, default: { get: jest.fn() }, f
 
 import fs from "fs";
 import path from "path";
-import { aggregatePurchaseReturnStatusRows, buildExpiryRiskCards, chartMedicineLabel, displayPurchaseReturnStatus, formatAgingDays, hasValues, normalizeMedicineRows, normalizePurchaseReturnAnalytics, normalizeRecovery, topPurchaseReturnValueRows } from "./Reports";
+import { buildExpiryRiskCards, displayPurchaseReturnStatus, formatAgingDays, hasValues, normalizeMedicineRows, normalizePurchaseReturnAnalytics, normalizeRecovery } from "./Reports";
 
 describe("reports dashboard normalizers", () => {
   it("builds separate expiry risk cards from value-at-risk fields", () => {
@@ -78,29 +78,6 @@ describe("reports dashboard normalizers", () => {
   });
 
 
-  it("prepares top purchase return value rows with full medicine names and short chart labels", () => {
-    const longName = "Very Long Medicine Name With Strength And Pack Size";
-    const rows = topPurchaseReturnValueRows([
-      { name: "Small", value: 10, returnedQty: 1, status: "Credit Pending" },
-      { name: longName, value: 200, returnedQty: 2, status: "Credit Pending" },
-    ]);
-    expect(rows[0].name).toBe(longName);
-    expect(rows[0].chartLabel).toBe(chartMedicineLabel(longName));
-    expect(rows[0].chartLabel).toMatch(/…$/);
-    expect(rows[0].chartLabel.length).toBeLessThan(longName.length);
-  });
-
-  it("aggregates duplicate recorded return statuses into one chart bar", () => {
-    expect(aggregatePurchaseReturnStatusRows([
-      { status: "Credit Pending", returnedQty: 2, value: 100 },
-      { status: "recorded", returnedQty: 3, value: 150 },
-      { status: "Ledger Adjusted", returnedQty: 1, value: 50 },
-    ])).toEqual([
-      { status: "Credit Pending", returnedQty: 5, value: 250, count: 2 },
-      { status: "Ledger Adjusted", returnedQty: 1, value: 50, count: 1 },
-    ]);
-  });
-
   it("displays friendly purchase return status labels and excludes deleted or voided rows", () => {
     expect(displayPurchaseReturnStatus("recorded")).toBe("Credit Pending");
     expect(displayPurchaseReturnStatus("settled")).toBe("Adjusted in Purchase");
@@ -112,15 +89,18 @@ describe("reports dashboard normalizers", () => {
     ] })).toEqual([expect.objectContaining({ name: "Active", returnedQty: 1, value: 100, status: "Credit Pending" })]);
   });
 
-  it("keeps purchase return table and status chart friendly in the UI source", () => {
+  it("keeps only the purchase return analytics table friendly in the UI source", () => {
     const source = fs.readFileSync(path.join(__dirname, "Reports.jsx"), "utf8");
     expect(source).toContain("Return Value");
     expect(source).toContain("Credit Pending");
     expect(source).toContain("Adjusted in Purchase");
     expect(source).toContain("Distributor");
     expect(source).toContain("Return Date");
-    expect(source).toContain("returnStatusRows");
-    expect(source).toContain("labelFormatter");
+    expect(source).toContain("No purchase returns recorded yet.");
+    expect(source).not.toContain("Purchase Return Value");
+    expect(source).not.toContain("Purchase Return Status");
+    expect(source).not.toContain("returnStatusRows");
+    expect(source).not.toContain("labelFormatter");
   });
 
   it("formats aging values with day units", () => {

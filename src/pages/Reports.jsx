@@ -51,11 +51,6 @@ const PURCHASE_RETURN_STATUS_HELP = {
   "Adjusted in Purchase": "Adjusted in Purchase = credit used in a later PO",
 };
 export const isActivePurchaseReturnStatus = (value) => !ACTIVE_RETURN_STATUS_BLOCKLIST.has(normalizeStatusKey(value));
-export const chartMedicineLabel = (value = "") => {
-  const label = String(value);
-  return label.length > 24 ? `${label.slice(0, 21).trim()}…` : label;
-};
-
 function Kpi({ label, value, tone = "text-slate-950", icon: Icon, emphasis = false, help }) {
   return <div className={`premium-panel p-4 ${emphasis ? "border-amber-300 bg-amber-50/60" : ""}`}><div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500"><span>{label}</span>{Icon && <Icon className="h-4 w-4" />}</div><div className={`mt-2 text-2xl font-extrabold ${tone}`}>{value}</div>{help && <p className="mt-1 text-xs text-slate-500">{help}</p>}</div>;
 }
@@ -229,21 +224,6 @@ export const normalizePurchaseReturnAnalytics = (payload) => {
   }));
 };
 
-export const topPurchaseReturnValueRows = (rows) => [...asArray(rows)]
-  .sort((a, b) => number(b.value) - number(a.value))
-  .slice(0, 10)
-  .map((row) => ({ ...row, chartLabel: chartMedicineLabel(row.name) }));
-
-export const aggregatePurchaseReturnStatusRows = (rows) => Object.values(asArray(rows).reduce((acc, row) => {
-  if (!isActivePurchaseReturnStatus(row.status)) return acc;
-  const status = displayPurchaseReturnStatus(row.status);
-  if (!acc[status]) acc[status] = { status, returnedQty: 0, value: 0, count: 0 };
-  acc[status].returnedQty += number(row.returnedQty);
-  acc[status].value += number(row.value);
-  acc[status].count += number(firstDefined(row.count, 1));
-  return acc;
-}, {}));
-
 async function optionalGet(url, params) {
   try { const { data } = await api.get(url, { params }); return data; } catch { return null; }
 }
@@ -294,8 +274,6 @@ export default function Reports() {
   const reorderRows = useMemo(() => normalizeMedicineRows(firstDefined(analytics?.reorder_intelligence, stock?.reorder_intelligence), ["reorder_intelligence", "reorder_suggestions"]), [analytics, stock]);
   const expiryRows = useMemo(() => normalizeMedicineRows(firstDefined(stock?.expiry_analytics?.top_risk_medicines, analytics?.top_expiry_risk), ["top_risk_medicines", "top_expiry_risk"]), [stock, analytics]);
   const returnRows = useMemo(() => normalizePurchaseReturnAnalytics(analytics?.purchase_returns), [analytics]);
-  const returnValueRows = useMemo(() => topPurchaseReturnValueRows(returnRows), [returnRows]);
-  const returnStatusRows = useMemo(() => aggregatePurchaseReturnStatusRows(returnRows), [returnRows]);
   const categoryRows = useMemo(() => normalizeMedicineRows(analytics, ["category_profitability", "categories"]), [analytics]);
   const recovery = useMemo(() => normalizeRecovery(recoveryPayload), [recoveryPayload]);
   const customerOutstanding = asArray(outstanding?.customers).reduce((sum, row) => sum + number(firstDefined(row.outstanding, row.balance)), 0);
@@ -336,8 +314,8 @@ export default function Reports() {
         <DataTable title="Medicine Profit Intelligence" subtitle="Raise focus on high-profit medicines and investigate low margins." columns={["Medicine", "Revenue", "Cost", "Profit", "Margin %", "Units Sold"]} rows={medicineProfit.slice(0, 15)} emptyText="Data not available currently." renderRow={(row) => <tr key={row.id || row.name}>{td(row.name, "font-semibold text-slate-800")}{td(fmtINR(row.revenue))}{td(fmtINR(row.cost))}{td(fmtINR(row.profit), "font-bold text-emerald-700")}{td(pct(row.margin))}{td(row.units)}</tr>} />
         <div className="grid gap-5 xl:grid-cols-2"><ChartCard title="Category Profitability" subtitle="Profit by category in INR." empty={!hasValues(categoryRows, ["profit", "revenue"])}><ResponsiveContainer><BarChart data={categoryRows.slice(0, 10)}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="category" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Legend /><Bar dataKey="profit" name="Profit (INR)" fill="#0f766e" /><Bar dataKey="revenue" name="Revenue (INR)" fill="#2563eb" /></BarChart></ResponsiveContainer></ChartCard><ChartCard title="Fast Moving Medicines" subtitle="Units sold by fast-moving medicine." empty={!hasValues(fastMoving, ["units"])}><ResponsiveContainer><BarChart data={fastMoving.slice(0, 10)}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="name" /><YAxis width={70} /><Tooltip /><Legend /><Bar dataKey="units" name="Units sold" fill="#0f766e" /></BarChart></ResponsiveContainer></ChartCard></div>
         <div className="grid gap-5 xl:grid-cols-2"><DataTable title="Fast Moving Medicines" subtitle="Keep these medicines available before peak demand." columns={["Medicine", "Units Sold", "Revenue", "Profit"]} rows={fastMoving.slice(0, 10)} emptyText="Data not available currently." renderRow={(row) => <tr key={row.id || row.name}>{td(row.name, "font-semibold text-slate-800")}{td(row.units)}{td(fmtINR(row.revenue))}{td(fmtINR(row.profit), "font-bold text-emerald-700")}</tr>} /><DataTable title="Slow Moving Medicines" subtitle="Reduce reorder quantities and review shelf space." columns={["Medicine", "Stock", "Last Sale", "Days Since Sale"]} rows={slowMoving.slice(0, 10)} emptyText="Data not available currently." renderRow={(row) => <tr key={row.id || row.name}>{td(row.name, "font-semibold text-slate-800")}{td(row.stock)}{td(row.lastSale)}{td(row.daysIdle)}</tr>} /></div>
-        <div className="grid gap-5 xl:grid-cols-2"><ChartCard title="Purchase Return Value" subtitle="Top 10 medicines by return value in INR." empty={!hasValues(returnValueRows, ["value"])}><ResponsiveContainer><BarChart data={returnValueRows} layout="vertical" margin={{ left: 16, right: 24 }}><CartesianGrid stroke="#e2e8f0" horizontal={false} /><XAxis type="number" width={70} /><YAxis type="category" dataKey="chartLabel" width={150} tick={{ fontSize: 12 }} interval={0} /><Tooltip formatter={moneyTip} labelFormatter={(_, payload) => payload?.[0]?.payload?.name || "Medicine"} /><Legend /><Bar dataKey="value" name="Return value (INR)" fill="#dc2626" aria-label="Purchase return value by medicine" /></BarChart></ResponsiveContainer></ChartCard><ChartCard title="Purchase Return Status" subtitle="Returned quantity grouped by credit handling status: Credit Pending, Ledger Adjusted, and Adjusted in Purchase." empty={!hasValues(returnStatusRows, ["returnedQty"])}><ResponsiveContainer><BarChart data={returnStatusRows}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="status" interval={0} tick={{ fontSize: 12 }} /><YAxis width={70} /><Tooltip formatter={(value, name) => name === "Value (INR)" ? fmtINR(value) : value} /><Legend /><Bar dataKey="returnedQty" name="Returned quantity (units)" fill="#d4a72c" /><Bar dataKey="value" name="Value (INR)" fill="#dc2626" /><Bar dataKey="count" name="Return rows" fill="#2563eb" /></BarChart></ResponsiveContainer></ChartCard></div>
-        <div className="grid gap-5 xl:grid-cols-2"><DataTable title="Purchase Return Analytics" subtitle="Track returned quantity, value, distributor, and credit handling status. Credit Pending = return recorded but ledger not adjusted yet. Ledger Adjusted = distributor ledger already adjusted. Adjusted in Purchase = credit used in a later PO." columns={["Medicine", "Distributor", "Qty Returned", "Return Value", "Status", "Return Date"]} rows={returnRows.slice(0, 10)} emptyText="Data not available currently." renderRow={(row) => <tr key={row.id || row.name}>{td(row.name, "font-semibold text-slate-800")}{td(row.distributor)}{td(row.returnedQty)}{td(fmtINR(row.value), "font-bold")}{td(<span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700" title={PURCHASE_RETURN_STATUS_HELP[row.status]}>{row.status}</span>)}{td(row.returnDate)}</tr>} /><DataTable title="Category Profitability" subtitle="Use category margin to guide buying and promotions." columns={["Category", "Revenue", "Profit", "Margin"]} rows={categoryRows.slice(0, 10)} emptyText="Data not available currently." renderRow={(row) => <tr key={row.category}>{td(row.category, "font-semibold text-slate-800")}{td(fmtINR(row.revenue))}{td(fmtINR(row.profit), "font-bold text-emerald-700")}{td(pct(row.margin))}</tr>} /></div>
+        <DataTable title="Purchase Return Analytics" subtitle="Track returned quantity, value, distributor, and credit handling status. Credit Pending = return recorded but ledger not adjusted yet. Ledger Adjusted = distributor ledger already adjusted. Adjusted in Purchase = credit used in a later PO." columns={["Medicine", "Distributor", "Qty Returned", "Return Value", "Status", "Return Date"]} rows={returnRows.slice(0, 10)} emptyText="No purchase returns recorded yet." renderRow={(row) => <tr key={row.id || row.name}>{td(row.name, "font-semibold text-slate-800")}{td(row.distributor)}{td(row.returnedQty)}{td(fmtINR(row.value), "font-bold")}{td(<span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700" title={PURCHASE_RETURN_STATUS_HELP[row.status]}>{row.status}</span>)}{td(row.returnDate)}</tr>} />
+        <DataTable title="Category Profitability" subtitle="Use category margin to guide buying and promotions." columns={["Category", "Revenue", "Profit", "Margin"]} rows={categoryRows.slice(0, 10)} emptyText="Data not available currently." renderRow={(row) => <tr key={row.category}>{td(row.category, "font-semibold text-slate-800")}{td(fmtINR(row.revenue))}{td(fmtINR(row.profit), "font-bold text-emerald-700")}{td(pct(row.margin))}</tr>} />
       </TabsContent>
     </Tabs>
   </div>;
