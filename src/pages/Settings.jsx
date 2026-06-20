@@ -1,5 +1,4 @@
 import React, { useRef, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import api, { formatApiError } from "@/lib/api";
 import {
   formatPrivacyPasswordSaveError,
@@ -32,7 +31,7 @@ import { useAuth } from "@/contexts/AuthContext";
 /* 👉 NEW: FONT SYSTEM */
 import { useFont } from "@/contexts/FontContext";
 import { fonts } from "@/lib/fonts";
-import WelcomeScreen from "@/components/WelcomeScreen";
+import { useTheme } from "@/contexts/ThemeContext";
 import PasswordChangeForm from "@/components/PasswordChangeForm";
 import { useUpdateCenter } from "@/components/UpdateCenter";
 import { getUserDeleteProtection, getUserId } from "@/lib/userDeletion";
@@ -50,6 +49,7 @@ export default function Settings() {
 
   /* 👉 NEW: FONT HOOK */
   const { font, setFont } = useFont();
+  const { themeKey, setThemeKey, themes } = useTheme();
 
   const fileRef = useRef();
   const sigRef = useRef();
@@ -83,50 +83,6 @@ export default function Settings() {
 
   const [versionInfo, setVersionInfo] = useState(null);
 
-  const [welcomeText, setWelcomeText] = useState(
-    localStorage.getItem("welcomeText") || "WELCOME TO YOUR PHARMACY",
-  );
-
-  const [welcomeLogo, setWelcomeLogo] = useState(
-    localStorage.getItem("welcomeLogo") || "💊",
-  );
-
-  const [welcomeEffect, setWelcomeEffect] = useState(
-    localStorage.getItem("welcomeEffect") || "typing",
-  );
-
-  const [welcomeTextColor, setWelcomeTextColor] = useState(
-    localStorage.getItem("welcomeTextColor") || "#ffffff",
-  );
-
-  const [welcomeTextSize, setWelcomeTextSize] = useState(
-    localStorage.getItem("welcomeTextSize") || "48",
-  );
-
-  const [welcomeLogoSize, setWelcomeLogoSize] = useState(
-    localStorage.getItem("welcomeLogoSize") || "72",
-  );
-
-  const [welcomeBgColor, setWelcomeBgColor] = useState(
-    localStorage.getItem("welcomeBgColor") || "#020617",
-  );
-
-  const [welcomeBgImage, setWelcomeBgImage] = useState(
-    localStorage.getItem("welcomeBgImage") || "",
-  );
-
-  const [welcomeShowLogo, setWelcomeShowLogo] = useState(
-    localStorage.getItem("welcomeShowLogo") !== "false",
-  );
-
-  const [welcomeShowText, setWelcomeShowText] = useState(
-    localStorage.getItem("welcomeShowText") !== "false",
-  );
-
-  const [welcomeEnabled, setWelcomeEnabled] = useState(
-    localStorage.getItem("welcomeEnabled") !== "false",
-  );
-
   const loadUsers = () => {
     api
       .get("/auth/users")
@@ -145,12 +101,6 @@ export default function Settings() {
     if (user?.role === "admin") loadUsers();
     loadSettings();
     Promise.allSettled([
-      api.get("/update-center", {
-        params: { current_version: FRONTEND_VERSION },
-      }),
-      api.get("/updates/current", {
-        params: { current_version: FRONTEND_VERSION },
-      }),
       api.get("/updates/check", {
         params: { current_version: FRONTEND_VERSION },
       }),
@@ -253,31 +203,6 @@ export default function Settings() {
     } finally {
       setDeletingUserId(null);
     }
-  };
-
-  const saveWelcomeSettings = () => {
-    localStorage.setItem("welcomeText", welcomeText);
-
-    localStorage.setItem("welcomeLogo", welcomeLogo);
-
-    localStorage.setItem("welcomeEffect", welcomeEffect);
-
-    localStorage.setItem("welcomeTextColor", welcomeTextColor);
-    localStorage.setItem("welcomeTextSize", welcomeTextSize);
-    localStorage.setItem("welcomeLogoSize", welcomeLogoSize);
-    localStorage.setItem("welcomeBgColor", welcomeBgColor);
-    localStorage.setItem("welcomeBgImage", welcomeBgImage);
-    localStorage.setItem("welcomeShowLogo", String(welcomeShowLogo));
-    localStorage.setItem("welcomeShowText", String(welcomeShowText));
-    localStorage.setItem("welcomeEnabled", String(welcomeEnabled));
-
-    if (!welcomeEnabled) {
-      sessionStorage.setItem("welcome-shown", "true");
-    } else {
-      sessionStorage.removeItem("welcome-shown");
-    }
-
-    toast.success("Welcome screen updated");
   };
 
   return (
@@ -398,51 +323,68 @@ export default function Settings() {
         </div>
       )}
 
-      {/* ================= FONT SETTINGS (NEW SECTION) ================= */}
+      {/* ================= SYSTEM SETTINGS ================= */}
       <div id="system-settings-section" className="bg-white border border-slate-200 rounded-sm p-5">
         <div className="font-heading font-semibold mb-3">System Settings</div>
-        <p className="text-sm text-slate-600 mb-4">General workstation preferences, including app fonts.</p>
-        <div className="font-heading font-semibold mb-3">Fonts</div>
+        <p className="text-sm text-slate-600 mb-4">General workstation preferences, including app theme and font. Changes apply globally and persist after refresh.</p>
 
-        <p className="text-sm text-slate-600 mb-4">
-          Choose the font used throughout the app.
-        </p>
-
-        <div className="grid gap-5 lg:grid-cols-2">
-          {Object.entries({
-            Professional: [
-              "ibmPlex",
-              "inter",
-              "roboto",
-              "openSans",
-              "sourceSans3",
-              "workSans",
-            ],
-            Elegant: ["poppins", "montserrat", "raleway", "playfair"],
-            Classic: ["lato", "merriweather", "ubuntu", "cabin", "ptSans"],
-            Experimental: ["nunito", "cormorant", "calligraphy"],
-          }).map(([category, keys]) => (
-            <div key={category}>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                {category}
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {keys.map((key) => {
-                  const f = fonts[key];
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => setFont(f.value)}
-                      className={`rounded border px-3 py-2 text-left text-sm transition ${font === f.value ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 hover:bg-slate-50"}`}
-                      style={{ fontFamily: f.value }}
-                    >
-                      {f.name}
-                    </button>
-                  );
-                })}
-              </div>
+        <div className="grid gap-6 xl:grid-cols-2">
+          <section>
+            <div className="font-heading font-semibold mb-3">Themes</div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {Object.entries(themes).map(([key, theme]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setThemeKey(key)}
+                  className={`rounded-lg border p-3 text-left transition ${themeKey === key ? "border-emerald-700 ring-2 ring-emerald-200" : "border-slate-200 hover:border-emerald-200"}`}
+                  style={{ background: theme.card, color: theme.text }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">{theme.name}</span>
+                    <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase" style={{ background: theme.activeTab, color: theme.text }}>{theme.mode}</span>
+                  </div>
+                  <div className="mt-3 flex gap-1">
+                    {[theme.bg, theme.primary, theme.accent, theme.tableHeader].map((color) => (
+                      <span key={color} className="h-5 flex-1 rounded border" style={{ background: color, borderColor: theme.border }} />
+                    ))}
+                  </div>
+                </button>
+              ))}
             </div>
-          ))}
+          </section>
+
+          <section>
+            <div className="font-heading font-semibold mb-3">Fonts</div>
+            <p className="text-sm text-slate-600 mb-4">Current font: <span className="font-semibold text-slate-900" style={{ fontFamily: font }}>{Object.values(fonts).find((item) => item.value === font)?.name || font}</span></p>
+            <div className="grid gap-5">
+              {Object.entries({
+                Professional: ["ibmPlex", "inter", "roboto", "openSans"],
+                Classy: ["lato", "merriweather", "cabin"],
+                Elegant: ["poppins", "raleway"],
+              }).map(([category, keys]) => (
+                <div key={category}>
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{category}</div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {keys.map((key) => {
+                      const f = fonts[key];
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setFont(f.value)}
+                          className={`rounded border px-3 py-2 text-left text-sm transition ${font === f.value ? "border-emerald-700 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-100" : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"}`}
+                          style={{ fontFamily: f.value }}
+                        >
+                          {f.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
 
@@ -595,8 +537,17 @@ export default function Settings() {
               if (!f) return;
               if (f.size > 1024 * 1024) return toast.error("Max 1MB image");
               const reader = new FileReader();
-              reader.onload = () =>
-                setSettings({ ...settings, logo_b64: reader.result });
+              reader.onload = async () => {
+                const nextSettings = { ...settings, logo_b64: reader.result };
+                setSettings(nextSettings);
+                try {
+                  const { data } = await api.put("/settings", nextSettings);
+                  setSettings(data);
+                  toast.success("Logo uploaded and saved");
+                } catch (error) {
+                  toast.error(`Logo preview updated, but save failed: ${formatApiError(error)}`);
+                }
+              };
               reader.readAsDataURL(f);
             }}
           />
@@ -825,176 +776,6 @@ export default function Settings() {
           </table>
         </div>
       )}
-      <div className="bg-white border rounded-xl p-5 space-y-5">
-        <div>
-          <div className="text-xl font-semibold">
-            Welcome Screen Customization
-          </div>
-          <p className="text-sm text-slate-600 mt-1">
-            Preview and customize the intro screen shown after login. Existing
-            saved text, logo, and effect settings are preserved.
-          </p>
-        </div>
-
-        <WelcomeScreen
-          preview
-          settings={{
-            text: welcomeText,
-            logo: welcomeLogo,
-            effect: welcomeEffect,
-            textColor: welcomeTextColor,
-            textSize: welcomeTextSize,
-            logoSize: welcomeLogoSize,
-            backgroundColor: welcomeBgColor,
-            backgroundImage: welcomeBgImage,
-            showLogo: welcomeShowLogo,
-            showText: welcomeShowText,
-            enabled: true,
-          }}
-        />
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              checked={welcomeEnabled}
-              onChange={(e) => setWelcomeEnabled(e.target.checked)}
-            />
-            Enable welcome screen
-          </label>
-
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              checked={welcomeShowLogo}
-              onChange={(e) => setWelcomeShowLogo(e.target.checked)}
-            />
-            Show logo
-          </label>
-
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              checked={welcomeShowText}
-              onChange={(e) => setWelcomeShowText(e.target.checked)}
-            />
-            Show welcome text
-          </label>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <Label className="text-sm font-medium">Welcome Text</Label>
-
-            <Input
-              value={welcomeText}
-              onChange={(e) => setWelcomeText(e.target.value)}
-              placeholder="WELCOME TO YOUR PHARMACY"
-            />
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium">Logo / Emoji</Label>
-
-            <Input
-              value={welcomeLogo}
-              onChange={(e) => setWelcomeLogo(e.target.value)}
-              placeholder="💊"
-            />
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium">Welcome Text Color</Label>
-            <div className="flex gap-2">
-              <Input
-                type="color"
-                value={welcomeTextColor}
-                onChange={(e) => setWelcomeTextColor(e.target.value)}
-                className="w-16 p-1"
-              />
-              <Input
-                value={welcomeTextColor}
-                onChange={(e) => setWelcomeTextColor(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium">
-              Welcome Background Color
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                type="color"
-                value={welcomeBgColor}
-                onChange={(e) => setWelcomeBgColor(e.target.value)}
-                className="w-16 p-1"
-              />
-              <Input
-                value={welcomeBgColor}
-                onChange={(e) => setWelcomeBgColor(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium">
-              Welcome Text Size (px)
-            </Label>
-            <Input
-              type="number"
-              min="18"
-              max="96"
-              value={welcomeTextSize}
-              onChange={(e) => setWelcomeTextSize(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium">
-              Welcome Logo Size (px)
-            </Label>
-            <Input
-              type="number"
-              min="24"
-              max="160"
-              value={welcomeLogoSize}
-              onChange={(e) => setWelcomeLogoSize(e.target.value)}
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <Label className="text-sm font-medium">
-              Optional Background Image URL
-            </Label>
-            <Input
-              value={welcomeBgImage}
-              onChange={(e) => setWelcomeBgImage(e.target.value)}
-              placeholder="https://example.com/pharmacy-background.jpg"
-            />
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium">Welcome Effect</Label>
-
-            <select
-              value={welcomeEffect}
-              onChange={(e) => setWelcomeEffect(e.target.value)}
-              className="w-full border rounded-md h-10 px-3"
-            >
-              <option value="typing">Typing Effect</option>
-              <option value="fade">Fade Effect</option>
-              <option value="glow">Glow Effect</option>
-              <option value="terminal">Terminal Effect</option>
-              <option value="pulse">Pulse Logo</option>
-              <option value="slide">Slide Text</option>
-            </select>
-          </div>
-        </div>
-
-        <Button onClick={saveWelcomeSettings}>Save Welcome Screen</Button>
-      </div>
-
       <section
         className="rounded-xl border border-slate-200 bg-white p-5"
         id="update-center-section"
@@ -1044,17 +825,17 @@ export default function Settings() {
             <RefreshCw className="h-4 w-4" />
             What’s new / Release notes
           </div>
-          {hasReleaseNotes(versionInfo?.releaseNotes) ? (
+          {hasReleaseNotes(updateCenter?.releaseNotes || versionInfo?.releaseNotes) ? (
             <div className="grid gap-4 sm:grid-cols-3">
               {RELEASE_NOTE_GROUPS.filter(
-                ({ key }) => versionInfo.releaseNotes[key]?.length,
+                ({ key }) => (updateCenter?.releaseNotes || versionInfo?.releaseNotes)?.[key]?.length,
               ).map(({ key, label }) => (
                 <section key={key}>
                   <div className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-900">
                     {label}
                   </div>
                   <ul className="grid gap-2">
-                    {versionInfo.releaseNotes[key].map((note) => (
+                    {(updateCenter?.releaseNotes || versionInfo?.releaseNotes)[key].map((note) => (
                       <li
                         key={`${key}-${note}`}
                         className="flex gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700"

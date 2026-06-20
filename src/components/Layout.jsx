@@ -89,7 +89,6 @@ export default function Layout({ children }) {
         to={n.to}
         onClick={() => setOpen(false)}
         data-testid={`nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
-        title={n.label}
         aria-label={n.label}
         className={`taskbar-icon ${active ? "taskbar-icon--active" : ""}`}
       >
@@ -108,7 +107,7 @@ export default function Layout({ children }) {
           <div className="counter-account-name">{businessName}</div>
           <div className="counter-account-role">{roleLabel}</div>
         </div>
-        <Button onClick={handleLogout} variant="ghost" title="Log out" aria-label="Log out" className="taskbar-icon taskbar-icon--logout h-10 w-10 p-0" data-testid="logout-btn">
+        <Button onClick={handleLogout} variant="ghost" aria-label="Log out" className="taskbar-icon taskbar-icon--logout h-10 w-10 p-0" data-testid="logout-btn">
           <LogOut className="h-5 w-5" />
           <span className="taskbar-tooltip" role="tooltip">Log out</span>
         </Button>

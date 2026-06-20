@@ -240,3 +240,52 @@ body { background: var(--pharmacy-bg); color: var(--pharmacy-text); }
   .counter-account { max-width: 220px; }
   .counter-account-name { overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* Theme-aware workspace surfaces */
+.app-canvas {
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--pharmacy-primary) 13%, transparent), transparent 22rem),
+    linear-gradient(180deg, color-mix(in srgb, var(--pharmacy-card) 76%, transparent) 0%, var(--pharmacy-bg) 100%);
+  color: var(--pharmacy-text);
+}
+.premium-panel,
+.app-canvas .bg-white,
+.kpi-card,
+.dashboard-panel,
+.dashboard-stat {
+  background: var(--pharmacy-card) !important;
+  border-color: var(--pharmacy-border) !important;
+  color: var(--pharmacy-text);
+}
+.data-table thead th { background: var(--pharmacy-table-header) !important; color: var(--pharmacy-muted); }
+.data-table tbody td { border-bottom-color: color-mix(in srgb, var(--pharmacy-border) 65%, transparent); }
+.counter-taskbar { background: color-mix(in srgb, var(--pharmacy-card) 94%, transparent); border-bottom-color: var(--pharmacy-border); }
+.counter-account { border-left-color: var(--pharmacy-border); }
+.counter-account-name { color: var(--pharmacy-text); }
+.counter-account-role { color: var(--pharmacy-muted); }
+.taskbar-icon { width: 38px; height: 38px; border-color: var(--pharmacy-border); color: var(--pharmacy-primary); background: color-mix(in srgb, var(--pharmacy-card) 84%, transparent); }
+.taskbar-icon:hover { background: var(--pharmacy-active-tab); border-color: var(--pharmacy-primary); color: var(--pharmacy-primary); }
+.taskbar-icon--active { background: var(--pharmacy-active-tab); border-color: var(--pharmacy-primary); color: var(--pharmacy-primary); box-shadow: inset 0 -3px 0 var(--pharmacy-primary), 0 5px 14px color-mix(in srgb, var(--pharmacy-primary) 14%, transparent); }
+.counter-taskbar-scroll { gap: 10px; overflow: visible; }
+.taskbar-tooltip { background: var(--pharmacy-text); color: var(--pharmacy-bg); }
+
+html[data-theme-mode="dark"] body,
+html[data-theme-mode="dark"] .app-canvas { color: var(--pharmacy-text); }
+html[data-theme-mode="dark"] .text-slate-900,
+html[data-theme-mode="dark"] .text-slate-950,
+html[data-theme-mode="dark"] .text-emerald-950 { color: var(--pharmacy-text) !important; }
+html[data-theme-mode="dark"] .text-slate-600,
+html[data-theme-mode="dark"] .text-slate-500,
+html[data-theme-mode="dark"] .text-emerald-900 { color: var(--pharmacy-muted) !important; }
+html[data-theme-mode="dark"] input,
+html[data-theme-mode="dark"] textarea,
+html[data-theme-mode="dark"] select,
+html[data-theme-mode="dark"] [role="combobox"] { background: #fff !important; color: #0f172a !important; border-color: var(--pharmacy-border) !important; }
+html[data-theme-mode="dark"] option { background: #fff; color: #0f172a; }
+
+@media (max-width: 1366px) {
+  .counter-taskbar { padding: 6px 10px 6px 14px; gap: 8px; }
+  .taskbar-icon { width: 35px; height: 35px; border-radius: 10px; }
+  .counter-taskbar-scroll { gap: 7px; padding-left: 4px; }
+  .counter-account { max-width: 270px; padding-left: 8px; gap: 7px; }
+}
