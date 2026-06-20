@@ -97,7 +97,7 @@
 .dashboard-shell{display:flex;flex-direction:column;gap:28px;min-height:100vh;margin:-16px;padding:20px;background:radial-gradient(circle at 100% 0,rgba(213,176,78,.08),transparent 25rem),#f4f7f5;animation:dashboard-in .35s ease-out}
 .dashboard-hero{display:flex;flex-direction:column;gap:24px;justify-content:space-between;padding:24px;border:1px solid rgba(221,188,103,.18);border-radius:24px;background:radial-gradient(circle at 90% 0,rgba(221,188,103,.16),transparent 20rem),linear-gradient(135deg,#0a2a22,#061813);box-shadow:0 20px 50px rgba(7,35,28,.14)}
 .dashboard-action{display:inline-flex;height:40px;align-items:center;gap:8px;padding:0 13px;border:1px solid rgba(255,255,255,.14);border-radius:11px;background:rgba(255,255,255,.07);color:#e6f2ed;font-size:12px;font-weight:700;transition:.2s ease}.dashboard-action:hover{border-color:rgba(230,199,119,.5);background:rgba(255,255,255,.12);transform:translateY(-1px)}.dashboard-action-primary{border-color:#d9b85e;background:#d9b85e;color:#102a21}.dashboard-action-primary:hover{background:#e8c970;color:#102a21}
-.dashboard-panel,.dashboard-stat{border:1px solid rgba(148,163,184,.2);border-radius:18px;background:rgba(255,255,255,.9);box-shadow:0 8px 28px rgba(15,40,33,.045)}.dashboard-stat{display:block;width:100%;min-width:0;padding:16px;border-width:1px;box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 10px 25px rgba(15,40,33,.08);transition:.2s ease}.dashboard-stat:hover{border-color:rgba(20,107,78,.25);box-shadow:0 14px 35px rgba(15,40,33,.09);transform:translateY(-2px)}
+.dashboard-panel,.dashboard-stat{border:1px solid rgba(148,163,184,.2);border-radius:18px;background:#fff;box-shadow:0 8px 28px rgba(15,40,33,.045)}.dashboard-stat{display:block;width:100%;min-width:0;padding:16px;border-width:1px;box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 10px 25px rgba(15,40,33,.08);transition:.2s ease}.dashboard-stat:hover{border-color:rgba(20,107,78,.25);box-shadow:0 14px 35px rgba(15,40,33,.09);transform:translateY(-2px)}
 @keyframes dashboard-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 @media(min-width:768px){.dashboard-shell{margin:-32px;padding:32px}.dashboard-hero{flex-direction:row;align-items:center;padding:30px}}
 
@@ -256,6 +256,11 @@ body { background: var(--pharmacy-bg); color: var(--pharmacy-text); }
   background: var(--pharmacy-card) !important;
   border-color: var(--pharmacy-border) !important;
   color: var(--pharmacy-text);
+}
+.dashboard-panel,
+.dashboard-stat {
+  background: #fff !important;
+  backdrop-filter: none;
 }
 .data-table thead th { background: var(--pharmacy-table-header) !important; color: var(--pharmacy-muted); }
 .data-table tbody td { border-bottom-color: color-mix(in srgb, var(--pharmacy-border) 65%, transparent); }
