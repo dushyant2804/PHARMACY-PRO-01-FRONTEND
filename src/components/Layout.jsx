@@ -51,6 +51,7 @@ export default function Layout({ children }) {
   const [loadingText, setLoadingText] = useState("Dashboard");
   const [inspectorMode, setInspectorMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarPinned, setSidebarPinned] = useState(false);
   useEffect(() => {
     let inactivityTimer;
     const resetTimer = () => {
@@ -107,13 +108,13 @@ export default function Layout({ children }) {
   const SidebarContent = (
     <>
       {/* BRAND */}
-      <div className="sidebar-branding px-5 py-5">
+      <div className="sidebar-branding px-3 py-3">
         <BrandLogo compact light className="sidebar-brand-logo" />
         {user?.demo_mode && <div className="mt-3 inline-flex rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-200" data-testid="demo-mode-badge">Demo Mode</div>}
       </div>
 
       {/* NAV */}
-      <nav className="px-3 py-4 space-y-1 flex-1 overflow-y-auto">
+      <nav className="px-2 py-3 space-y-1 flex-1 overflow-y-auto">
         {visibleNav.map((n) => {
           const Icon = n.icon;
 
@@ -127,6 +128,7 @@ export default function Layout({ children }) {
              to={n.to}
              onClick={() => setOpen(false)}
              data-testid={`nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
+             title={n.label}
              className={`sidebar-nav-link ${active ? "sidebar-nav-link--active" : ""}`}
             >
              <Icon className="w-4 h-4" strokeWidth={1.75} />
@@ -143,7 +145,7 @@ export default function Layout({ children }) {
       <UpdatePill />
 
       {/* FOOTER */}
-      <div className="px-4 py-3 border-t border-slate-800">
+      <div className="sidebar-footer px-3 py-3 border-t border-slate-800">
         <div className="text-xs text-slate-400">{user?.name}</div>
         <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">
           {user?.role}
@@ -191,12 +193,22 @@ export default function Layout({ children }) {
 
       {/* DESKTOP SIDEBAR */}
       <aside
-        className={`${inspectorMode || sidebarCollapsed ? "hidden" : "hidden md:flex"} w-60 sidebar-premium flex-col fixed inset-y-0 left-0 transition-transform duration-300`}
+        className={`${inspectorMode || sidebarCollapsed ? "hidden" : "hidden md:flex"} counter-sidebar sidebar-premium flex-col fixed inset-y-0 left-0 z-40 transition-[width,box-shadow] duration-200 ${sidebarPinned ? "counter-sidebar--pinned" : ""}`}
+        onMouseEnter={() => setSidebarCollapsed(false)}
       >
+        <button
+          type="button"
+          onClick={() => setSidebarPinned((value) => !value)}
+          className="counter-sidebar-toggle"
+          aria-label={sidebarPinned ? "Collapse navigation sidebar" : "Expand navigation sidebar"}
+          aria-pressed={sidebarPinned}
+        >
+          <Menu className="h-4 w-4" />
+        </button>
         {SidebarContent}
       </aside>
 
-      {!inspectorMode && sidebarCollapsed && <button type="button" onClick={() => setSidebarCollapsed(false)} className="fixed left-4 top-5 z-40 hidden items-center gap-2 rounded-full border border-emerald-700/20 bg-emerald-950 px-4 py-2.5 text-xs font-bold text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-emerald-900 md:flex" aria-label="Reopen navigation sidebar"><Menu className="h-4 w-4" /> Navigation</button>}
+      {!inspectorMode && sidebarCollapsed && <button type="button" onClick={() => setSidebarCollapsed(false)} className="fixed left-3 top-4 z-40 hidden h-11 w-11 items-center justify-center rounded-xl border border-emerald-700/20 bg-emerald-950 text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-emerald-900 md:flex" aria-label="Reopen navigation sidebar" title="Navigation"><Menu className="h-4 w-4" /></button>}
 
       {/* MOBILE SIDEBAR */}
       {open && (
@@ -214,7 +226,7 @@ export default function Layout({ children }) {
       {/* MAIN */}
       <main
         className={`min-h-screen flex-1 transition-[margin] duration-300 ease-out ${
-          inspectorMode || sidebarCollapsed ? "md:ml-0" : "md:ml-60"
+          inspectorMode || sidebarCollapsed ? "md:ml-0" : "md:ml-14"
         }`}
       >
         <header className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
@@ -233,7 +245,7 @@ export default function Layout({ children }) {
 
         <div
          key={location.pathname}
-         className="p-4 md:p-8 page-transition"
+         className="p-3 md:p-3 xl:p-4 2xl:p-6 page-transition app-page"
         >
          {children}
         </div>
