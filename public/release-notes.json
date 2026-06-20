@@ -1,9 +1,0 @@
-{
-  "version": "0.1.0+20260613-77fbf37",
-  "date": "2026-06-13T11:40:38.001Z",
-  "notes": [
-    "Added drug licence fields and pharmacy logo support to Business Profile.",
-    "Improved Settings organization and mobile responsiveness.",
-    "Expanded Update Center with semantic version, build details, and release notes."
-  ]
-}

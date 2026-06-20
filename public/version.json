@@ -1,10 +1,4 @@
 {
-  "version": "0.1.0+20260613-713083c",
-  "date": "2026-06-13T14:29:18.027Z",
-  "message": "A new PharmacyOS update is available.",
-  "release_notes": [
-    "Added drug licence fields and pharmacy logo support to Business Profile.",
-    "Improved Settings organization and mobile responsiveness.",
-    "Expanded Update Center with semantic version, build details, and release notes."
-  ]
+  "version": "0.1.0+20260620-7682338",
+  "date": "2026-06-20T10:15:04.372Z"
 }
