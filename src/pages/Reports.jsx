@@ -136,32 +136,19 @@ export const buildExpiryRiskCards = (payload = {}, stock = {}) => {
   ];
 };
 
-export const normalizeRecovery = (payload) => asArray(firstDefined(
-  payload?.outstanding_movement_chart,
-  payload?.monthly_outstanding_trend,
-  payload?.monthly_outstanding_trends,
-  payload?.outstanding_movement,
-  payload?.recovery_movement,
-  payload?.recovery_trend,
-  payload?.movement,
-  payload,
-)).map((row) => ({
+export const normalizeRecovery = (payload) => asArray(payload?.distributor_outstanding_movement).map((row) => ({
   period: firstDefined(row.month, row.period, row.label, row.date, ""),
-  customerOutstanding: number(firstDefined(
-    row.customer_receivables,
-    row.customer_receivable,
-    row.customer_outstanding,
-    row.customers,
-    row.customer,
-  )),
   distributorOutstanding: number(firstDefined(
     row.distributor_payables,
     row.distributor_payable,
     row.distributor_outstanding,
-    row.distributors,
-    row.distributor,
-    row.supplier_payables,
-    row.supplier_payable,
+    row.outstanding,
+    row.payable,
+    row.payables,
+    row.balance,
+    row.closing_balance,
+    row.amount,
+    row.value,
   )),
 }));
 
@@ -307,7 +294,7 @@ export default function Reports() {
       <TabsContent value="outstanding" className="mt-5 space-y-5">
         <Kpi label={net >= 0 ? "Net Receivable" : "Net Payable"} value={fmtINR(Math.abs(net))} tone={net >= 0 ? "text-emerald-700" : "text-rose-700"} icon={net >= 0 ? TrendingUp : TrendingDown} emphasis help="This is receivables minus distributor payables." />
         <div className="grid gap-5 lg:grid-cols-2">{[["Customer Receivables", customerOutstanding, "customers", "text-rose-700"], ["Distributor Payables", distributorOutstanding, "distributors", "text-amber-700"]].map(([title, total, side, tone]) => <section key={side} className="premium-panel p-5"><h3 className="font-heading text-lg font-bold">{title}</h3><div className={`mt-2 text-3xl font-extrabold ${tone}`}>{fmtINR(total)}</div><div className="mt-5 grid grid-cols-2 gap-3">{agingBuckets(side).map((bucket) => <div key={bucket.label} className={`rounded-lg p-3 ${agingTone[bucket.key]}`}><div className="text-xs font-semibold">{bucket.label}</div><div className="mt-1 font-bold">{fmtINR(bucket.value)}</div></div>)}</div></section>)}</div>
-        <ChartCard title="Outstanding Movement" subtitle="Act when receivables or payables trend upward." empty={!hasValues(recovery, ["customerOutstanding", "distributorOutstanding"])} emptyText="Data not available currently."><ResponsiveContainer><LineChart data={recovery}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="period" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Legend /><Line dataKey="customerOutstanding" name="Customer receivables" stroke="#dc2626" strokeWidth={2} /><Line dataKey="distributorOutstanding" name="Distributor payables" stroke="#d4a72c" strokeWidth={2} /></LineChart></ResponsiveContainer></ChartCard>
+        <ChartCard title="Distributor Outstanding Movement" subtitle="Tracks monthly distributor payable movement from purchases, payments and adjustments." empty={!hasValues(recovery, ["distributorOutstanding"])} emptyText="No distributor outstanding movement recorded yet."><ResponsiveContainer><LineChart data={recovery}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="period" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Legend /><Line dataKey="distributorOutstanding" name="Distributor payables" stroke="#d4a72c" strokeWidth={2} /></LineChart></ResponsiveContainer></ChartCard>
         <div className="grid gap-5 xl:grid-cols-2"><DataTable title="Customer Recovery" subtitle="Oldest and largest overdue balances first." columns={["Customer", "Outstanding", "Aging (days)", "Recommendation / Status"]} rows={sortByAgingDesc(outstanding?.customers)} renderRow={(row, i) => <tr key={row.id || row.customer_id || i}>{td(firstDefined(row.customer_name, row.name, row.customer, "Customer"), "font-semibold text-slate-800")}{td(fmtINR(firstDefined(row.outstanding, row.balance)), "font-bold text-rose-700")}{td(formatAgingDays(row))}{td(recommendation(row))}</tr>} /><DataTable title="Distributor Payable" subtitle="Largest and oldest supplier balances first." columns={["Distributor", "Outstanding", "Aging (days)", "Recommendation / Status"]} rows={sortByAgingDesc(outstanding?.distributors)} renderRow={(row, i) => <tr key={row.id || row.distributor_id || i}>{td(firstDefined(row.distributor_name, row.name, row.distributor, "Distributor"), "font-semibold text-slate-800")}{td(fmtINR(firstDefined(row.outstanding, row.balance)), "font-bold text-amber-700")}{td(formatAgingDays(row))}{td(recommendation(row))}</tr>} /></div>
       </TabsContent>
       <TabsContent value="analytics" className="mt-5 space-y-5">

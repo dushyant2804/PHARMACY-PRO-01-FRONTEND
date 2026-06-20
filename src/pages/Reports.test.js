@@ -36,23 +36,26 @@ describe("reports dashboard normalizers", () => {
   });
 
 
-  it("normalizes outstanding movement from supported monthly trend paths", () => {
-    expect(normalizeRecovery({ monthly_outstanding_trend: [{ month: "Jan", customer_outstanding: 100, distributor_outstanding: 40 }] })).toEqual([
-      { period: "Jan", customerOutstanding: 100, distributorOutstanding: 40 },
+  it("normalizes outstanding movement only from distributor outstanding movement", () => {
+    expect(normalizeRecovery({ distributor_outstanding_movement: [{ month: "Jan", distributor_outstanding: 40 }] })).toEqual([
+      { period: "Jan", distributorOutstanding: 40 },
     ]);
-    expect(normalizeRecovery({ monthly_outstanding_trends: [{ period: "Feb", customers: 125, distributors: 55 }] })).toEqual([
-      { period: "Feb", customerOutstanding: 125, distributorOutstanding: 55 },
-    ]);
-    expect(normalizeRecovery({ outstanding_movement_chart: [{ label: "Mar", customer_receivables: 200, distributor_payables: 75 }] })).toEqual([
-      { period: "Mar", customerOutstanding: 200, distributorOutstanding: 75 },
+    expect(normalizeRecovery({ distributor_outstanding_movement: [{ period: "Feb", balance: 55 }] })).toEqual([
+      { period: "Feb", distributorOutstanding: 55 },
     ]);
   });
 
-  it("keeps valid outstanding movement data visible and empty movement data hidden", () => {
-    const rows = normalizeRecovery({ outstanding_movement_chart: [{ label: "Apr", customer_receivables: 10, distributor_payables: 0 }] });
-    expect(hasValues(rows, ["customerOutstanding", "distributorOutstanding"])).toBe(true);
-    expect(hasValues(normalizeRecovery({ monthly_outstanding_trend: [] }), ["customerOutstanding", "distributorOutstanding"])).toBe(false);
-    expect(hasValues(normalizeRecovery({ monthly_outstanding_trend: [{ month: "May", customer_receivables: 0, distributor_payables: 0 }] }), ["customerOutstanding", "distributorOutstanding"])).toBe(false);
+  it("ignores customer and mixed outstanding movement sources", () => {
+    expect(normalizeRecovery({ monthly_outstanding_trend: [{ month: "Jan", customer_outstanding: 100, distributor_outstanding: 40 }] })).toEqual([]);
+    expect(normalizeRecovery({ outstanding_movement_chart: [{ label: "Mar", customer_receivables: 200, distributor_payables: 75 }] })).toEqual([]);
+    expect(normalizeRecovery({ customer_monthly_summary: [{ month: "Apr", customer_receivables: 10 }] })).toEqual([]);
+  });
+
+  it("keeps valid distributor outstanding movement visible and empty movement data hidden", () => {
+    const rows = normalizeRecovery({ distributor_outstanding_movement: [{ label: "Apr", distributor_payables: 10 }] });
+    expect(hasValues(rows, ["distributorOutstanding"])).toBe(true);
+    expect(hasValues(normalizeRecovery({ distributor_outstanding_movement: [] }), ["distributorOutstanding"])).toBe(false);
+    expect(hasValues(normalizeRecovery({ distributor_outstanding_movement: [{ month: "May", distributor_payables: 0 }] }), ["distributorOutstanding"])).toBe(false);
   });
 
   it("normalizes purchase return analytics from medicine report paths", () => {
