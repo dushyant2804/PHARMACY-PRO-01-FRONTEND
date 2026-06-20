@@ -45,8 +45,6 @@ export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [loadingScreen, setLoadingScreen] = useState(false);
-  const [loadingText, setLoadingText] = useState("Dashboard");
   const [inspectorMode, setInspectorMode] = useState(false);
 
   useEffect(() => {
@@ -60,14 +58,6 @@ export default function Layout({ children }) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  useEffect(() => {
-    const currentPage = nav.find((n) => n.to === location.pathname)?.label || "Module";
-    setLoadingText(currentPage);
-    setLoadingScreen(true);
-    const timer = setTimeout(() => setLoadingScreen(false), 250);
-    return () => clearTimeout(timer);
-  }, [location.pathname]);
 
   const role = user?.role || "cashier";
   const visibleNav = nav.filter((n) => n.roles.includes(role));
@@ -118,20 +108,6 @@ export default function Layout({ children }) {
   return (
     <LayoutContext.Provider value={{ inspectorMode, setInspectorMode }}>
       <div className="min-h-screen app-canvas counter-layout">
-        {loadingScreen && (
-          <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center overflow-hidden bg-emerald-50">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-amber-50 opacity-100" />
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="relative mb-8">
-                <div className="h-16 w-16 rounded-full border border-emerald-500/25" />
-                <div className="absolute inset-0 animate-spin rounded-full border-t-2 border-emerald-600" />
-              </div>
-              <div className="text-xl font-light tracking-wide text-emerald-950">Loading {loadingText}</div>
-              <div className="mt-3 text-sm uppercase tracking-[0.3em] text-slate-600">Please Wait</div>
-            </div>
-          </div>
-        )}
-
         {!inspectorMode && taskbar}
 
         <main className="counter-main min-h-screen flex-1">
