@@ -173,16 +173,27 @@ function DetailItem({ label, value, valueClassName = "" }) {
   );
 }
 
-function SectionCard({ eyebrow, title, children, className = "" }) {
+function SectionCard({
+  eyebrow,
+  title,
+  children,
+  className = "",
+  headerAction = null,
+}) {
   return (
     <section
       className={`rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm ${className}`}
     >
-      <div className="mb-4">
-        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600">
-          {eyebrow}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600">
+            {eyebrow}
+          </div>
+          <h3 className="mt-1 truncate text-sm font-bold text-slate-900">
+            {title}
+          </h3>
         </div>
-        <h3 className="mt-1 text-sm font-bold text-slate-900">{title}</h3>
+        {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
       </div>
       {children}
     </section>
@@ -303,6 +314,91 @@ export default function Inventory() {
     } finally {
       setUnlocking(false);
     }
+  };
+
+  const renderThresholdControl = () => {
+    if (!selected) return null;
+
+    const thresholdMissing =
+      selected.low_stock_threshold === null ||
+      selected.low_stock_threshold === undefined;
+    const inputId = thresholdMissing
+      ? "low-stock-threshold"
+      : "low-stock-threshold-edit";
+
+    return (
+      <div
+        className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-amber-100 bg-amber-50/70 px-2.5 py-2 text-xs sm:w-auto sm:justify-end"
+        data-testid="inventory-low-stock-threshold-section"
+      >
+        <Label
+          htmlFor={thresholdMissing || thresholdUnlocked ? inputId : undefined}
+          className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-amber-800"
+        >
+          Threshold:
+        </Label>
+        {thresholdMissing || thresholdUnlocked ? (
+          <>
+            <Input
+              id={inputId}
+              data-testid={
+                thresholdMissing
+                  ? "low-stock-threshold-input"
+                  : "low-stock-threshold-edit-input"
+              }
+              type="number"
+              min="0"
+              value={thresholdValue}
+              onChange={(event) => setThresholdValue(event.target.value)}
+              placeholder="10"
+              aria-label="Low stock threshold"
+              className="h-8 w-20 bg-white px-2 text-sm"
+            />
+            <Button
+              type="button"
+              onClick={saveThreshold}
+              disabled={thresholdSaving}
+              className="h-8 bg-emerald-600 px-3 text-xs hover:bg-emerald-700"
+              data-testid={
+                thresholdMissing
+                  ? "set-threshold-button"
+                  : "save-threshold-button"
+              }
+            >
+              {thresholdSaving
+                ? "Saving..."
+                : thresholdMissing
+                  ? "Set"
+                  : "Save"}
+            </Button>
+          </>
+        ) : (
+          <>
+            <span
+              className="text-sm font-extrabold text-slate-900"
+              data-testid="locked-low-stock-threshold"
+            >
+              {selected.low_stock_threshold}
+            </span>
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold uppercase text-slate-600"
+              data-testid="threshold-lock-indicator"
+            >
+              <Lock className="h-3 w-3" /> Locked
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setUnlockOpen(true)}
+              className="h-8 px-3 text-xs"
+              data-testid="unlock-threshold-button"
+            >
+              <Unlock className="mr-1 h-3.5 w-3.5" /> Unlock
+            </Button>
+          </>
+        )}
+      </div>
+    );
   };
 
   const deleteMedicine = async () => {
@@ -487,13 +583,16 @@ export default function Inventory() {
             <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-28 sm:p-5 sm:pb-28">
               <SectionCard
                 eyebrow="Medicine summary"
-                title={selected.name}
+                title="Medicine Details"
                 className="border-t-2 border-t-emerald-600"
+                headerAction={renderThresholdControl()}
               >
-                <p className="-mt-2 mb-4 text-xs text-slate-500">
-                  {selected.manufacturer || "Manufacturer not set"}
-                </p>
                 <div className="grid grid-cols-2 gap-4 rounded-lg bg-slate-50 p-3">
+                  <DetailItem label="Medicine name" value={selected.name} />
+                  <DetailItem
+                    label="Manufacturer"
+                    value={selected.manufacturer || "Manufacturer not set"}
+                  />
                   <div>
                     <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                       Category
@@ -501,7 +600,7 @@ export default function Inventory() {
                     <CategoryBadge category={selected.category} />
                   </div>
                   <DetailItem
-                    label="Total stock"
+                    label="Current stock"
                     value={getAvailableQty(selected)}
                     valueClassName={
                       getAvailableQty(selected) > 0
@@ -511,122 +610,10 @@ export default function Inventory() {
                   />
                   <div>
                     <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-                      Inventory health
+                      Status
                     </div>
                     <HealthBadge item={selected} />
                   </div>
-                </div>
-              </SectionCard>
-
-              <SectionCard
-                eyebrow="Low stock control"
-                title="Low Stock Threshold"
-              >
-                <div
-                  className="space-y-4"
-                  data-testid="inventory-low-stock-threshold-section"
-                >
-                  <div className="rounded-lg border border-amber-100 bg-amber-50/70 p-3 text-xs leading-5 text-amber-900">
-                    Configure when this medicine should be treated as low stock.
-                    Status workflow actions stay available on the Dashboard
-                    only.
-                  </div>
-                  {selected.low_stock_threshold === null ||
-                  selected.low_stock_threshold === undefined ? (
-                    <div className="space-y-3">
-                      <div>
-                        <Label
-                          htmlFor="low-stock-threshold"
-                          className="text-xs font-bold uppercase tracking-wider text-slate-500"
-                        >
-                          Current threshold
-                        </Label>
-                        <Input
-                          id="low-stock-threshold"
-                          data-testid="low-stock-threshold-input"
-                          type="number"
-                          min="0"
-                          value={thresholdValue}
-                          onChange={(event) =>
-                            setThresholdValue(event.target.value)
-                          }
-                          placeholder="Set threshold quantity"
-                          className="mt-1"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        onClick={saveThreshold}
-                        disabled={thresholdSaving}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700"
-                        data-testid="set-threshold-button"
-                      >
-                        {thresholdSaving ? "Saving..." : "Set Threshold"}
-                      </Button>
-                    </div>
-                  ) : thresholdUnlocked ? (
-                    <div className="space-y-3">
-                      <div>
-                        <Label
-                          htmlFor="low-stock-threshold-edit"
-                          className="text-xs font-bold uppercase tracking-wider text-slate-500"
-                        >
-                          Current threshold
-                        </Label>
-                        <Input
-                          id="low-stock-threshold-edit"
-                          data-testid="low-stock-threshold-edit-input"
-                          type="number"
-                          min="0"
-                          value={thresholdValue}
-                          onChange={(event) =>
-                            setThresholdValue(event.target.value)
-                          }
-                          className="mt-1"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        onClick={saveThreshold}
-                        disabled={thresholdSaving}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700"
-                        data-testid="save-threshold-button"
-                      >
-                        {thresholdSaving ? "Saving..." : "Save Threshold"}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                        <div>
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Current threshold
-                          </div>
-                          <div
-                            className="mt-1 text-lg font-extrabold text-slate-900"
-                            data-testid="locked-low-stock-threshold"
-                          >
-                            {selected.low_stock_threshold}
-                          </div>
-                        </div>
-                        <div
-                          className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[10px] font-bold uppercase text-slate-600"
-                          data-testid="threshold-lock-indicator"
-                        >
-                          <Lock className="h-3 w-3" /> Locked
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setUnlockOpen(true)}
-                        className="w-full"
-                        data-testid="unlock-threshold-button"
-                      >
-                        <Unlock className="mr-2 h-4 w-4" /> Unlock Threshold
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </SectionCard>
 
