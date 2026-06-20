@@ -43,6 +43,9 @@ describe("reports dashboard normalizers", () => {
     expect(normalizeRecovery({ distributor_outstanding_movement: [{ period: "Feb", balance: 55 }] })).toEqual([
       { period: "Feb", distributorOutstanding: 55 },
     ]);
+    expect(normalizeRecovery({ data: { distributorPayableMovement: [{ label: "Mar", distributorPayable: 65 }] } })).toEqual([
+      { period: "Mar", distributorOutstanding: 65 },
+    ]);
   });
 
   it("ignores customer and mixed outstanding movement sources", () => {
@@ -51,11 +54,14 @@ describe("reports dashboard normalizers", () => {
     expect(normalizeRecovery({ customer_monthly_summary: [{ month: "Apr", customer_receivables: 10 }] })).toEqual([]);
   });
 
-  it("keeps valid distributor outstanding movement visible and empty movement data hidden", () => {
+  it("keeps distributor outstanding movement visible whenever a movement point exists", () => {
     const rows = normalizeRecovery({ distributor_outstanding_movement: [{ label: "Apr", distributor_payables: 10 }] });
+    expect(rows).toHaveLength(1);
     expect(hasValues(rows, ["distributorOutstanding"])).toBe(true);
-    expect(hasValues(normalizeRecovery({ distributor_outstanding_movement: [] }), ["distributorOutstanding"])).toBe(false);
-    expect(hasValues(normalizeRecovery({ distributor_outstanding_movement: [{ month: "May", distributor_payables: 0 }] }), ["distributorOutstanding"])).toBe(false);
+    expect(normalizeRecovery({ distributor_outstanding_movement: [] })).toHaveLength(0);
+    expect(normalizeRecovery({ distributor_outstanding_movement: [{ month: "May", distributor_payables: 0 }] })).toEqual([
+      { period: "May", distributorOutstanding: 0 },
+    ]);
   });
 
   it("normalizes purchase return analytics from medicine report paths", () => {
