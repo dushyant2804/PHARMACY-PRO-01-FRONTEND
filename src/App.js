@@ -8,14 +8,9 @@ import {
   Link,
 } from "react-router-dom";
 
-import { useState, useEffect } from "react";
-
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 import { Toaster } from "sonner";
-
-/* 🌅 NEW */
-import WelcomeScreen from "@/components/WelcomeScreen";
 
 import Login from "@/pages/Login";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -41,9 +36,7 @@ import Onboarding from "@/pages/Onboarding";
 
 import Layout from "@/components/Layout";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import RouteLoader from "@/components/RouteLoader";
 import UpdateCenter from "@/components/UpdateCenter";
-import { useLocation } from "react-router-dom";
 
 function NotFound() {
   return (
@@ -71,45 +64,6 @@ function NotFound() {
 
 function Protected({ children }) {
   const { user, loading, passwordExpired } = useAuth();
-  const location = useLocation();
-
-  const [showWelcome, setShowWelcome] = useState(() => localStorage.getItem("welcomeEnabled") !== "false" && !sessionStorage.getItem("welcome-shown"));
-  const [showRouteLoader, setShowRouteLoader] = useState(false);
-
-  // LOGIN WELCOME (5 sec only once per session)
-  useEffect(() => {
-    if (user) {
-      const enabled = localStorage.getItem("welcomeEnabled") !== "false";
-      const seen = sessionStorage.getItem("welcome-shown");
-
-      if (!enabled || seen) {
-        setShowWelcome(false);
-        return;
-      }
-
-      setShowWelcome(true);
-
-      const t = setTimeout(() => {
-        setShowWelcome(false);
-        sessionStorage.setItem("welcome-shown", "true");
-      }, 5000);
-
-      return () => clearTimeout(t);
-    }
-  }, [user]);
-
-  // ROUTE CHANGE LOADER (2–3 sec every navigation)
-  useEffect(() => {
-    if (!user) return;
-
-    setShowRouteLoader(true);
-
-    const t = setTimeout(() => {
-      setShowRouteLoader(false);
-    }, 2500);
-
-    return () => clearTimeout(t);
-  }, [location.pathname, user]);
 
   if (loading) {
     return (
@@ -127,17 +81,13 @@ function Protected({ children }) {
     return <Navigate to="/password-expired" replace />;
   }
 
-  if (showWelcome) {
-    return <WelcomeScreen onFinish={() => setShowWelcome(false)} />;
-  }
-
-return (
-  <Layout>
-    <ErrorBoundary>
-      {children}
-    </ErrorBoundary>
-  </Layout>
-);
+  return (
+    <Layout>
+      <ErrorBoundary>
+        {children}
+      </ErrorBoundary>
+    </Layout>
+  );
 }
 
 
