@@ -35,7 +35,13 @@ import { fonts } from "@/lib/fonts";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import PasswordChangeForm from "@/components/PasswordChangeForm";
 import { getUserDeleteProtection, getUserId } from "@/lib/userDeletion";
-import { FRONTEND_VERSION, normalizeVersionMetadata } from "@/lib/version";
+import {
+  FRONTEND_VERSION,
+  getVersionIdentity,
+  hasReleaseNotes,
+  normalizeVersionMetadata,
+  RELEASE_NOTE_GROUPS,
+} from "@/lib/version";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -136,24 +142,21 @@ export default function Settings() {
   useEffect(() => {
     if (user?.role === "admin") loadUsers();
     loadSettings();
-    Promise.all([
-      fetch("/version.json").then((response) =>
-        response.ok ? response.json() : null,
-      ),
-      fetch("/release-notes.json")
-        .then((response) => (response.ok ? response.json() : null))
-        .catch(() => null),
+    Promise.allSettled([
+      api.get("/update-center", {
+        params: { current_version: FRONTEND_VERSION },
+      }),
+      api.get("/updates/current", {
+        params: { current_version: FRONTEND_VERSION },
+      }),
+      api.get("/updates/check", {
+        params: { current_version: FRONTEND_VERSION },
+      }),
     ])
-      .then(([version, notes]) => {
-        const primary = normalizeVersionMetadata(version || {});
-        const release = normalizeVersionMetadata(notes || {});
-        if (primary)
-          setVersionInfo({
-            ...primary,
-            releaseNotes: release?.releaseNotes?.length
-              ? release.releaseNotes
-              : primary.releaseNotes,
-          });
+      .then((results) => {
+        const success = results.find((result) => result.status === "fulfilled");
+        const metadata = normalizeVersionMetadata(success?.value?.data || {});
+        if (metadata) setVersionInfo(metadata);
       })
       .catch(() => {});
     // eslint-disable-next-line
@@ -978,11 +981,20 @@ export default function Settings() {
           <div className="rounded-lg bg-slate-950 px-3 py-2 text-left text-white sm:text-right">
             <div className="text-xs text-slate-400">App version</div>
             <div className="font-mono text-sm">
-              v{(versionInfo?.version || FRONTEND_VERSION).split("+")[0]}
+              v
+              {
+                getVersionIdentity(versionInfo?.version || FRONTEND_VERSION)
+                  .version
+              }
             </div>
-            {(versionInfo?.version || FRONTEND_VERSION).includes("+") && (
+            {getVersionIdentity(versionInfo?.version || FRONTEND_VERSION)
+              .build && (
               <div className="mt-1 text-[11px] text-slate-400">
-                Build {(versionInfo?.version || FRONTEND_VERSION).split("+")[1]}
+                Build{" "}
+                {
+                  getVersionIdentity(versionInfo?.version || FRONTEND_VERSION)
+                    .build
+                }
               </div>
             )}
           </div>
@@ -992,22 +1004,32 @@ export default function Settings() {
             <RefreshCw className="h-4 w-4" />
             What’s new / Release notes
           </div>
-          {versionInfo?.releaseNotes?.length ? (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {versionInfo.releaseNotes.map((note) => (
-                <li
-                  key={note}
-                  className="flex gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700"
-                >
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  {note}
-                </li>
+          {hasReleaseNotes(versionInfo?.releaseNotes) ? (
+            <div className="grid gap-4 sm:grid-cols-3">
+              {RELEASE_NOTE_GROUPS.filter(
+                ({ key }) => versionInfo.releaseNotes[key]?.length,
+              ).map(({ key, label }) => (
+                <section key={key}>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-900">
+                    {label}
+                  </div>
+                  <ul className="grid gap-2">
+                    {versionInfo.releaseNotes[key].map((note) => (
+                      <li
+                        key={`${key}-${note}`}
+                        className="flex gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700"
+                      >
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                        {note}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               ))}
-            </ul>
+            </div>
           ) : (
             <p className="text-sm text-slate-500">
-              Release information will appear when provided by the update
-              service.
+              No release notes available for this update.
             </p>
           )}
         </div>
