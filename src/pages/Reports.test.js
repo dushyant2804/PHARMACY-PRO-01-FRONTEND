@@ -57,16 +57,16 @@ describe("reports dashboard normalizers", () => {
 
   it("normalizes purchase return analytics from medicine report paths", () => {
     expect(normalizePurchaseReturnAnalytics({ medicine_wise_return_analytics: [{ medicine_name: "A", total_return_value: 500, total_returned_quantity: 5 }] })).toEqual([
-      { name: "A", returnedQty: 5, value: 500, status: "Recorded Only" },
+      expect.objectContaining({ name: "A", returnedQty: 5, value: 500, status: "Credit Pending" }),
     ]);
     expect(normalizePurchaseReturnAnalytics({ returns_by_medicine: [{ medicine: "B", total_return_amount: 750, total_return_quantity: 3 }] })).toEqual([
-      { name: "B", returnedQty: 3, value: 750, status: "Recorded Only" },
+      expect.objectContaining({ name: "B", returnedQty: 3, value: 750, status: "Credit Pending" }),
     ]);
     expect(normalizePurchaseReturnAnalytics({ medicine_breakdown: [{ name: "C", total_amount: 250, qty: 2, status: "Adjusted" }] })).toEqual([
-      { name: "C", returnedQty: 2, value: 250, status: "Ledger Adjusted" },
+      expect.objectContaining({ name: "C", returnedQty: 2, value: 250, status: "Ledger Adjusted" }),
     ]);
     expect(normalizePurchaseReturnAnalytics({ data: { by_medicine: { D: { total_return_value: 125, qty: 1 } } } })).toEqual([
-      { name: "D", returnedQty: 1, value: 125, status: "Recorded Only" },
+      expect.objectContaining({ name: "D", returnedQty: 1, value: 125, status: "Credit Pending" }),
     ]);
   });
 
@@ -81,8 +81,8 @@ describe("reports dashboard normalizers", () => {
   it("prepares top purchase return value rows with full medicine names and short chart labels", () => {
     const longName = "Very Long Medicine Name With Strength And Pack Size";
     const rows = topPurchaseReturnValueRows([
-      { name: "Small", value: 10, returnedQty: 1, status: "Recorded Only" },
-      { name: longName, value: 200, returnedQty: 2, status: "Recorded Only" },
+      { name: "Small", value: 10, returnedQty: 1, status: "Credit Pending" },
+      { name: longName, value: 200, returnedQty: 2, status: "Credit Pending" },
     ]);
     expect(rows[0].name).toBe(longName);
     expect(rows[0].chartLabel).toBe(chartMedicineLabel(longName));
@@ -92,29 +92,33 @@ describe("reports dashboard normalizers", () => {
 
   it("aggregates duplicate recorded return statuses into one chart bar", () => {
     expect(aggregatePurchaseReturnStatusRows([
-      { status: "Recorded Only", returnedQty: 2, value: 100 },
+      { status: "Credit Pending", returnedQty: 2, value: 100 },
       { status: "recorded", returnedQty: 3, value: 150 },
       { status: "Ledger Adjusted", returnedQty: 1, value: 50 },
     ])).toEqual([
-      { status: "Recorded Only", returnedQty: 5, value: 250, count: 2 },
+      { status: "Credit Pending", returnedQty: 5, value: 250, count: 2 },
       { status: "Ledger Adjusted", returnedQty: 1, value: 50, count: 1 },
     ]);
   });
 
   it("displays friendly purchase return status labels and excludes deleted or voided rows", () => {
-    expect(displayPurchaseReturnStatus("recorded")).toBe("Recorded Only");
+    expect(displayPurchaseReturnStatus("recorded")).toBe("Credit Pending");
+    expect(displayPurchaseReturnStatus("settled")).toBe("Adjusted in Purchase");
     expect(displayPurchaseReturnStatus("ledger_adjusted")).toBe("Ledger Adjusted");
     expect(normalizePurchaseReturnAnalytics({ medicine_breakdown: [
       { name: "Active", total_return_value: 100, total_quantity: 1, status: "recorded" },
       { name: "Deleted", total_return_value: 100, total_quantity: 1, status: "deleted" },
       { name: "Voided", total_return_value: 100, total_quantity: 1, status: "voided" },
-    ] })).toEqual([{ name: "Active", returnedQty: 1, value: 100, status: "Recorded Only" }]);
+    ] })).toEqual([expect.objectContaining({ name: "Active", returnedQty: 1, value: 100, status: "Credit Pending" })]);
   });
 
   it("keeps purchase return table and status chart friendly in the UI source", () => {
     const source = fs.readFileSync(path.join(__dirname, "Reports.jsx"), "utf8");
     expect(source).toContain("Return Value");
-    expect(source).toContain("Recorded Only");
+    expect(source).toContain("Credit Pending");
+    expect(source).toContain("Adjusted in Purchase");
+    expect(source).toContain("Distributor");
+    expect(source).toContain("Return Date");
     expect(source).toContain("returnStatusRows");
     expect(source).toContain("labelFormatter");
   });

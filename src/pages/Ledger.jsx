@@ -145,6 +145,36 @@ const getAdjustedAgainstItems = (transaction) =>
     ? transaction.adjusted_against.filter((item) => item && hasFieldValue(item.amount))
     : [];
 
+const getCustomerMonthlySummarySource = (payload) =>
+  payload?.monthly_summary ||
+  payload?.monthly_movement_summary ||
+  payload?.customer_monthly_summary ||
+  payload?.customer_monthly_movement_summary ||
+  payload?.summary?.monthly_summary ||
+  payload?.summary?.monthly_movement_summary ||
+  [];
+
+const toLedgerNumber = (value) => Number(value || 0);
+
+export const normalizeCustomerMonthlySummary = (payload) => {
+  const source = getCustomerMonthlySummarySource(payload);
+  const rows = Array.isArray(source)
+    ? source
+    : source && typeof source === "object"
+      ? Object.entries(source).map(([month, value]) => ({ month, ...(value && typeof value === "object" ? value : { net_movement: value }) }))
+      : [];
+
+  return rows.map((row) => ({
+    month: row.month || row.period || row.label || row.date || "—",
+    creditSales: toLedgerNumber(row.credit_sales ?? row.creditSales ?? row.sales ?? row.total_sales ?? row.debit ?? row.debits),
+    paymentsReceived: toLedgerNumber(row.payments_received ?? row.paymentsReceived ?? row.payment_received ?? row.payments ?? row.total_payments ?? row.credit ?? row.credits),
+    netMovement: toLedgerNumber(row.net_movement ?? row.netMovement ?? row.movement ?? row.net ?? (toLedgerNumber(row.credit_sales ?? row.sales ?? row.total_sales ?? row.debit ?? row.debits) - toLedgerNumber(row.payments_received ?? row.payments ?? row.total_payments ?? row.credit ?? row.credits))),
+    closingBalance: toLedgerNumber(row.closing_balance ?? row.closingBalance ?? row.balance ?? row.running_balance ?? row.outstanding_balance),
+  }));
+};
+
+export const hasCustomerMonthlySummary = (payload) => normalizeCustomerMonthlySummary(payload).length > 0;
+
 export default function Ledger() {
   const { type, id } = useParams(); // type: distributor | customer
   const [data, setData] = useState(null);
@@ -315,6 +345,8 @@ export default function Ledger() {
     0
   );
   const monthlyNetMovement = monthlyPurchaseTotal - monthlyPaymentTotal;
+  const customerMonthlySummary = normalizeCustomerMonthlySummary(data);
+  const showCustomerMonthlySummaryEmpty = type === "customer" && transactions.length > 0 && customerMonthlySummary.length === 0;
 
   const handleTransactionTypeChange = (value) => {
     setTxnType(value);
@@ -681,6 +713,47 @@ const downloadLedger = async () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+
+      {type === "customer" && (
+        <div className="bg-white border border-slate-200 rounded-sm p-4 space-y-4" data-testid="customer-monthly-summary">
+          <div>
+            <div className="text-xs uppercase tracking-[0.15em] font-semibold text-slate-500">Monthly summary</div>
+            <h2 className="font-heading text-2xl font-bold">Customer movement</h2>
+            <p className="text-sm text-slate-500">Credit sales, payments received, and closing balances from the customer ledger API response.</p>
+          </div>
+          {customerMonthlySummary.length ? (
+            <div className="overflow-x-auto rounded-sm border border-slate-100">
+              <table className="data-table min-w-[760px]">
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th className="text-right">Credit Sales</th>
+                    <th className="text-right">Payments Received</th>
+                    <th className="text-right">Net Movement</th>
+                    <th className="text-right">Closing Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customerMonthlySummary.map((row) => (
+                    <tr key={row.month}>
+                      <td className="font-semibold text-slate-800">{row.month}</td>
+                      <td className="num-cell font-semibold text-red-600">{fmtINR(row.creditSales)}</td>
+                      <td className="num-cell font-semibold text-emerald-600">{fmtINR(row.paymentsReceived)}</td>
+                      <td className={`num-cell font-bold ${row.netMovement > 0 ? "text-red-600" : "text-emerald-600"}`}>{fmtINR(row.netMovement)}</td>
+                      <td className={`num-cell font-bold ${row.closingBalance > 0 ? "text-red-700" : "text-emerald-700"}`}>{fmtINR(row.closingBalance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="rounded-sm border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+              {showCustomerMonthlySummaryEmpty ? "Transactions are available, but the ledger response did not include monthly_summary or monthly_movement_summary data." : "No monthly summary is available for this customer yet."}
+            </div>
+          )}
         </div>
       )}
 
