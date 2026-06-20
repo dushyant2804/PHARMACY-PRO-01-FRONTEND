@@ -2,9 +2,10 @@ import React, { useEffect, useState } from "react";
 import api, { fmtINR } from "@/lib/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
-  ArrowRight, ArrowUpRight, BadgeIndianRupee, Clock3, IndianRupee, LockKeyhole,
-  PackageSearch, PackageX, ReceiptText, ShieldAlert, ShoppingCart, SlidersHorizontal,
+  ArrowRight, ArrowUpRight, BadgeIndianRupee, Clock3, IndianRupee,
+  PackageSearch, PackageX, ShieldAlert,
   TrendingUp, Trophy, Users, WalletCards, Zap, Truck,
 } from "lucide-react";
 import LowStockWorkflowControl from "@/components/LowStockWorkflowControl";
@@ -406,6 +407,7 @@ export default function Dashboard() {
   const [inventoryBatches, setInventoryBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const load = async () => {
     try {
@@ -444,6 +446,10 @@ export default function Dashboard() {
   });
   const lowStockCount = firstDefined(data.low_stock_count, lowStockItems.length, 0);
   const returnedUnits = purchaseReturns.reduce((sum, item) => sum + getPurchaseReturnQuantity(item), 0);
+  const businessName = user?.business_name || user?.businessName || user?.pharmacy_name || user?.pharmacyName || "Shree Shyam Pharmacy";
+  const userName = firstDefined(user?.name, user?.full_name, user?.fullName, user?.username, "Dushyant");
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
 
   const kpis = [
     { label: "Today Sales", value: fmtINR(todaySales), sub: "Open today's sales", tone: "emerald", icon: IndianRupee, path: "/daily-sales" },
@@ -456,11 +462,13 @@ export default function Dashboard() {
   ];
 
   return <div className="dashboard-shell">
-    <section className="dashboard-hero">
-      <div><div className="premium-kicker text-amber-600">Live pharmacy command center</div><h1 className="mt-2 text-2xl font-bold tracking-tight text-white md:text-3xl">Good decisions start here.</h1><p className="mt-2 max-w-2xl text-sm text-emerald-100/65">Today's sales, stock pressure, expiry risk and cash position — focused into one operational view.</p></div>
-      <div className="flex flex-wrap gap-2">
-        {[{ label: "New Bill", icon: ReceiptText, path: "/billing" }, { label: "New PO", icon: ShoppingCart, path: "/purchase-orders" }, { label: "Stock Adjustment", icon: SlidersHorizontal, path: "/stock-adjustments" }, { label: "Daily Closing", icon: LockKeyhole, path: "/daily-closing" }].map(({ label, icon: Icon, path }, index) => <button key={label} onClick={() => navigate(path)} className={index === 0 ? "dashboard-action dashboard-action-primary" : "dashboard-action"}><Icon className="h-4 w-4" />{label}</button>)}
+    <section className="dashboard-hero dashboard-hero--compact">
+      <div>
+        <div className="premium-kicker text-amber-600">Live pharmacy command center</div>
+        <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 md:text-2xl">{greeting}, {userName}</h1>
+        <p className="mt-1 text-sm font-semibold text-emerald-700">{businessName}</p>
       </div>
+      <p className="max-w-xl text-xs leading-5 text-slate-500 md:text-right">Today's sales, stock pressure, expiry risk and cash position in one compact operational view.</p>
     </section>
 
     <section><SectionHeader eyebrow="Today's pulse" title="Daily decision metrics" /><div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-7">{kpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div></section>
