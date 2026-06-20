@@ -34,6 +34,7 @@ import { useFont } from "@/contexts/FontContext";
 import { fonts } from "@/lib/fonts";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import PasswordChangeForm from "@/components/PasswordChangeForm";
+import { useUpdateCenter } from "@/components/UpdateCenter";
 import { getUserDeleteProtection, getUserId } from "@/lib/userDeletion";
 import {
   FRONTEND_VERSION,
@@ -45,6 +46,7 @@ import {
 
 export default function Settings() {
   const { user } = useAuth();
+  const updateCenter = useUpdateCenter();
 
   /* 👉 NEW: FONT HOOK */
   const { font, setFont } = useFont();
@@ -287,6 +289,21 @@ export default function Settings() {
         <h1 className="font-heading text-3xl md:text-4xl font-bold">
           Settings
         </h1>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900" aria-label="Settings modules">
+          {[
+            ["Business Profile", "#business-profile-section"],
+            ["Invoice Settings", "#invoice-settings-section"],
+            ["Barcode Settings", "#barcode-settings-section"],
+            ["Backup & Restore", "#backup-restore-section"],
+            ["User Management", "#user-management-section"],
+            ["System Settings", "#system-settings-section"],
+            ["Update Center", "#update-center-section"],
+          ].map(([label, href]) => (
+            <a key={href} href={href} className="rounded-full border border-emerald-100 bg-white px-3 py-1.5 shadow-sm hover:bg-emerald-50">
+              {label}
+            </a>
+          ))}
+        </div>
       </div>
 
       {/* ================= SECURITY ================= */}
@@ -382,7 +399,9 @@ export default function Settings() {
       )}
 
       {/* ================= FONT SETTINGS (NEW SECTION) ================= */}
-      <div className="bg-white border border-slate-200 rounded-sm p-5">
+      <div id="system-settings-section" className="bg-white border border-slate-200 rounded-sm p-5">
+        <div className="font-heading font-semibold mb-3">System Settings</div>
+        <p className="text-sm text-slate-600 mb-4">General workstation preferences, including app fonts.</p>
         <div className="font-heading font-semibold mb-3">Fonts</div>
 
         <p className="text-sm text-slate-600 mb-4">
@@ -428,7 +447,7 @@ export default function Settings() {
       </div>
 
       {/* ================= BUSINESS PROFILE ================= */}
-      <div className="bg-white border border-slate-200 rounded-sm p-5">
+      <div id="business-profile-section" className="bg-white border border-slate-200 rounded-sm p-5">
         <div className="font-heading font-semibold mb-3">
           Business Profile & Signature
         </div>
@@ -660,8 +679,18 @@ export default function Settings() {
         </div>
       </div>
 
+      <div id="invoice-settings-section" className="bg-white border border-slate-200 rounded-sm p-5">
+        <div className="font-heading font-semibold mb-3">Invoice Settings</div>
+        <p className="text-sm text-slate-600">Invoice branding, printable headers, logo, and signature are configured in Business Profile above without changing invoice behavior.</p>
+      </div>
+
+      <div id="barcode-settings-section" className="bg-white border border-slate-200 rounded-sm p-5">
+        <div className="font-heading font-semibold mb-3">Barcode Settings</div>
+        <p className="text-sm text-slate-600">Barcode workflows remain available in inventory and billing screens; this tab reserves their Settings module placement.</p>
+      </div>
+
       {/* ================= BACKUP ================= */}
-      <div className="bg-white border border-slate-200 rounded-sm p-5">
+      <div id="backup-restore-section" className="bg-white border border-slate-200 rounded-sm p-5">
         <div className="font-heading font-semibold mb-3">Backup & Restore</div>
 
         <p className="text-sm text-slate-600 mb-4">
@@ -699,7 +728,7 @@ export default function Settings() {
 
       {/* ================= USERS ================= */}
       {user?.role === "admin" && (
-        <div className="bg-white border border-slate-200 rounded-sm p-5">
+        <div id="user-management-section" className="bg-white border border-slate-200 rounded-sm p-5">
           <div className="font-heading font-semibold mb-3">User Management</div>
 
           <form onSubmit={addUser} className="grid md:grid-cols-4 gap-3 mb-4">
@@ -968,6 +997,7 @@ export default function Settings() {
 
       <section
         className="rounded-xl border border-slate-200 bg-white p-5"
+        id="update-center-section"
         data-testid="update-center-section"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -978,26 +1008,36 @@ export default function Settings() {
               pharmacy.
             </p>
           </div>
-          <div className="rounded-lg bg-slate-950 px-3 py-2 text-left text-white sm:text-right">
-            <div className="text-xs text-slate-400">App version</div>
+          <div className="rounded-lg bg-emerald-950 px-3 py-2 text-left text-white sm:text-right">
+            <div className="text-xs text-emerald-100/70">Current version/build</div>
             <div className="font-mono text-sm">
               v
               {
-                getVersionIdentity(versionInfo?.version || FRONTEND_VERSION)
+                getVersionIdentity(updateCenter?.latestVersion || versionInfo?.version || FRONTEND_VERSION)
                   .version
               }
             </div>
-            {getVersionIdentity(versionInfo?.version || FRONTEND_VERSION)
+            {getVersionIdentity(updateCenter?.latestVersion || versionInfo?.version || FRONTEND_VERSION)
               .build && (
-              <div className="mt-1 text-[11px] text-slate-400">
+              <div className="mt-1 text-[11px] text-emerald-100/70">
                 Build{" "}
                 {
-                  getVersionIdentity(versionInfo?.version || FRONTEND_VERSION)
+                  getVersionIdentity(updateCenter?.latestVersion || versionInfo?.version || FRONTEND_VERSION)
                     .build
                 }
               </div>
             )}
           </div>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+          <Button type="button" onClick={() => updateCenter?.checkForUpdates()} disabled={updateCenter?.checking} className="rounded-sm bg-emerald-700 hover:bg-emerald-800">
+            <RefreshCw className={`mr-2 h-4 w-4 ${updateCenter?.checking ? "animate-spin" : ""}`} />
+            {updateCenter?.checking ? "Checking updates…" : "Check updates"}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => updateCenter?.openWhatsNew()} className="rounded-sm border-emerald-200">
+            What’s New
+          </Button>
+          <span className="text-sm font-semibold text-emerald-950">Update status: {updateCenter?.checkStatus || "Ready to check"}</span>
         </div>
         <div className="mt-5">
           <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-600">

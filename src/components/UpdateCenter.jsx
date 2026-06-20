@@ -54,6 +54,8 @@ const updateCenterEndpoints = [
 
 const UpdateContext = createContext(null);
 
+export const useUpdateCenter = () => useContext(UpdateContext);
+
 const formatReleaseDate = (date) => {
   if (!date) return "Release date unavailable";
   const parsedDate = new Date(date);

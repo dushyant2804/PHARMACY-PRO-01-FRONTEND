@@ -13,7 +13,7 @@ import {
   LogOut,
   Menu,
   X,
-  Pill,
+  ShoppingCart,
   PackagePlus,
   BookOpen,
   RotateCcw,
@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BrandLogo from "@/components/BrandLogo";
-import { UpdatePill } from "@/components/UpdateCenter";
 import { LayoutContext } from "@/contexts/LayoutContext";
 
 const nav = [
@@ -50,206 +49,122 @@ export default function Layout({ children }) {
   const [loadingScreen, setLoadingScreen] = useState(false);
   const [loadingText, setLoadingText] = useState("Dashboard");
   const [inspectorMode, setInspectorMode] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarPinned, setSidebarPinned] = useState(false);
-  useEffect(() => {
-    let inactivityTimer;
-    const resetTimer = () => {
-      clearTimeout(inactivityTimer);
-      if (document.visibilityState === "visible") inactivityTimer = setTimeout(() => setSidebarCollapsed(true), 3 * 60 * 1000);
-    };
-    const events = ["pointerdown", "keydown", "scroll"];
-    events.forEach((event) => window.addEventListener(event, resetTimer, { passive: true }));
-    document.addEventListener("visibilitychange", resetTimer);
-    resetTimer();
-    return () => { clearTimeout(inactivityTimer); events.forEach((event) => window.removeEventListener(event, resetTimer)); document.removeEventListener("visibilitychange", resetTimer); };
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         setOpen(false);
-  
-        const closeBtn = document.querySelector(
-          '[data-radix-dialog-content] button[aria-label="Close"]'
-        );
-
+        const closeBtn = document.querySelector('[data-radix-dialog-content] button[aria-label="Close"]');
         if (closeBtn) closeBtn.click();
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-  
- useEffect(() => {
-   const currentPage =
-    nav.find((n) => n.to === location.pathname)?.label ||
-    "Module";
 
-   setLoadingText(currentPage);
-   setLoadingScreen(true);
-
-   const timer = setTimeout(() => {
-    setLoadingScreen(false);
-   }, 250);
-
-   return () => clearTimeout(timer);
-  }, [location.pathname]); 
+  useEffect(() => {
+    const currentPage = nav.find((n) => n.to === location.pathname)?.label || "Module";
+    setLoadingText(currentPage);
+    setLoadingScreen(true);
+    const timer = setTimeout(() => setLoadingScreen(false), 250);
+    return () => clearTimeout(timer);
+  }, [location.pathname]);
 
   const role = user?.role || "cashier";
   const visibleNav = nav.filter((n) => n.roles.includes(role));
+  const quickActions = [
+    { to: "/billing", label: "New Bill", icon: Receipt, roles: ["admin", "cashier", "pharmacist"] },
+    { to: "/purchase-orders", label: "New PO", icon: ShoppingCart, roles: ["admin", "pharmacist"] },
+    { to: "/stock-adjustments", label: "Stock Adjustment", icon: SlidersHorizontal, roles: ["admin", "pharmacist"] },
+    { to: "/daily-closing", label: "Daily Closing", icon: CalendarCheck2, roles: ["admin", "cashier", "pharmacist"] },
+  ].filter((action) => action.roles.includes(role));
 
   const handleLogout = async () => {
     await logout();
     navigate("/login");
   };
 
-  const SidebarContent = (
-    <>
-      {/* BRAND */}
-      <div className="sidebar-branding px-3 py-3">
-        <BrandLogo compact light className="sidebar-brand-logo" />
-        {user?.demo_mode && <div className="mt-3 inline-flex rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-200" data-testid="demo-mode-badge">Demo Mode</div>}
+  const renderTaskbarLink = (n) => {
+    const Icon = n.icon;
+    const active = location.pathname === n.to || (n.to !== "/" && location.pathname.startsWith(n.to));
+    return (
+      <Link
+        key={n.to}
+        to={n.to}
+        onClick={() => setOpen(false)}
+        data-testid={`nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
+        title={n.label}
+        aria-label={n.label}
+        className={`taskbar-icon ${active ? "taskbar-icon--active" : ""}`}
+      >
+        <Icon className="h-5 w-5" strokeWidth={1.85} />
+        <span className="taskbar-tooltip" role="tooltip">{n.label}</span>
+      </Link>
+    );
+  };
+
+  const taskbar = (
+    <nav className="counter-taskbar" aria-label="Primary modules">
+      <div className="counter-taskbar-brand" aria-label="PharmacyOS">
+        <BrandLogo compact className="taskbar-logo" />
       </div>
-
-      {/* NAV */}
-      <nav className="px-2 py-3 space-y-1 flex-1 overflow-y-auto">
-        {visibleNav.map((n) => {
-          const Icon = n.icon;
-
-          const active =
-            location.pathname === n.to ||
-            (n.to !== "/" && location.pathname.startsWith(n.to));
-
+      <div className="counter-taskbar-scroll">{visibleNav.map(renderTaskbarLink)}</div>
+      <div className="counter-taskbar-actions" aria-label="Quick actions">
+        {quickActions.map((action) => {
+          const Icon = action.icon;
           return (
-            <Link
-             key={n.to}
-             to={n.to}
-             onClick={() => setOpen(false)}
-             data-testid={`nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
-             title={n.label}
-             className={`sidebar-nav-link ${active ? "sidebar-nav-link--active" : ""}`}
-            >
-             <Icon className="w-4 h-4" strokeWidth={1.75} />
-             <span>{n.label}</span>
-
-             {active && (
-              <span className="sidebar-nav-indicator" />
-             )}
+            <Link key={`quick-${action.to}-${action.label}`} to={action.to} title={action.label} aria-label={action.label} className="taskbar-icon taskbar-icon--quick">
+              <Icon className="h-5 w-5" strokeWidth={1.9} />
+              <span className="taskbar-tooltip" role="tooltip">{action.label}</span>
             </Link>
           );
         })}
-      </nav>
-
-      <UpdatePill />
-
-      {/* FOOTER */}
-      <div className="sidebar-footer px-3 py-3 border-t border-slate-800">
-        <div className="text-xs text-slate-400">{user?.name}</div>
-        <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">
-          {user?.role}
-        </div>
-
-        <Button
-          onClick={handleLogout}
-          variant="ghost"
-          className="w-full justify-start text-slate-300 hover:text-white hover:bg-slate-800 px-2 h-8 transition-all"
-          data-testid="logout-btn"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Log out
+        <Button onClick={handleLogout} variant="ghost" title="Log out" aria-label="Log out" className="taskbar-icon taskbar-icon--logout h-11 w-11 p-0" data-testid="logout-btn">
+          <LogOut className="h-5 w-5" />
+          <span className="taskbar-tooltip" role="tooltip">Log out</span>
         </Button>
       </div>
-    </>
+    </nav>
   );
 
   return (
     <LayoutContext.Provider value={{ inspectorMode, setInspectorMode }}>
-      <div className="min-h-screen app-canvas flex">
-      {loadingScreen && (
-    <div className="fixed inset-0 z-[999] bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
+      <div className="min-h-screen app-canvas counter-layout">
+        {loadingScreen && (
+          <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center overflow-hidden bg-emerald-50">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-amber-50 opacity-100" />
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="relative mb-8">
+                <div className="h-16 w-16 rounded-full border border-emerald-500/25" />
+                <div className="absolute inset-0 animate-spin rounded-full border-t-2 border-emerald-600" />
+              </div>
+              <div className="text-xl font-light tracking-wide text-emerald-950">Loading {loadingText}</div>
+              <div className="mt-3 text-sm uppercase tracking-[0.3em] text-slate-600">Please Wait</div>
+            </div>
+          </div>
+        )}
 
-    <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-950 to-black opacity-100" />
+        {!inspectorMode && taskbar}
 
-    <div className="relative z-10 flex flex-col items-center">
+        <main className="min-h-screen flex-1">
+          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-emerald-100 bg-white/95 px-4 py-3 backdrop-blur md:hidden">
+            <button onClick={() => setOpen((value) => !value)} className="p-1" data-testid="mobile-menu-btn">
+              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+            <div className="font-heading font-bold text-emerald-950">PharmacyOS</div>
+            <div className="w-7" />
+          </header>
 
-      <div className="mb-8 relative">
-        <div className="w-16 h-16 rounded-full border border-blue-500/30" />
+          {open && (
+            <div className="border-b border-emerald-100 bg-white/95 px-3 py-2 shadow-sm md:hidden">
+              <div className="grid grid-cols-7 gap-2">{visibleNav.map(renderTaskbarLink)}</div>
+            </div>
+          )}
 
-        <div className="absolute inset-0 rounded-full border-t-2 border-blue-400 animate-spin" />
-      </div>
-
-      <div className="text-blue-100 text-xl tracking-wide font-light">
-        Loading {loadingText}
-      </div>
-
-      <div className="mt-3 text-slate-500 text-sm tracking-[0.3em] uppercase">
-        Please Wait
-      </div>
-    </div>
-  </div>
-)}
-
-      {/* DESKTOP SIDEBAR */}
-      <aside
-        className={`${inspectorMode || sidebarCollapsed ? "hidden" : "hidden md:flex"} counter-sidebar sidebar-premium flex-col fixed inset-y-0 left-0 z-40 transition-[width,box-shadow] duration-200 ${sidebarPinned ? "counter-sidebar--pinned" : ""}`}
-        onMouseEnter={() => setSidebarCollapsed(false)}
-      >
-        <button
-          type="button"
-          onClick={() => setSidebarPinned((value) => !value)}
-          className="counter-sidebar-toggle"
-          aria-label={sidebarPinned ? "Collapse navigation sidebar" : "Expand navigation sidebar"}
-          aria-pressed={sidebarPinned}
-        >
-          <Menu className="h-4 w-4" />
-        </button>
-        {SidebarContent}
-      </aside>
-
-      {!inspectorMode && sidebarCollapsed && <button type="button" onClick={() => setSidebarCollapsed(false)} className="fixed left-3 top-4 z-40 hidden h-11 w-11 items-center justify-center rounded-xl border border-emerald-700/20 bg-emerald-950 text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-emerald-900 md:flex" aria-label="Reopen navigation sidebar" title="Navigation"><Menu className="h-4 w-4" /></button>}
-
-      {/* MOBILE SIDEBAR */}
-      {open && (
-        <>
-          <div
-            className="md:hidden fixed inset-0 bg-slate-900/50 z-40"
-            onClick={() => setOpen(false)}
-          />
-          <aside className="md:hidden fixed inset-y-0 left-0 w-60 sidebar-premium z-50 flex flex-col">
-            {SidebarContent}
-          </aside>
-        </>
-      )}
-
-      {/* MAIN */}
-      <main
-        className={`min-h-screen flex-1 transition-[margin] duration-300 ease-out ${
-          inspectorMode || sidebarCollapsed ? "md:ml-0" : "md:ml-14"
-        }`}
-      >
-        <header className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
-          <button
-            onClick={() => setOpen(true)}
-            className="p-1"
-            data-testid="mobile-menu-btn"
-          >
-            {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-
-          <div className="font-heading font-bold text-emerald-950">PharmacyOS</div>
-
-          <div className="w-7" />
-        </header>
-
-        <div
-         key={location.pathname}
-         className="p-3 md:p-3 xl:p-4 2xl:p-6 page-transition app-page"
-        >
-         {children}
-        </div>
-      </main>
+          <div key={location.pathname} className="app-page page-transition p-3 md:p-3 xl:p-4 2xl:p-6">
+            {children}
+          </div>
+        </main>
       </div>
     </LayoutContext.Provider>
   );
