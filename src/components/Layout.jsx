@@ -18,6 +18,7 @@ import {
   RotateCcw,
   SlidersHorizontal,
   CalendarCheck2,
+  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LayoutContext } from "@/contexts/LayoutContext";
@@ -71,7 +72,7 @@ export default function Layout({ children }) {
   const role = user?.role || "cashier";
   const visibleNav = nav.filter((n) => n.roles.includes(role));
 
-  const businessName = user?.business_name || user?.businessName || user?.pharmacy_name || user?.pharmacyName || "Shree Shyam Pharmacy";
+  const businessName = user?.business_name || user?.businessName || user?.pharmacy_name || user?.pharmacyName || "SHREE SHYAM PHARMACY";
   const roleLabel = role ? role.charAt(0).toUpperCase() + role.slice(1) : "Admin";
 
   const handleLogout = async () => {
@@ -102,7 +103,7 @@ export default function Layout({ children }) {
     <nav className="counter-taskbar" aria-label="Primary modules">
       <div className="counter-taskbar-scroll">{visibleNav.map(renderTaskbarLink)}</div>
       <div className="counter-account" aria-label="Current account">
-        <div className="counter-account-avatar" aria-hidden="true">{businessName.charAt(0).toUpperCase()}</div>
+        <div className="counter-account-avatar" aria-hidden="true"><UserRound className="h-5 w-5" strokeWidth={2} /></div>
         <div className="counter-account-text">
           <div className="counter-account-name">{businessName}</div>
           <div className="counter-account-role">{roleLabel}</div>
@@ -134,7 +135,7 @@ export default function Layout({ children }) {
 
         {!inspectorMode && taskbar}
 
-        <main className="min-h-screen flex-1">
+        <main className="counter-main min-h-screen flex-1">
           <header className="sticky top-0 z-30 flex items-center justify-between border-b border-emerald-100 bg-white/95 px-4 py-3 backdrop-blur md:hidden">
             <button onClick={() => setOpen((value) => !value)} className="p-1" data-testid="mobile-menu-btn">
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
