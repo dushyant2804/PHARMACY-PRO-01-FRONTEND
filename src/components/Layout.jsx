@@ -13,7 +13,6 @@ import {
   LogOut,
   Menu,
   X,
-  ShoppingCart,
   PackagePlus,
   BookOpen,
   RotateCcw,
@@ -21,7 +20,6 @@ import {
   CalendarCheck2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import BrandLogo from "@/components/BrandLogo";
 import { LayoutContext } from "@/contexts/LayoutContext";
 
 const nav = [
@@ -72,12 +70,9 @@ export default function Layout({ children }) {
 
   const role = user?.role || "cashier";
   const visibleNav = nav.filter((n) => n.roles.includes(role));
-  const quickActions = [
-    { to: "/billing", label: "New Bill", icon: Receipt, roles: ["admin", "cashier", "pharmacist"] },
-    { to: "/purchase-orders", label: "New PO", icon: ShoppingCart, roles: ["admin", "pharmacist"] },
-    { to: "/stock-adjustments", label: "Stock Adjustment", icon: SlidersHorizontal, roles: ["admin", "pharmacist"] },
-    { to: "/daily-closing", label: "Daily Closing", icon: CalendarCheck2, roles: ["admin", "cashier", "pharmacist"] },
-  ].filter((action) => action.roles.includes(role));
+
+  const businessName = user?.business_name || user?.businessName || user?.pharmacy_name || user?.pharmacyName || "Shree Shyam Pharmacy";
+  const roleLabel = role ? role.charAt(0).toUpperCase() + role.slice(1) : "Admin";
 
   const handleLogout = async () => {
     await logout();
@@ -105,21 +100,14 @@ export default function Layout({ children }) {
 
   const taskbar = (
     <nav className="counter-taskbar" aria-label="Primary modules">
-      <div className="counter-taskbar-brand" aria-label="PharmacyOS">
-        <BrandLogo compact className="taskbar-logo" />
-      </div>
       <div className="counter-taskbar-scroll">{visibleNav.map(renderTaskbarLink)}</div>
-      <div className="counter-taskbar-actions" aria-label="Quick actions">
-        {quickActions.map((action) => {
-          const Icon = action.icon;
-          return (
-            <Link key={`quick-${action.to}-${action.label}`} to={action.to} title={action.label} aria-label={action.label} className="taskbar-icon taskbar-icon--quick">
-              <Icon className="h-5 w-5" strokeWidth={1.9} />
-              <span className="taskbar-tooltip" role="tooltip">{action.label}</span>
-            </Link>
-          );
-        })}
-        <Button onClick={handleLogout} variant="ghost" title="Log out" aria-label="Log out" className="taskbar-icon taskbar-icon--logout h-11 w-11 p-0" data-testid="logout-btn">
+      <div className="counter-account" aria-label="Current account">
+        <div className="counter-account-avatar" aria-hidden="true">{businessName.charAt(0).toUpperCase()}</div>
+        <div className="counter-account-text">
+          <div className="counter-account-name">{businessName}</div>
+          <div className="counter-account-role">{roleLabel}</div>
+        </div>
+        <Button onClick={handleLogout} variant="ghost" title="Log out" aria-label="Log out" className="taskbar-icon taskbar-icon--logout h-10 w-10 p-0" data-testid="logout-btn">
           <LogOut className="h-5 w-5" />
           <span className="taskbar-tooltip" role="tooltip">Log out</span>
         </Button>
