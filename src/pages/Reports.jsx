@@ -136,21 +136,40 @@ export const buildExpiryRiskCards = (payload = {}, stock = {}) => {
   ];
 };
 
-export const normalizeRecovery = (payload) => asArray(payload?.distributor_outstanding_movement).map((row) => ({
+const distributorMovementRows = (payload) => asArray(firstDefined(
+  payload?.distributor_outstanding_movement,
+  payload?.distributorOutstandingMovement,
+  payload?.distributor_payable_movement,
+  payload?.distributorPayableMovement,
+  payload?.distributor_payables_movement,
+  payload?.distributorPayablesMovement,
+  payload?.data?.distributor_outstanding_movement,
+  payload?.data?.distributorOutstandingMovement,
+  payload?.data?.distributor_payable_movement,
+  payload?.data?.distributorPayableMovement,
+  payload?.data?.distributor_payables_movement,
+  payload?.data?.distributorPayablesMovement,
+  Array.isArray(payload) ? payload : undefined,
+));
+
+export const normalizeRecovery = (payload) => distributorMovementRows(payload).map((row) => ({
   period: firstDefined(row.month, row.period, row.label, row.date, ""),
   distributorOutstanding: number(firstDefined(
     row.distributor_payables,
+    row.distributorPayables,
     row.distributor_payable,
+    row.distributorPayable,
     row.distributor_outstanding,
-    row.outstanding,
+    row.distributorOutstanding,
     row.payable,
     row.payables,
     row.balance,
     row.closing_balance,
+    row.closingBalance,
     row.amount,
     row.value,
   )),
-}));
+})).filter((row) => row.period || Number.isFinite(row.distributorOutstanding));
 
 const reportRows = (source) => {
   if (Array.isArray(source)) return source;
@@ -245,7 +264,7 @@ export default function Reports() {
       optionalGet("/reports/stock-valuation"), optionalGet("/reports/outstanding"), optionalGet("/reports/expiry-analytics"), optionalGet("/reports/recovery-movement"), optionalGet("/dashboard/summary"), optionalGet("/reports/analytics"), optionalGet("/reports/purchase-returns"),
     ]).then(([stockData, outstandingData, expiryData, recoveryData, dashboardData, analyticsData, returnsData]) => {
       setStock({ ...(stockData || {}), expiry_analytics: expiryData ?? stockData?.expiry_analytics ?? dashboardData?.expiry_analytics ?? dashboardData });
-      setOutstanding(outstandingData); setRecoveryPayload(recoveryData ?? outstandingData?.recovery_movement ?? null); setAnalytics({ ...(analyticsData || {}), purchase_returns: returnsData ?? analyticsData?.purchase_returns }); setLoading(false);
+      setOutstanding(outstandingData); setRecoveryPayload(recoveryData ?? outstandingData?.recovery_movement ?? outstandingData ?? null); setAnalytics({ ...(analyticsData || {}), purchase_returns: returnsData ?? analyticsData?.purchase_returns }); setLoading(false);
     });
   }, [loadSales]);
 
@@ -294,7 +313,7 @@ export default function Reports() {
       <TabsContent value="outstanding" className="mt-5 space-y-5">
         <Kpi label={net >= 0 ? "Net Receivable" : "Net Payable"} value={fmtINR(Math.abs(net))} tone={net >= 0 ? "text-emerald-700" : "text-rose-700"} icon={net >= 0 ? TrendingUp : TrendingDown} emphasis help="This is receivables minus distributor payables." />
         <div className="grid gap-5 lg:grid-cols-2">{[["Customer Receivables", customerOutstanding, "customers", "text-rose-700"], ["Distributor Payables", distributorOutstanding, "distributors", "text-amber-700"]].map(([title, total, side, tone]) => <section key={side} className="premium-panel p-5"><h3 className="font-heading text-lg font-bold">{title}</h3><div className={`mt-2 text-3xl font-extrabold ${tone}`}>{fmtINR(total)}</div><div className="mt-5 grid grid-cols-2 gap-3">{agingBuckets(side).map((bucket) => <div key={bucket.label} className={`rounded-lg p-3 ${agingTone[bucket.key]}`}><div className="text-xs font-semibold">{bucket.label}</div><div className="mt-1 font-bold">{fmtINR(bucket.value)}</div></div>)}</div></section>)}</div>
-        <ChartCard title="Distributor Outstanding Movement" subtitle="Tracks monthly distributor payable movement from purchases, payments and adjustments." empty={!hasValues(recovery, ["distributorOutstanding"])} emptyText="No distributor outstanding movement recorded yet."><ResponsiveContainer><LineChart data={recovery}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="period" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Legend /><Line dataKey="distributorOutstanding" name="Distributor payables" stroke="#d4a72c" strokeWidth={2} /></LineChart></ResponsiveContainer></ChartCard>
+        <ChartCard title="Distributor Outstanding Movement" subtitle="Tracks monthly distributor payable movement from purchases, payments and adjustments." empty={recovery.length === 0} emptyText="No distributor outstanding movement recorded yet."><ResponsiveContainer><LineChart data={recovery}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="period" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Legend /><Line dataKey="distributorOutstanding" name="Distributor payables" stroke="#d4a72c" strokeWidth={2} /></LineChart></ResponsiveContainer></ChartCard>
         <div className="grid gap-5 xl:grid-cols-2"><DataTable title="Customer Recovery" subtitle="Oldest and largest overdue balances first." columns={["Customer", "Outstanding", "Aging (days)", "Recommendation / Status"]} rows={sortByAgingDesc(outstanding?.customers)} renderRow={(row, i) => <tr key={row.id || row.customer_id || i}>{td(firstDefined(row.customer_name, row.name, row.customer, "Customer"), "font-semibold text-slate-800")}{td(fmtINR(firstDefined(row.outstanding, row.balance)), "font-bold text-rose-700")}{td(formatAgingDays(row))}{td(recommendation(row))}</tr>} /><DataTable title="Distributor Payable" subtitle="Largest and oldest supplier balances first." columns={["Distributor", "Outstanding", "Aging (days)", "Recommendation / Status"]} rows={sortByAgingDesc(outstanding?.distributors)} renderRow={(row, i) => <tr key={row.id || row.distributor_id || i}>{td(firstDefined(row.distributor_name, row.name, row.distributor, "Distributor"), "font-semibold text-slate-800")}{td(fmtINR(firstDefined(row.outstanding, row.balance)), "font-bold text-amber-700")}{td(formatAgingDays(row))}{td(recommendation(row))}</tr>} /></div>
       </TabsContent>
       <TabsContent value="analytics" className="mt-5 space-y-5">
