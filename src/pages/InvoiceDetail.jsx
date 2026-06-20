@@ -98,12 +98,21 @@ export default function InvoiceDetail() {
 
       <div className="print-area max-w-4xl overflow-x-auto rounded-sm border border-slate-200 bg-white p-4 sm:p-6 md:p-10" ref={printRef}>
         <div className="flex justify-between items-start border-b border-slate-300 pb-4">
-          <div>
-            <div className="font-heading text-2xl font-bold">{settings?.business_name || "PharmacyOS"}</div>
+          <div className="flex items-start gap-3">
+            {settings?.logo_b64 && (
+              <img
+                src={settings.logo_b64}
+                alt="Pharmacy logo"
+                className="h-14 w-20 object-contain"
+              />
+            )}
+            <div>
+              <div className="font-heading text-2xl font-bold">{settings?.business_name || "PharmacyOS"}</div>
             {settings?.business_address && <div className="text-xs text-slate-600">{settings.business_address}</div>}
             {settings?.business_phone && <div className="text-xs text-slate-600">Ph: {settings.business_phone}</div>}
             {settings?.business_gstin && <div className="text-xs font-mono text-slate-600">GSTIN: {settings.business_gstin}</div>}
-            <div className="text-xs text-slate-500 mt-1">GST-Compliant Tax Invoice</div>
+              <div className="text-xs text-slate-500 mt-1">GST-Compliant Tax Invoice</div>
+            </div>
           </div>
           <div className="text-right">
             <div className="text-xs uppercase tracking-wider text-slate-500">Invoice No.</div>

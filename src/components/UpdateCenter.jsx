@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,8 +47,6 @@ const defaultMetadata = {
 };
 
 const updateCenterEndpoints = [
-  "/update-center",
-  "/updates/current",
   "/updates/check",
 ];
 
@@ -123,9 +121,9 @@ export default function UpdateCenter({ children }) {
       setCheckStatus(hasUpdate ? "Update available" : "You're up to date");
       if (hasUpdate) setUpdateOpen(true);
       return hasUpdate;
-    } catch {
+    } catch (error) {
       setMetadata(defaultMetadata);
-      setCheckStatus("Couldn't check for updates");
+      setCheckStatus(`Update check failed: ${formatApiError(error)}`);
       return false;
     } finally {
       setChecking(false);
@@ -184,6 +182,7 @@ export default function UpdateCenter({ children }) {
           checkForUpdates,
           openUpdate: () => setUpdateOpen(true),
           openWhatsNew: () => setWhatsNewOpen(true),
+          releaseNotes: metadata.releaseNotes,
         }}
       >
         {children}
