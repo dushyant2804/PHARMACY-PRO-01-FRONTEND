@@ -1,6 +1,8 @@
 jest.mock("@/lib/api", () => ({ __esModule: true, default: { get: jest.fn() }, fmtINR: (value) => `₹${Number(value || 0).toLocaleString("en-IN")}` }));
 
-import { buildExpiryRiskCards, normalizeMedicineRows } from "./Reports";
+import fs from "fs";
+import path from "path";
+import { buildExpiryRiskCards, formatAgingDays, hasValues, normalizeMedicineRows } from "./Reports";
 
 describe("reports dashboard normalizers", () => {
   it("builds separate expiry risk cards from value-at-risk fields", () => {
@@ -31,5 +33,25 @@ describe("reports dashboard normalizers", () => {
       margin: 32,
       units: 50,
     })]);
+  });
+
+  it("formats aging values with day units", () => {
+    expect(formatAgingDays({ aging_days: 0 })).toBe("0 days");
+    expect(formatAgingDays({ age: 1 })).toBe("1 day");
+    expect(formatAgingDays(57)).toBe("57 days");
+  });
+
+  it("uses numeric chart data checks so empty charts are suppressed", () => {
+    expect(hasValues([{ sales: 0 }], ["sales"])).toBe(false);
+    expect(hasValues([{ sales: 1250 }], ["sales"])).toBe(true);
+  });
+
+  it("keeps required report labels and removes fake action labels", () => {
+    const source = fs.readFileSync(path.join(__dirname, "Reports.jsx"), "utf8");
+    expect(source).toContain("Aging (days)");
+    expect(source).toContain("Data not available currently.");
+    expect(source).toContain("Expiry Risk Breakdown");
+    expect(source).not.toContain("Recover / follow up");
+    expect(source).not.toContain("Plan payment");
   });
 });
