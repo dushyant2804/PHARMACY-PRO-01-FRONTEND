@@ -2,7 +2,7 @@ jest.mock("@/lib/api", () => ({ __esModule: true, default: { get: jest.fn() }, f
 
 import fs from "fs";
 import path from "path";
-import { buildExpiryRiskCards, formatAgingDays, hasValues, normalizeMedicineRows, normalizePurchaseReturnAnalytics, normalizeRecovery } from "./Reports";
+import { aggregatePurchaseReturnStatusRows, buildExpiryRiskCards, chartMedicineLabel, displayPurchaseReturnStatus, formatAgingDays, hasValues, normalizeMedicineRows, normalizePurchaseReturnAnalytics, normalizeRecovery, topPurchaseReturnValueRows } from "./Reports";
 
 describe("reports dashboard normalizers", () => {
   it("builds separate expiry risk cards from value-at-risk fields", () => {
@@ -57,16 +57,16 @@ describe("reports dashboard normalizers", () => {
 
   it("normalizes purchase return analytics from medicine report paths", () => {
     expect(normalizePurchaseReturnAnalytics({ medicine_wise_return_analytics: [{ medicine_name: "A", total_return_value: 500, total_returned_quantity: 5 }] })).toEqual([
-      { name: "A", returnedQty: 5, value: 500, status: "Recorded" },
+      { name: "A", returnedQty: 5, value: 500, status: "Recorded Only" },
     ]);
     expect(normalizePurchaseReturnAnalytics({ returns_by_medicine: [{ medicine: "B", total_return_amount: 750, total_return_quantity: 3 }] })).toEqual([
-      { name: "B", returnedQty: 3, value: 750, status: "Recorded" },
+      { name: "B", returnedQty: 3, value: 750, status: "Recorded Only" },
     ]);
     expect(normalizePurchaseReturnAnalytics({ medicine_breakdown: [{ name: "C", total_amount: 250, qty: 2, status: "Adjusted" }] })).toEqual([
-      { name: "C", returnedQty: 2, value: 250, status: "Adjusted" },
+      { name: "C", returnedQty: 2, value: 250, status: "Ledger Adjusted" },
     ]);
     expect(normalizePurchaseReturnAnalytics({ data: { by_medicine: { D: { total_return_value: 125, qty: 1 } } } })).toEqual([
-      { name: "D", returnedQty: 1, value: 125, status: "Recorded" },
+      { name: "D", returnedQty: 1, value: 125, status: "Recorded Only" },
     ]);
   });
 
@@ -75,6 +75,48 @@ describe("reports dashboard normalizers", () => {
     expect(hasValues(rows, ["value"])).toBe(true);
     expect(hasValues(normalizePurchaseReturnAnalytics({ medicine_breakdown: [] }), ["value"])).toBe(false);
     expect(hasValues(normalizePurchaseReturnAnalytics({ medicine_breakdown: [{ name: "E", total_return_value: 0, total_quantity: 0 }] }), ["value"])).toBe(false);
+  });
+
+
+  it("prepares top purchase return value rows with full medicine names and short chart labels", () => {
+    const longName = "Very Long Medicine Name With Strength And Pack Size";
+    const rows = topPurchaseReturnValueRows([
+      { name: "Small", value: 10, returnedQty: 1, status: "Recorded Only" },
+      { name: longName, value: 200, returnedQty: 2, status: "Recorded Only" },
+    ]);
+    expect(rows[0].name).toBe(longName);
+    expect(rows[0].chartLabel).toBe(chartMedicineLabel(longName));
+    expect(rows[0].chartLabel).toMatch(/…$/);
+    expect(rows[0].chartLabel.length).toBeLessThan(longName.length);
+  });
+
+  it("aggregates duplicate recorded return statuses into one chart bar", () => {
+    expect(aggregatePurchaseReturnStatusRows([
+      { status: "Recorded Only", returnedQty: 2, value: 100 },
+      { status: "recorded", returnedQty: 3, value: 150 },
+      { status: "Ledger Adjusted", returnedQty: 1, value: 50 },
+    ])).toEqual([
+      { status: "Recorded Only", returnedQty: 5, value: 250, count: 2 },
+      { status: "Ledger Adjusted", returnedQty: 1, value: 50, count: 1 },
+    ]);
+  });
+
+  it("displays friendly purchase return status labels and excludes deleted or voided rows", () => {
+    expect(displayPurchaseReturnStatus("recorded")).toBe("Recorded Only");
+    expect(displayPurchaseReturnStatus("ledger_adjusted")).toBe("Ledger Adjusted");
+    expect(normalizePurchaseReturnAnalytics({ medicine_breakdown: [
+      { name: "Active", total_return_value: 100, total_quantity: 1, status: "recorded" },
+      { name: "Deleted", total_return_value: 100, total_quantity: 1, status: "deleted" },
+      { name: "Voided", total_return_value: 100, total_quantity: 1, status: "voided" },
+    ] })).toEqual([{ name: "Active", returnedQty: 1, value: 100, status: "Recorded Only" }]);
+  });
+
+  it("keeps purchase return table and status chart friendly in the UI source", () => {
+    const source = fs.readFileSync(path.join(__dirname, "Reports.jsx"), "utf8");
+    expect(source).toContain("Return Value");
+    expect(source).toContain("Recorded Only");
+    expect(source).toContain("returnStatusRows");
+    expect(source).toContain("labelFormatter");
   });
 
   it("formats aging values with day units", () => {
