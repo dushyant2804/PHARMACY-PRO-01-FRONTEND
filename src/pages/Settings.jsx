@@ -30,7 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 /* 👉 NEW: FONT SYSTEM */
 import { useFont } from "@/contexts/FontContext";
-import { fonts } from "@/lib/fonts";
+import { fontGroups, fonts, getFontName } from "@/lib/fonts";
 import { useTheme } from "@/contexts/ThemeContext";
 import PasswordChangeForm from "@/components/PasswordChangeForm";
 import { useUpdateCenter } from "@/components/UpdateCenter";
@@ -49,7 +49,8 @@ export default function Settings() {
 
   /* 👉 NEW: FONT HOOK */
   const { font, setFont } = useFont();
-  const { themeKey, setThemeKey, themes } = useTheme();
+  const { themeKey, setThemeKey, themes, theme } = useTheme();
+  const selectedFontName = getFontName(font);
 
   const fileRef = useRef();
   const sigRef = useRef();
@@ -356,27 +357,43 @@ export default function Settings() {
 
           <section>
             <div className="font-heading font-semibold mb-3">Fonts</div>
-            <p className="text-sm text-slate-600 mb-4">Current font: <span className="font-semibold text-slate-900" style={{ fontFamily: font }}>{Object.values(fonts).find((item) => item.value === font)?.name || font}</span></p>
+            <div
+              className="mb-4 rounded-md border px-3 py-2 text-sm"
+              style={{
+                background: theme.card,
+                borderColor: theme.border,
+                color: theme.text,
+              }}
+            >
+              Current font:{" "}
+              <span className="font-semibold" style={{ fontFamily: font, color: theme.text }}>
+                {selectedFontName} (Current)
+              </span>
+            </div>
             <div className="grid gap-5">
-              {Object.entries({
-                Professional: ["ibmPlex", "inter", "roboto", "openSans"],
-                Classy: ["lato", "merriweather", "cabin"],
-                Elegant: ["poppins", "raleway"],
-              }).map(([category, keys]) => (
+              {Object.entries(fontGroups).map(([category, keys]) => (
                 <div key={category}>
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{category}</div>
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: theme.muted }}>{category}</div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {keys.map((key) => {
                       const f = fonts[key];
+                      if (!f) return null;
+                      const isCurrent = font === f.value;
                       return (
                         <button
                           key={key}
                           type="button"
                           onClick={() => setFont(f.value)}
-                          className={`rounded border px-3 py-2 text-left text-sm transition ${font === f.value ? "border-emerald-700 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-100" : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"}`}
-                          style={{ fontFamily: f.value }}
+                          aria-pressed={isCurrent}
+                          className={`rounded border px-3 py-2 text-left text-sm font-semibold transition ${isCurrent ? "ring-2 ring-emerald-100" : "hover:brightness-95"}`}
+                          style={{
+                            fontFamily: f.value,
+                            background: isCurrent ? theme.activeTab : theme.card,
+                            borderColor: isCurrent ? theme.primary : theme.border,
+                            color: theme.text,
+                          }}
                         >
-                          {f.name}
+                          {f.name}{isCurrent ? " (Current)" : ""}
                         </button>
                       );
                     })}
@@ -618,7 +635,7 @@ export default function Settings() {
               try {
                 const { data } = await api.put("/settings", settings);
                 setSettings(data);
-                toast.success("Settings saved");
+                toast.success("Settings saved successfully");
               } catch (e) {
                 toast.error(formatApiError(e));
               }
