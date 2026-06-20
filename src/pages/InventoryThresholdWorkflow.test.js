@@ -2,17 +2,31 @@ const fs = require("fs");
 
 const read = (path) => fs.readFileSync(path, "utf8");
 
-test("Inventory popup restores locked low-stock threshold control without status workflow actions", () => {
+test("Inventory popup keeps low-stock threshold compact in Medicine Details header", () => {
   const inventory = read("src/pages/Inventory.jsx");
 
-  expect(inventory).toContain("Low Stock Threshold");
+  expect(inventory).toContain('title="Medicine Details"');
+  expect(inventory).toContain("headerAction={renderThresholdControl()}");
   expect(inventory).toContain(
     'data-testid="inventory-low-stock-threshold-section"',
   );
-  expect(inventory).toContain("Set Threshold");
+  expect(inventory).toContain("Threshold:");
+  expect(inventory).toContain('className="h-8 w-20 bg-white px-2 text-sm"');
+  expect(inventory).toContain('"set-threshold-button"');
+  expect(inventory).toContain('"save-threshold-button"');
   expect(inventory).toContain('data-testid="locked-low-stock-threshold"');
   expect(inventory).toContain('data-testid="threshold-lock-indicator"');
-  expect(inventory).toContain("Unlock Threshold");
+  expect(inventory).toContain('data-testid="unlock-threshold-button"');
+  expect(
+    inventory.indexOf("headerAction={renderThresholdControl()}"),
+  ).toBeLessThan(inventory.indexOf('title="Batch Details"'));
+  expect(inventory).not.toContain('title="Low Stock Threshold"');
+  expect(inventory).not.toContain('eyebrow="Low stock control"');
+});
+
+test("Inventory threshold privacy unlock and relock workflow is preserved", () => {
+  const inventory = read("src/pages/Inventory.jsx");
+
   expect(inventory).toContain('data-testid="threshold-unlock-modal"');
   expect(inventory).toContain('data-testid="privacy-password-input"');
   expect(inventory).toContain("/low-stock-threshold/unlock");
