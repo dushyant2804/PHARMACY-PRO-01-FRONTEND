@@ -121,11 +121,90 @@ export const buildExpiryRiskCards = (payload = {}, stock = {}) => {
   ];
 };
 
-const normalizeRecovery = (payload) => asArray(firstDefined(payload?.recovery_movement, payload?.recovery_trend, payload?.movement, payload)).map((row) => ({
-  period: firstDefined(row.month, row.period, row.date, row.label, ""),
-  customerOutstanding: number(firstDefined(row.customer_outstanding, row.customers, row.customer)),
-  distributorOutstanding: number(firstDefined(row.distributor_outstanding, row.distributors, row.distributor)),
+export const normalizeRecovery = (payload) => asArray(firstDefined(
+  payload?.outstanding_movement_chart,
+  payload?.monthly_outstanding_trend,
+  payload?.monthly_outstanding_trends,
+  payload?.outstanding_movement,
+  payload?.recovery_movement,
+  payload?.recovery_trend,
+  payload?.movement,
+  payload,
+)).map((row) => ({
+  period: firstDefined(row.month, row.period, row.label, row.date, ""),
+  customerOutstanding: number(firstDefined(
+    row.customer_receivables,
+    row.customer_receivable,
+    row.customer_outstanding,
+    row.customers,
+    row.customer,
+  )),
+  distributorOutstanding: number(firstDefined(
+    row.distributor_payables,
+    row.distributor_payable,
+    row.distributor_outstanding,
+    row.distributors,
+    row.distributor,
+    row.supplier_payables,
+    row.supplier_payable,
+  )),
 }));
+
+const reportRows = (source) => {
+  if (Array.isArray(source)) return source;
+  if (!source || typeof source !== "object") return [];
+  return Object.entries(source).map(([name, value]) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) return { name, ...value };
+    return { name, total_return_value: value };
+  });
+};
+
+export const normalizePurchaseReturnAnalytics = (payload) => {
+  const data = payload?.data && !Array.isArray(payload.data) ? payload.data : payload;
+  const summary = data?.summary && typeof data.summary === "object" ? data.summary : {};
+  const rows = reportRows(firstDefined(
+    data?.medicine_wise_return_analytics,
+    data?.returns_by_medicine,
+    data?.medicine_wise,
+    data?.by_medicine,
+    data?.medicine_breakdown,
+    data?.medicines,
+    data?.purchase_returns,
+    data?.returns,
+    data?.items,
+    summary.medicine_wise_return_analytics,
+    summary.returns_by_medicine,
+    summary.medicine_wise,
+    summary.by_medicine,
+    summary.medicine_breakdown,
+    summary.medicines,
+    summary.purchase_returns,
+    summary.returns,
+    summary.items,
+    data,
+  ));
+
+  return rows.map((row) => ({
+    name: firstDefined(row.medicine_name, row.medicine, row.name, row.label, "Medicine"),
+    returnedQty: number(firstDefined(
+      row.total_returned_quantity,
+      row.total_return_quantity,
+      row.total_quantity,
+      row.return_quantity,
+      row.quantity,
+      row.qty,
+    )),
+    value: number(firstDefined(
+      row.total_return_value,
+      row.total_return_amount,
+      row.total_amount,
+      row.return_amount,
+      row.amount,
+      row.value,
+    )),
+    status: firstDefined(row.status, row.settlement_status, row.ledger_status, "Recorded"),
+  }));
+};
 
 async function optionalGet(url, params) {
   try { const { data } = await api.get(url, { params }); return data; } catch { return null; }
@@ -176,7 +255,7 @@ export default function Reports() {
   const deadStock = useMemo(() => normalizeMedicineRows(analytics, ["dead_stock", "dead_stock_medicines"]), [analytics]);
   const reorderRows = useMemo(() => normalizeMedicineRows(firstDefined(analytics?.reorder_intelligence, stock?.reorder_intelligence), ["reorder_intelligence", "reorder_suggestions"]), [analytics, stock]);
   const expiryRows = useMemo(() => normalizeMedicineRows(firstDefined(stock?.expiry_analytics?.top_risk_medicines, analytics?.top_expiry_risk), ["top_risk_medicines", "top_expiry_risk"]), [stock, analytics]);
-  const returnRows = useMemo(() => normalizeMedicineRows(firstDefined(analytics?.purchase_returns?.items, analytics?.purchase_returns), ["purchase_returns", "returns"]), [analytics]);
+  const returnRows = useMemo(() => normalizePurchaseReturnAnalytics(analytics?.purchase_returns), [analytics]);
   const categoryRows = useMemo(() => normalizeMedicineRows(analytics, ["category_profitability", "categories"]), [analytics]);
   const recovery = useMemo(() => normalizeRecovery(recoveryPayload), [recoveryPayload]);
   const customerOutstanding = asArray(outstanding?.customers).reduce((sum, row) => sum + number(firstDefined(row.outstanding, row.balance)), 0);
