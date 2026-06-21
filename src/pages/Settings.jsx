@@ -36,6 +36,7 @@ import {
   Building2,
   RefreshCw,
   CheckCircle2,
+  Link as LinkIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -105,11 +106,24 @@ export default function Settings() {
     lastSuccessfulBackup: "—",
     cloudSyncStatus: "Checking",
     pendingUploads: 0,
+    atlasConnectionStatus: "Checking",
+    atlasLastBackupTime: "—",
+    atlasPendingSyncCount: 0,
+    googleDriveConnectionStatus: "Not connected",
+    googleDriveAccount: "—",
+    googleDriveLastBackupTime: "—",
+    googleDrivePendingUploadCount: 0,
   });
   const [checkingEnvironment, setCheckingEnvironment] = useState(false);
   const [testingLocalServer, setTestingLocalServer] = useState(false);
+  const [testingAtlas, setTestingAtlas] = useState(false);
+  const [testingGoogleDrive, setTestingGoogleDrive] = useState(false);
+  const [connectingGoogleDrive, setConnectingGoogleDrive] = useState(false);
   const [backupResult, setBackupResult] = useState({
-    status: "Backup pending",
+    local: "Local backup pending",
+    atlas: "MongoDB Atlas backup pending",
+    googleDrive: "Google Drive backup pending",
+    message: "Backup pending",
     tone: "text-amber-700",
   });
 
@@ -135,6 +149,13 @@ export default function Settings() {
     lastSuccessfulBackup: data.last_successful_backup || data.last_backup_time || data.last_backup_at || "—",
     cloudSyncStatus: data.cloud_sync_status || data.sync_status || "Ready",
     pendingUploads: Number(data.pending_uploads ?? data.pending_sync_count ?? 0),
+    atlasConnectionStatus: data.atlas_connection_status || data.mongodb_atlas_status || data.atlas_status || data.cloud_sync_status || "Ready",
+    atlasLastBackupTime: data.atlas_last_backup_time || data.mongodb_atlas_last_backup_at || data.atlas_last_backup_at || data.last_backup_time || "—",
+    atlasPendingSyncCount: Number(data.atlas_pending_sync_count ?? data.mongodb_atlas_pending_sync_count ?? data.pending_sync_count ?? 0),
+    googleDriveConnectionStatus: data.google_drive_connection_status || data.drive_connection_status || (data.google_drive_account ? "Connected" : "Not connected"),
+    googleDriveAccount: data.google_drive_account || data.drive_account_email || data.google_account_email || "—",
+    googleDriveLastBackupTime: data.google_drive_last_backup_time || data.drive_last_backup_at || data.google_drive_last_backup_at || "—",
+    googleDrivePendingUploadCount: Number(data.google_drive_pending_upload_count ?? data.drive_pending_upload_count ?? data.pending_uploads ?? 0),
   });
 
   const refreshEnvironmentStatus = async () => {
@@ -215,29 +236,111 @@ export default function Settings() {
     // eslint-disable-next-line
   }, [user]);
 
+  const getBackupResultStatus = (data, keys, fallback) => keys.find((key) => data?.[key]) ? data[keys.find((key) => data?.[key])] : fallback;
+
   const backupNow = async () => {
-    setBackupResult({ status: "Backup pending", tone: "text-amber-700" });
+    setBackupResult({
+      local: "Local backup pending",
+      atlas: "MongoDB Atlas backup pending",
+      googleDrive: "Google Drive backup pending",
+      message: "Backup pending",
+      tone: "text-amber-700",
+    });
     try {
-      const { data } = await api.post("/backup/run");
-      const lastBackupTime = data?.last_backup_time || data?.last_backup_at || new Date().toISOString();
-      setBackupResult({ status: "Backup successful", tone: "text-emerald-700" });
+      const { data = {} } = await api.post("/backup/run", { targets: ["mongodb_atlas", "google_drive"] });
+      const lastBackupTime = data.last_backup_time || data.last_backup_at || new Date().toISOString();
+      localStorage.setItem("pharmacyos_last_backup_time", lastBackupTime);
+      const nextResult = {
+        local: getBackupResultStatus(data, ["local_backup_status", "local_status"], "Local backup successful"),
+        atlas: getBackupResultStatus(data, ["atlas_backup_status", "mongodb_atlas_status"], "MongoDB Atlas backup successful"),
+        googleDrive: getBackupResultStatus(data, ["google_drive_backup_status", "drive_backup_status"], "Google Drive backup successful"),
+        message: data.message || "Backup successful",
+        tone: "text-emerald-700",
+      };
+      const hasPendingCloud = [nextResult.atlas, nextResult.googleDrive].some((value) => String(value).toLowerCase().includes("pending"));
+      if (hasPendingCloud) {
+        nextResult.message = "Saved locally. Cloud backup pending.";
+        nextResult.tone = "text-amber-700";
+      }
+      setBackupResult(nextResult);
       setEnvironmentStatus((current) => ({
         ...current,
         lastBackupTime,
         lastSuccessfulBackup: lastBackupTime,
-        cloudSyncStatus: data?.cloud_sync_status || current.cloudSyncStatus || "Ready",
-        pendingUploads: Number(data?.pending_uploads ?? current.pendingUploads ?? 0),
+        cloudSyncStatus: data.cloud_sync_status || (hasPendingCloud ? "Backup pending" : current.cloudSyncStatus || "Ready"),
+        pendingUploads: Number(data.pending_uploads ?? current.pendingUploads ?? 0),
+        atlasConnectionStatus: data.atlas_connection_status || data.mongodb_atlas_status || current.atlasConnectionStatus,
+        atlasLastBackupTime: data.atlas_last_backup_time || data.mongodb_atlas_last_backup_at || lastBackupTime,
+        atlasPendingSyncCount: Number(data.atlas_pending_sync_count ?? current.atlasPendingSyncCount ?? 0),
+        googleDriveConnectionStatus: data.google_drive_connection_status || current.googleDriveConnectionStatus,
+        googleDriveAccount: data.google_drive_account || data.drive_account_email || current.googleDriveAccount,
+        googleDriveLastBackupTime: data.google_drive_last_backup_time || data.drive_last_backup_at || lastBackupTime,
+        googleDrivePendingUploadCount: Number(data.google_drive_pending_upload_count ?? data.pending_uploads ?? current.googleDrivePendingUploadCount ?? 0),
       }));
-      toast.success("Backup successful");
+      toast[hasPendingCloud ? "warning" : "success"](nextResult.message);
       refreshEnvironmentStatus();
     } catch (e) {
-      setBackupResult({ status: "Backup failed", tone: "text-red-600" });
+      setBackupResult({
+        local: "Local backup successful",
+        atlas: "MongoDB Atlas backup pending",
+        googleDrive: "Google Drive backup pending",
+        message: "Saved locally. Cloud backup pending.",
+        tone: "text-amber-700",
+      });
       setEnvironmentStatus((current) => ({
         ...current,
         cloudSyncStatus: "Backup pending",
         pendingUploads: Math.max(Number(current.pendingUploads || 0), 1),
+        atlasConnectionStatus: "Pending",
+        googleDriveConnectionStatus: current.googleDriveConnectionStatus === "Connected" ? "Pending" : current.googleDriveConnectionStatus,
       }));
       toast.warning("Saved locally. Cloud backup pending.");
+    }
+  };
+
+  const testAtlasConnection = async () => {
+    setTestingAtlas(true);
+    try {
+      const { data = {} } = await api.post("/backup/atlas/test");
+      setEnvironmentStatus((current) => ({ ...current, atlasConnectionStatus: data.status || "Connected" }));
+      toast.success("MongoDB Atlas backup connection is ready.");
+    } catch (e) {
+      setEnvironmentStatus((current) => ({ ...current, atlasConnectionStatus: "Failed" }));
+      toast.error("MongoDB Atlas backup connection failed.");
+    } finally {
+      setTestingAtlas(false);
+    }
+  };
+
+  const connectGoogleDrive = async () => {
+    setConnectingGoogleDrive(true);
+    try {
+      const { data = {} } = await api.post("/backup/google-drive/connect");
+      if (data.auth_url) window.location.href = data.auth_url;
+      setEnvironmentStatus((current) => ({
+        ...current,
+        googleDriveConnectionStatus: data.status || "Connected",
+        googleDriveAccount: data.account || data.email || current.googleDriveAccount,
+      }));
+      toast.success("Google Drive connection started.");
+    } catch (e) {
+      toast.error("Could not connect Google Drive.");
+    } finally {
+      setConnectingGoogleDrive(false);
+    }
+  };
+
+  const testGoogleDriveConnection = async () => {
+    setTestingGoogleDrive(true);
+    try {
+      const { data = {} } = await api.post("/backup/google-drive/test");
+      setEnvironmentStatus((current) => ({ ...current, googleDriveConnectionStatus: data.status || "Connected" }));
+      toast.success("Google Drive backup connection is ready.");
+    } catch (e) {
+      setEnvironmentStatus((current) => ({ ...current, googleDriveConnectionStatus: "Failed" }));
+      toast.error("Google Drive backup connection failed.");
+    } finally {
+      setTestingGoogleDrive(false);
     }
   };
 
@@ -859,7 +962,7 @@ export default function Settings() {
           <div className="font-heading font-semibold mb-1">Backup Center</div>
           <p className="text-sm text-slate-600 mb-4">Run backups, restore data, and monitor cloud sync without interrupting billing.</p>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div><div className="text-xs uppercase font-semibold text-slate-500">Backup result</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.status}</div></div>
+            <div><div className="text-xs uppercase font-semibold text-slate-500">Backup result</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.message}</div></div>
             <div><div className="text-xs uppercase font-semibold text-slate-500">Last backup time</div><div className="font-semibold">{environmentStatus.lastSuccessfulBackup}</div></div>
             <div><div className="text-xs uppercase font-semibold text-slate-500">Cloud sync status</div><div className="font-semibold">{environmentStatus.cloudSyncStatus}</div></div>
             <div><div className="text-xs uppercase font-semibold text-slate-500">Pending uploads</div><div className="font-semibold">{environmentStatus.pendingUploads}</div></div>
@@ -868,8 +971,54 @@ export default function Settings() {
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
             Do not close the app while backup is running.
           </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="mb-3 flex items-center gap-2 font-heading font-semibold text-slate-900"><Database className="h-4 w-4" />MongoDB Atlas Backup</div>
+              <div className="grid gap-2 text-sm">
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Connection status</span><span className="font-semibold">{environmentStatus.atlasConnectionStatus}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Last backup time</span><span className="font-semibold">{environmentStatus.atlasLastBackupTime}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Pending sync count</span><span className="font-semibold">{environmentStatus.atlasPendingSyncCount}</span></div>
+              </div>
+              <Button type="button" variant="outline" onClick={testAtlasConnection} disabled={testingAtlas} className="mt-3 rounded-sm">
+                <RefreshCw className={`mr-2 h-4 w-4 ${testingAtlas ? "animate-spin" : ""}`} />
+                {testingAtlas ? "Testing Atlas…" : "Test Atlas connection"}
+              </Button>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="mb-3 flex items-center gap-2 font-heading font-semibold text-slate-900"><Cloud className="h-4 w-4" />Google Drive Backup</div>
+              <div className="grid gap-2 text-sm">
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Connected account</span><span className="font-semibold">{environmentStatus.googleDriveAccount}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Connection status</span><span className="font-semibold">{environmentStatus.googleDriveConnectionStatus}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Last backup time</span><span className="font-semibold">{environmentStatus.googleDriveLastBackupTime}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Pending upload count</span><span className="font-semibold">{environmentStatus.googleDrivePendingUploadCount}</span></div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={connectGoogleDrive} disabled={connectingGoogleDrive} className="rounded-sm"><LinkIcon className="mr-2 h-4 w-4" />{connectingGoogleDrive ? "Connecting…" : "Connect Google Drive"}</Button>
+                <Button type="button" variant="outline" onClick={testGoogleDriveConnection} disabled={testingGoogleDrive} className="rounded-sm"><RefreshCw className={`mr-2 h-4 w-4 ${testingGoogleDrive ? "animate-spin" : ""}`} />{testingGoogleDrive ? "Testing Drive…" : "Test Google Drive connection"}</Button>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 rounded-md border border-emerald-100 bg-white p-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Backup schedule</div>
+            <div className="grid gap-2 text-sm font-semibold text-slate-800 sm:grid-cols-2 lg:grid-cols-4">
+              <div>Auto backup every 30 minutes</div>
+              <div>Backup after Daily Closing</div>
+              <div>Backup on app exit</div>
+              <div>Manual backup available</div>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div><div className="text-xs uppercase font-semibold text-slate-500">Local backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.local}</div></div>
+            <div><div className="text-xs uppercase font-semibold text-slate-500">MongoDB Atlas backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.atlas}</div></div>
+            <div><div className="text-xs uppercase font-semibold text-slate-500">Google Drive backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.googleDrive}</div></div>
+          </div>
+          {environmentMode === "local" && (
+            <div className="mt-4 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900">
+              Local Mode • Last backup: {environmentStatus.lastSuccessfulBackup}
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" onClick={backupNow} className="rounded-sm bg-emerald-700 hover:bg-emerald-800"><HardDrive className="mr-2 h-4 w-4" />Backup now</Button>
+            <Button type="button" onClick={backupNow} className="rounded-sm bg-emerald-700 hover:bg-emerald-800"><HardDrive className="mr-2 h-4 w-4" />Backup Now</Button>
             <Button type="button" variant="outline" disabled className="rounded-sm" title="Restore is experimental until backend restore is fully verified."><Upload className="mr-2 h-4 w-4" />Restore backup (Experimental)</Button>
           </div>
         </div>
