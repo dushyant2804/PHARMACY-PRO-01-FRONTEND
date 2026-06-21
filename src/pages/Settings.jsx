@@ -130,6 +130,14 @@ export default function Settings() {
     message: "Backup pending",
     tone: "text-amber-700",
   });
+  const [localServerTest, setLocalServerTest] = useState({
+    lastTestedUrl: "—",
+    status: "Not tested",
+    healthEndpoint: "—",
+    healthResult: "Not tested",
+    failedEndpoint: "—",
+    error: "—",
+  });
 
   const loadUsers = () => {
     api
@@ -201,6 +209,13 @@ export default function Settings() {
     };
   };
 
+  const formatHealthEndpointResult = (result) => {
+    if (!result) return "Not tested";
+    if (result.ok) return "Connected";
+    const failedEndpoint = result.failures?.[result.failures.length - 1];
+    return failedEndpoint ? `${failedEndpoint.endpoint}: ${failedEndpoint.error}` : "Connection failed";
+  };
+
   const normalizeBackupStatus = (data = {}) => ({
     backend: normalizeConnectionStatus(data.backend ?? data.backend_status ?? data.status ?? data.ok),
     database: normalizeConnectionStatus(data.database ?? data.database_status ?? data.db_status ?? data.database_connected ?? data.db_connected),
@@ -236,8 +251,20 @@ export default function Settings() {
       const healthSucceeded = localMode ? healthResult.ok : healthResult.status === "fulfilled";
       const healthData = localMode ? healthResult.data || {} : healthResult.status === "fulfilled" ? healthResult.value.data || {} : {};
       const backupData = backupResult.status === "fulfilled" ? backupResult.value.data || {} : {};
+      if (localMode) {
+        const failedEndpoint = healthResult.failures?.[healthResult.failures.length - 1];
+        setLocalServerTest({
+          lastTestedUrl: (localBackendUrl || getLocalBackendUrl()).trim().replace(/\/$/, ""),
+          status: healthResult.ok ? "Connected" : "Offline",
+          healthEndpoint: healthResult.endpoint || "—",
+          healthResult: formatHealthEndpointResult(healthResult),
+          failedEndpoint: failedEndpoint?.endpoint || "—",
+          error: failedEndpoint?.error || "—",
+        });
+      }
       if (localMode && !healthResult.ok) {
-        toast.warning(`Local PharmacyOS server is not running. Last tested: ${healthResult.endpoint}`);
+        const failedEndpoint = healthResult.failures?.[healthResult.failures.length - 1];
+        toast.warning(`Local PharmacyOS server is not running. Last tested: ${failedEndpoint?.endpoint || healthResult.endpoint}. ${failedEndpoint?.error || ""}`.trim());
       }
       const mergedStatus = normalizeBackupStatus({ ...healthData, ...backupData });
       const backupEndpointHealthy = backupResult.status === "fulfilled";
@@ -268,18 +295,27 @@ export default function Settings() {
     setTestingLocalServer(true);
     try {
       const result = await checkLocalHealthEndpoints(normalizedUrl);
+      const failedEndpoint = result.failures?.[result.failures.length - 1];
+      setLocalServerTest({
+        lastTestedUrl: normalizedUrl,
+        status: result.ok ? "Connected" : "Offline",
+        healthEndpoint: result.endpoint || "—",
+        healthResult: formatHealthEndpointResult(result),
+        failedEndpoint: failedEndpoint?.endpoint || "—",
+        error: failedEndpoint?.error || "—",
+      });
       setEnvironmentStatus((current) => ({
         ...current,
         endpoint: result.endpoint,
         healthEndpoint: result.endpoint,
         backupStatusEndpoint: getLocalHealthEndpoints(normalizedUrl)[3],
         response: {
-          health: result.ok ? result.data : { error: `Failed URL: ${result.endpoint}` },
+          health: result.ok ? result.data : { error: failedEndpoint ? `${failedEndpoint.endpoint}: ${failedEndpoint.error}` : `Failed URL: ${result.endpoint}` },
           failedHealthUrls: result.failures,
         },
         backend: result.ok ? "Connected" : "Offline",
       }));
-      if (!result.ok) throw new Error(`All local health endpoints failed. Last tested: ${result.endpoint}`);
+      if (!result.ok) throw new Error(`Local server test failed at ${failedEndpoint?.endpoint || result.endpoint}: ${failedEndpoint?.error || "Connection failed"}`);
       setLocalBackendUrlState(persistLocalBackendUrl(normalizedUrl));
       if (showToast) toast.success(`Local PharmacyOS server is connected via ${result.endpoint}.`);
       return true;
@@ -298,7 +334,8 @@ export default function Settings() {
     if (mode === "local") {
       const localServerReady = await testLocalServer(localBackendUrl, { showToast: false });
       if (!localServerReady) {
-        toast.error("Local PharmacyOS server is not running after testing all health endpoints.");
+        const failedText = localServerTest.failedEndpoint !== "—" ? ` Last failed endpoint: ${localServerTest.failedEndpoint}. ${localServerTest.error}` : "";
+        toast.error(`Local PharmacyOS server is not running after testing all health endpoints.${failedText}`);
         return;
       }
     }
@@ -1027,6 +1064,11 @@ export default function Settings() {
               <p className="mt-2 text-xs text-slate-500">Active API base: <span className="font-mono">{getApiBaseUrl(environmentMode)}</span></p>
               <p className="mt-1 text-xs text-slate-500">Status endpoint: <span className="font-mono">{environmentStatus.endpoint}</span></p>
               <p className="mt-1 text-xs font-semibold text-amber-700">Changing mode will reload the app. Local mode is saved only after the health check passes.</p>
+              {localServerTest.status === "Connected" && (
+                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Local Server Connected
+                </div>
+              )}
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {[
@@ -1044,10 +1086,38 @@ export default function Settings() {
             </div>
           </div>
           {environmentMode === "local" && environmentStatus.backend === "Offline" && environmentStatus.response?.health?.error && (
-            <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
-              <AlertTriangle className="h-4 w-4" /> Local PharmacyOS server is not running.
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <div className="flex items-start gap-2 font-semibold">
+                <AlertTriangle className="mt-0.5 h-4 w-4" />
+                <div>
+                  <div>Local PharmacyOS server is not running.</div>
+                  <div className="mt-2 font-normal">
+                    To use Local Mode:<br />
+                    1. Start PharmacyOS Local Server.<br />
+                    2. Click Test Local Server.<br />
+                    3. Switch to Local Mode after the connection succeeds.
+                  </div>
+                  {localServerTest.failedEndpoint !== "—" && (
+                    <div className="mt-2 font-mono text-xs text-red-700">Failed endpoint: {localServerTest.failedEndpoint} — {localServerTest.error}</div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
+          <div className="mt-3 rounded-md border border-blue-100 bg-blue-50 p-3 text-xs text-slate-700">
+            <div className="mb-2 flex items-center gap-2 font-semibold text-blue-950"><Server className="h-3.5 w-3.5" />Local Mode Setup Help</div>
+            <div className="grid gap-2 md:grid-cols-2">
+              <div>Current local server URL: <span className="font-mono">{(localBackendUrl || getLocalBackendUrl()).trim().replace(/\/$/, "")}</span></div>
+              <div>Last tested URL: <span className="font-mono">{localServerTest.lastTestedUrl}</span></div>
+              <div>Connection status: <span className={localServerTest.status === "Connected" ? "font-semibold text-emerald-700" : localServerTest.status === "Offline" ? "font-semibold text-red-700" : "font-semibold text-slate-700"}>{localServerTest.status}</span></div>
+              <div>Health endpoint result: <span className="font-mono">{localServerTest.healthResult}</span></div>
+            </div>
+            {localServerTest.status === "Offline" && localServerTest.failedEndpoint !== "—" && (
+              <div className="mt-2 rounded border border-red-100 bg-white px-2 py-1 text-red-700">
+                Test failed at <span className="font-mono">{localServerTest.failedEndpoint}</span>: {localServerTest.error}
+              </div>
+            )}
+          </div>
           <details className="mt-3 rounded-md border border-emerald-100 bg-white p-3 text-xs text-slate-600">
             <summary className="cursor-pointer font-semibold text-emerald-900">Health/status response</summary>
             <div className="mt-2 grid gap-1">
