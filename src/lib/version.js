@@ -1,5 +1,7 @@
 export const FRONTEND_VERSION = process.env.REACT_APP_VERSION || "0.0.0";
 export const ACKNOWLEDGED_VERSION_KEY = "pharmacyos_acknowledged_version";
+export const ACKNOWLEDGED_BUILD_KEY = "pharmacyos_acknowledged_frontend_build";
+export const LOADED_BUILD_KEY = "pharmacyos_loaded_frontend_build";
 export const UPDATE_COMPLETED_KEY = "pharmacyos_update_completed";
 
 export const RELEASE_NOTE_GROUPS = [
@@ -188,5 +190,41 @@ export const normalizeVersionMetadata = (payload = {}) => {
     releaseNotes,
     updateAvailable:
       typeof updateAvailable === "boolean" ? updateAvailable : null,
+  };
+};
+
+
+export const getLoadedFrontendBuild = (
+  storage = typeof localStorage !== "undefined" ? localStorage : null,
+) => {
+  const loadedBuild = FRONTEND_BUILD || FRONTEND_IDENTITY.build;
+  if (storage && loadedBuild)
+    setStoredVersion(storage, LOADED_BUILD_KEY, loadedBuild);
+  return loadedBuild || getStoredVersion(storage, LOADED_BUILD_KEY) || "";
+};
+
+export const getFrontendUpdateState = ({
+  metadata,
+  storage = typeof localStorage !== "undefined" ? localStorage : null,
+} = {}) => {
+  const latestIdentity = getVersionIdentity(metadata?.version || FRONTEND_VERSION);
+  const latestBuild = metadata?.build || latestIdentity.build || "";
+  const loadedBuild = getLoadedFrontendBuild(storage);
+  const acknowledgedBuild = getStoredVersion(storage, ACKNOWLEDGED_BUILD_KEY);
+  const updateAvailable = Boolean(
+    latestBuild &&
+      loadedBuild &&
+      latestBuild !== loadedBuild &&
+      latestBuild !== acknowledgedBuild,
+  );
+
+  return {
+    loadedBuild,
+    latestBuild,
+    acknowledgedBuild,
+    updateAvailable,
+    buildsDiffer: Boolean(
+      latestBuild && loadedBuild && latestBuild !== loadedBuild,
+    ),
   };
 };

@@ -1,6 +1,10 @@
 import {
+  ACKNOWLEDGED_BUILD_KEY,
   compareVersions,
+  FRONTEND_BUILD,
+  getFrontendUpdateState,
   getStoredVersion,
+  LOADED_BUILD_KEY,
   getUpdateType,
   getVersionIdentity,
   normalizeVersionMetadata,
@@ -70,6 +74,54 @@ describe("version helpers", () => {
       build: "20260620-7682338",
       full: "0.1.1+20260620-7682338",
     });
+  });
+
+  test("uses frontend build metadata as the update source of truth", () => {
+    const storage = window.localStorage;
+    storage.clear();
+    storage.setItem(LOADED_BUILD_KEY, "20260621T120000Z-current");
+
+    expect(
+      getFrontendUpdateState({
+        metadata: { version: "3.1.1", build: "" },
+        storage,
+      }),
+    ).toMatchObject({
+      latestBuild: "",
+      loadedBuild: FRONTEND_BUILD || "20260621T120000Z-current",
+      updateAvailable: false,
+    });
+
+    expect(
+      getFrontendUpdateState({
+        metadata: {
+          version: "0.1.0+20260621T121000Z-next",
+          build: "20260621T121000Z-next",
+        },
+        storage,
+      }),
+    ).toMatchObject({
+      latestBuild: "20260621T121000Z-next",
+      loadedBuild: FRONTEND_BUILD || "20260621T120000Z-current",
+      updateAvailable: true,
+    });
+  });
+
+  test("suppresses the same acknowledged frontend build after reload", () => {
+    const storage = window.localStorage;
+    storage.clear();
+    storage.setItem(LOADED_BUILD_KEY, "20260621T120000Z-current");
+    storage.setItem(ACKNOWLEDGED_BUILD_KEY, "20260621T121000Z-next");
+
+    expect(
+      getFrontendUpdateState({
+        metadata: {
+          version: "0.1.0+20260621T121000Z-next",
+          build: "20260621T121000Z-next",
+        },
+        storage,
+      }),
+    ).toMatchObject({ updateAvailable: false, buildsDiffer: true });
   });
 
   test("handles unavailable browser storage safely", () => {

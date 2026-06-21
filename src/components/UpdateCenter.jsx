@@ -24,10 +24,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  ACKNOWLEDGED_BUILD_KEY,
   compareVersions,
   EMPTY_RELEASE_NOTES,
   FRONTEND_BUILD,
   FRONTEND_VERSION,
+  getFrontendUpdateState,
   getStoredVersion,
   getUpdateType,
   getVersionIdentity,
@@ -111,14 +113,13 @@ export default function UpdateCenter({ children }) {
     () => getStoredVersion(sessionStorage, UPDATE_COMPLETED_KEY) === "true",
   );
   const deployedIdentity = getVersionIdentity(metadata.version);
-  const deployedBuild = metadata.build || deployedIdentity.build;
+  const {
+    loadedBuild,
+    latestBuild: deployedBuild,
+    updateAvailable,
+    buildsDiffer,
+  } = getFrontendUpdateState({ metadata });
   const loadedIdentity = getVersionIdentity(FRONTEND_VERSION);
-  const loadedBuild = FRONTEND_BUILD || loadedIdentity.build;
-  const buildsDiffer = Boolean(deployedBuild && loadedBuild && deployedBuild !== loadedBuild);
-  const updateAvailable =
-    buildsDiffer ||
-    compareVersions(metadata.version, FRONTEND_VERSION) > 0 ||
-    metadata.updateAvailable === true;
   const updateType = useMemo(
     () => getUpdateType(FRONTEND_VERSION, metadata.version),
     [metadata.version],
@@ -139,13 +140,21 @@ export default function UpdateCenter({ children }) {
     try {
       const nextMetadata = await fetchUpdateCenterMetadata();
       const latestIdentity = getVersionIdentity(nextMetadata.version);
-      const latestBuild = nextMetadata.build || latestIdentity.build;
       const currentIdentity = getVersionIdentity(FRONTEND_VERSION);
-      const currentBuild = FRONTEND_BUILD || currentIdentity.build;
-      const buildChanged = Boolean(latestBuild && currentBuild && latestBuild !== currentBuild);
       const comparison = compareVersions(nextMetadata.version, FRONTEND_VERSION);
-      const hasUpdate = buildChanged || comparison > 0 || nextMetadata.updateAvailable === true;
-      setMetadata({ ...nextMetadata, build: latestBuild, comparison });
+      const nextUpdateState = getFrontendUpdateState({ metadata: nextMetadata });
+      const {
+        latestBuild,
+        loadedBuild: currentBuild,
+        updateAvailable: hasUpdate,
+        buildsDiffer: buildChanged,
+      } = nextUpdateState;
+      setMetadata({
+        ...nextMetadata,
+        build: latestBuild,
+        comparison,
+        updateAvailable: hasUpdate,
+      });
       setCheckStatus(hasUpdate ? "Update available" : "You're up to date");
       console.info("Update Center check", {
         endpoint: nextMetadata.endpoint,
@@ -153,13 +162,14 @@ export default function UpdateCenter({ children }) {
         loadedBuild: currentBuild || "—",
         latestDeployedVersion: latestIdentity.version,
         latestDeployedBuild: latestBuild || "—",
+        update_available: hasUpdate,
         comparison,
         buildChanged,
         hasUpdate,
       });
       if (hasUpdate) {
+        setWhatsNewOpen(false);
         setUpdateOpen(true);
-        setWhatsNewOpen(true);
       }
       return hasUpdate;
     } catch (error) {
@@ -192,7 +202,13 @@ export default function UpdateCenter({ children }) {
     setUpdateOpen(false);
     setWhatsNewOpen(false);
     setUpdating(true);
+    setMetadata((current) => ({ ...current, updateAvailable: false }));
     setStoredVersion(sessionStorage, UPDATE_COMPLETED_KEY, "true");
+    setStoredVersion(
+      localStorage,
+      ACKNOWLEDGED_BUILD_KEY,
+      deployedBuild || loadedBuild || "",
+    );
 
     try {
       if ("caches" in window) {
@@ -228,8 +244,19 @@ export default function UpdateCenter({ children }) {
           checking,
           checkStatus,
           checkForUpdates,
-          openUpdate: () => setUpdateOpen(true),
-          openWhatsNew: () => setWhatsNewOpen(true),
+          openUpdate: () => {
+            setWhatsNewOpen(false);
+            setUpdateOpen(true);
+          },
+          openWhatsNew: () => {
+            if (updateAvailable) {
+              setWhatsNewOpen(false);
+              setUpdateOpen(true);
+              return;
+            }
+            setUpdateOpen(false);
+            setWhatsNewOpen(true);
+          },
           releaseNotes: metadata.releaseNotes,
           endpoint: metadata.endpoint,
           comparison: metadata.comparison,
@@ -274,16 +301,7 @@ export default function UpdateCenter({ children }) {
                 activate the update.
               </span>
             </div>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setUpdateOpen(false);
-                  setWhatsNewOpen(true);
-                }}
-              >
-                What’s New
-              </Button>
+            <div className="flex justify-end">
               <Button
                 onClick={applyUpdate}
                 className="bg-emerald-900 px-6 hover:bg-emerald-800"
