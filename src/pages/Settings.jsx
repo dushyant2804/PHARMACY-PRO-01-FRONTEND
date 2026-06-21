@@ -99,6 +99,10 @@ export default function Settings() {
   const [environmentMode, setEnvironmentMode] = useState(getApiMode);
   const [localBackendUrl, setLocalBackendUrlState] = useState(getLocalBackendUrl);
   const [environmentStatus, setEnvironmentStatus] = useState({
+    endpoint: "—",
+    healthEndpoint: "—",
+    backupStatusEndpoint: "—",
+    response: null,
     backend: "Checking",
     database: "Checking",
     lastBackupTime: "—",
@@ -141,9 +145,18 @@ export default function Settings() {
       .catch(() => {});
   };
 
+  const normalizeConnectionStatus = (value, fallback = "Connected") => {
+    if (typeof value === "boolean") return value ? "Connected" : "Offline";
+    const normalized = String(value ?? "").trim().toLowerCase();
+    if (!normalized) return fallback;
+    if (["ok", "up", "online", "healthy", "ready", "success", "connected", "true"].includes(normalized)) return "Connected";
+    if (["down", "offline", "unhealthy", "failed", "error", "false", "disconnected"].includes(normalized)) return "Offline";
+    return String(value);
+  };
+
   const normalizeBackupStatus = (data = {}) => ({
-    backend: data.backend || data.backend_status || "Connected",
-    database: data.database || data.database_status || (data.database_connected === false ? "Offline" : "Connected"),
+    backend: normalizeConnectionStatus(data.backend ?? data.backend_status ?? data.status ?? data.ok),
+    database: normalizeConnectionStatus(data.database ?? data.database_status ?? data.db_status ?? data.database_connected ?? data.db_connected),
     lastBackupTime: data.last_backup_time || data.last_backup_at || data.last_successful_backup || "—",
     pendingSyncCount: Number(data.pending_sync_count ?? data.pending_sync ?? data.pending_uploads ?? 0),
     lastSuccessfulBackup: data.last_successful_backup || data.last_backup_time || data.last_backup_at || "—",
@@ -161,20 +174,35 @@ export default function Settings() {
   const refreshEnvironmentStatus = async () => {
     setCheckingEnvironment(true);
     try {
+      const healthEndpoint = `${getApiBaseUrl()}/health`;
+      const backupStatusEndpoint = `${getApiBaseUrl()}/backup/status`;
       const [healthResult, backupResult] = await Promise.allSettled([
-        api.get("/health"),
-        api.get("/backup/status"),
+        api.get("/health", { params: { t: Date.now() }, headers: { "Cache-Control": "no-store" } }),
+        api.get("/backup/status", { params: { t: Date.now() }, headers: { "Cache-Control": "no-store" } }),
       ]);
       const healthData = healthResult.status === "fulfilled" ? healthResult.value.data || {} : {};
       const backupData = backupResult.status === "fulfilled" ? backupResult.value.data || {} : {};
       if (healthResult.status === "rejected" && environmentMode === "local") {
         toast.warning("Local PharmacyOS server is not running.");
       }
+      const mergedStatus = normalizeBackupStatus({ ...healthData, ...backupData });
+      const backupEndpointHealthy = backupResult.status === "fulfilled";
+      const backendStatus = healthResult.status === "fulfilled" || backupEndpointHealthy
+        ? normalizeConnectionStatus(healthData.backend ?? healthData.backend_status ?? healthData.status ?? backupData.backend ?? backupData.backend_status ?? backupData.status, "Connected")
+        : "Offline";
       setEnvironmentStatus({
-        ...normalizeBackupStatus({ ...healthData, ...backupData }),
-        backend: healthResult.status === "fulfilled" ? "Connected" : "Offline",
-        database: healthData.database || healthData.database_status || backupData.database || (healthResult.status === "fulfilled" ? "Connected" : "Offline"),
+        ...mergedStatus,
+        endpoint: healthEndpoint,
+        healthEndpoint,
+        backupStatusEndpoint,
+        response: {
+          health: healthResult.status === "fulfilled" ? healthData : { error: formatApiError(healthResult.reason) },
+          backupStatus: backupResult.status === "fulfilled" ? backupData : { error: formatApiError(backupResult.reason) },
+        },
+        backend: backendStatus,
+        database: normalizeConnectionStatus(healthData.database ?? healthData.database_status ?? healthData.db_status ?? healthData.database_connected ?? backupData.database ?? backupData.database_status ?? backupData.db_status ?? backupData.database_connected, backendStatus === "Offline" ? "Offline" : "Connected"),
       });
+      console.info("Backup & Restore status response", { healthEndpoint, backupStatusEndpoint, health: healthData, backupStatus: backupData });
     } finally {
       setCheckingEnvironment(false);
     }
@@ -934,6 +962,7 @@ export default function Settings() {
                 </Button>
               </div>
               <p className="mt-2 text-xs text-slate-500">Active API base: <span className="font-mono">{getApiBaseUrl(environmentMode)}</span></p>
+              <p className="mt-1 text-xs text-slate-500">Status endpoint: <span className="font-mono">{environmentStatus.endpoint}</span></p>
               <p className="mt-1 text-xs font-semibold text-amber-700">Changing mode will reload the app. Local mode is saved only after the health check passes.</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -956,6 +985,14 @@ export default function Settings() {
               <AlertTriangle className="h-4 w-4" /> Local PharmacyOS server is not running.
             </div>
           )}
+          <details className="mt-3 rounded-md border border-emerald-100 bg-white p-3 text-xs text-slate-600">
+            <summary className="cursor-pointer font-semibold text-emerald-900">Health/status response</summary>
+            <div className="mt-2 grid gap-1">
+              <div>Health endpoint: <span className="font-mono">{environmentStatus.healthEndpoint}</span></div>
+              <div>Backup endpoint: <span className="font-mono">{environmentStatus.backupStatusEndpoint}</span></div>
+            </div>
+            <pre className="mt-2 max-h-48 overflow-auto rounded bg-slate-950 p-3 text-[11px] text-slate-100">{JSON.stringify(environmentStatus.response, null, 2)}</pre>
+          </details>
         </div>
 
         <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 p-4" data-testid="backup-center-section">

@@ -44,10 +44,13 @@ const defaultMetadata = {
   message: "",
   releaseNotes: EMPTY_RELEASE_NOTES,
   updateAvailable: false,
+  endpoint: "—",
+  fetchedAt: null,
 };
 
 const updateCenterEndpoints = [
-  "/updates/check",
+  { type: "api", url: "/updates/check" },
+  { type: "static", url: "/version.json" },
 ];
 
 const UpdateContext = createContext(null);
@@ -69,12 +72,23 @@ const fetchUpdateCenterMetadata = async () => {
   let lastError;
   for (const endpoint of updateCenterEndpoints) {
     try {
-      const { data } = await api.get(endpoint, {
-        params: { current_version: FRONTEND_VERSION, check: Date.now() },
-        headers: { "Cache-Control": "no-cache" },
-      });
+      let data;
+      const timestamp = Date.now();
+      if (endpoint.type === "static") {
+        const response = await fetch(`${endpoint.url}?t=${timestamp}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-store" },
+        });
+        if (!response.ok) throw new Error(`Update metadata request failed (${response.status})`);
+        data = await response.json();
+      } else {
+        ({ data } = await api.get(endpoint.url, {
+          params: { current_version: FRONTEND_VERSION, t: timestamp },
+          headers: { "Cache-Control": "no-store", Pragma: "no-cache" },
+        }));
+      }
       const metadata = normalizeVersionMetadata(data);
-      if (metadata) return metadata;
+      if (metadata) return { ...metadata, endpoint: endpoint.url, fetchedAt: new Date().toISOString() };
     } catch (error) {
       lastError = error;
     }
@@ -114,12 +128,15 @@ export default function UpdateCenter({ children }) {
 
     try {
       const nextMetadata = await fetchUpdateCenterMetadata();
-      const hasUpdate =
-        nextMetadata.updateAvailable ??
-        compareVersions(nextMetadata.version, FRONTEND_VERSION) > 0;
-      setMetadata(nextMetadata);
+      const comparison = compareVersions(nextMetadata.version, FRONTEND_VERSION);
+      const hasUpdate = nextMetadata.updateAvailable ?? comparison > 0;
+      setMetadata({ ...nextMetadata, comparison });
       setCheckStatus(hasUpdate ? "Update available" : "You're up to date");
-      if (hasUpdate) setUpdateOpen(true);
+      console.info("Update Center check", { endpoint: nextMetadata.endpoint, currentVersion: FRONTEND_VERSION, latestVersion: nextMetadata.version, comparison, hasUpdate });
+      if (hasUpdate) {
+        setUpdateOpen(true);
+        setWhatsNewOpen(true);
+      }
       return hasUpdate;
     } catch (error) {
       setMetadata(defaultMetadata);
@@ -183,6 +200,8 @@ export default function UpdateCenter({ children }) {
           openUpdate: () => setUpdateOpen(true),
           openWhatsNew: () => setWhatsNewOpen(true),
           releaseNotes: metadata.releaseNotes,
+          endpoint: metadata.endpoint,
+          comparison: metadata.comparison,
         }}
       >
         {children}
@@ -238,7 +257,7 @@ export default function UpdateCenter({ children }) {
                 className="bg-emerald-900 px-6 hover:bg-emerald-800"
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Update PharmacyOS
+                Reload app
               </Button>
             </div>
           </div>
@@ -267,7 +286,7 @@ export default function UpdateCenter({ children }) {
               onClick={applyUpdate}
               className="bg-emerald-900 hover:bg-emerald-800"
             >
-              Update PharmacyOS
+              Reload app
             </Button>
           )}
         </DialogContent>
