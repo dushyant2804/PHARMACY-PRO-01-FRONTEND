@@ -120,6 +120,17 @@ export default function Settings() {
   });
   const [checkingEnvironment, setCheckingEnvironment] = useState(false);
   const [testingLocalServer, setTestingLocalServer] = useState(false);
+  const [runningLocalImportGuard, setRunningLocalImportGuard] = useState(false);
+  const [confirmingLocalImport, setConfirmingLocalImport] = useState(false);
+  const [localImportGuard, setLocalImportGuard] = useState({
+    status: "Not started",
+    message: "Run dry-run import before switching to Local Mode.",
+    dryRunEndpoint: "—",
+    importEndpoint: "—",
+    counts: {},
+    localUsersReady: false,
+    confirmed: false,
+  });
   const [testingAtlas, setTestingAtlas] = useState(false);
   const [testingGoogleDrive, setTestingGoogleDrive] = useState(false);
   const [connectingGoogleDrive, setConnectingGoogleDrive] = useState(false);
@@ -207,6 +218,126 @@ export default function Settings() {
       data: {},
       failures,
     };
+  };
+
+  const getCloudToLocalImportEndpoints = (url = localBackendUrl) => {
+    const normalizedUrl = (url || getLocalBackendUrl()).trim().replace(/\/$/, "");
+    return [
+      `${normalizedUrl}/api/backup/cloud-to-local/import`,
+      `${normalizedUrl}/api/cloud-to-local/import`,
+      `${normalizedUrl}/api/backup/import/cloud-to-local`,
+    ];
+  };
+
+  const flattenImportCounts = (value, prefix = "") => {
+    if (!value || typeof value !== "object") return {};
+    return Object.entries(value).reduce((acc, [key, entry]) => {
+      const label = prefix ? `${prefix}.${key}` : key;
+      if (typeof entry === "number" || typeof entry === "string" || typeof entry === "boolean") {
+        acc[label] = entry;
+      } else if (entry && typeof entry === "object") {
+        Object.assign(acc, flattenImportCounts(entry, label));
+      }
+      return acc;
+    }, {});
+  };
+
+  const extractImportCounts = (data = {}) => {
+    const source = data.counts || data.dry_run_counts || data.imported || data.summary || data;
+    return flattenImportCounts(source);
+  };
+
+  const hasLocalUsers = (data = {}) => {
+    const counts = extractImportCounts(data);
+    const userKeys = Object.keys(counts).filter((key) => key.toLowerCase().includes("user"));
+    if (userKeys.some((key) => Number(counts[key]) > 0)) return true;
+    const userCollections = [data.users, data.local_users, data.imported?.users, data.counts?.users, data.summary?.users];
+    return userCollections.some((value) => Array.isArray(value) ? value.length > 0 : Number(value) > 0);
+  };
+
+  const callCloudToLocalImport = async ({ dryRun, url = localBackendUrl }) => {
+    const endpoints = getCloudToLocalImportEndpoints(url);
+    const token = localStorage.getItem("token");
+    const failures = [];
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(`${endpoint}${dryRun ? "?dry_run=true" : ""}`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ dry_run: dryRun, source: "cloud", target: "local" }),
+        });
+        if (!response.ok) throw new Error(`Import ${dryRun ? "dry-run" : "run"} failed with ${response.status}`);
+        const data = await response.json().catch(() => ({}));
+        return { endpoint, data };
+      } catch (error) {
+        failures.push(`${endpoint}: ${error?.message || String(error)}`);
+      }
+    }
+
+    throw new Error(failures.join(" | ") || "Cloud-to-local import endpoint is unavailable.");
+  };
+
+  const runLocalImportDryRun = async () => {
+    setRunningLocalImportGuard(true);
+    setLocalImportGuard((current) => ({ ...current, status: "Testing local server", confirmed: false }));
+    try {
+      const localServerReady = await testLocalServer(localBackendUrl, { showToast: false });
+      if (!localServerReady) throw new Error("Local PharmacyOS server is not running.");
+
+      setLocalImportGuard((current) => ({ ...current, status: "Running dry-run import" }));
+      const { endpoint, data } = await callCloudToLocalImport({ dryRun: true });
+      const counts = extractImportCounts(data);
+      const localUsersReady = hasLocalUsers(data);
+      setLocalImportGuard({
+        status: localUsersReady ? "Dry-run complete" : "Local users missing",
+        message: localUsersReady ? "Review counts, then confirm import to enable Local Mode." : "Import cloud data first so your login works locally.",
+        dryRunEndpoint: endpoint,
+        importEndpoint: "—",
+        counts,
+        localUsersReady,
+        confirmed: false,
+      });
+      toast[localUsersReady ? "success" : "error"](localUsersReady ? "Dry-run import completed. Review counts before confirming." : "Import cloud data first so your login works locally.");
+    } catch (error) {
+      setLocalImportGuard((current) => ({ ...current, status: "Dry-run failed", message: error?.message || "Dry-run import failed.", localUsersReady: false, confirmed: false }));
+      toast.error(error?.message || "Dry-run import failed.");
+    } finally {
+      setRunningLocalImportGuard(false);
+    }
+  };
+
+  const confirmLocalImport = async () => {
+    if (!localImportGuard.localUsersReady) {
+      toast.error("Import cloud data first so your login works locally.");
+      return;
+    }
+    if (!window.confirm("Import cloud data into the local server now?")) return;
+    setConfirmingLocalImport(true);
+    try {
+      const { endpoint, data } = await callCloudToLocalImport({ dryRun: false });
+      const counts = extractImportCounts(data);
+      const localUsersReady = hasLocalUsers(data) || localImportGuard.localUsersReady;
+      setLocalImportGuard((current) => ({
+        ...current,
+        status: localUsersReady ? "Import confirmed" : "Local users missing",
+        message: localUsersReady ? "Import completed. Local Mode switch is now allowed." : "Import cloud data first so your login works locally.",
+        importEndpoint: endpoint,
+        counts: Object.keys(counts).length ? counts : current.counts,
+        localUsersReady,
+        confirmed: localUsersReady,
+      }));
+      toast[localUsersReady ? "success" : "error"](localUsersReady ? "Cloud data imported locally. You can switch to Local Mode." : "Import cloud data first so your login works locally.");
+    } catch (error) {
+      setLocalImportGuard((current) => ({ ...current, status: "Import failed", message: error?.message || "Cloud-to-local import failed.", confirmed: false }));
+      toast.error(error?.message || "Cloud-to-local import failed.");
+    } finally {
+      setConfirmingLocalImport(false);
+    }
   };
 
   const formatHealthEndpointResult = (result) => {
@@ -336,6 +467,15 @@ export default function Settings() {
       if (!localServerReady) {
         const failedText = localServerTest.failedEndpoint !== "—" ? ` Last failed endpoint: ${localServerTest.failedEndpoint}. ${localServerTest.error}` : "";
         toast.error(`Local PharmacyOS server is not running after testing all health endpoints.${failedText}`);
+        return;
+      }
+      if (!localImportGuard.confirmed || !localImportGuard.localUsersReady) {
+        toast.error("Import cloud data first so your login works locally.");
+        setLocalImportGuard((current) => ({
+          ...current,
+          status: "Local Mode blocked",
+          message: "Import cloud data first so your login works locally.",
+        }));
         return;
       }
     }
@@ -1069,6 +1209,45 @@ export default function Settings() {
                   <CheckCircle2 className="h-3.5 w-3.5" /> Local Server Connected
                 </div>
               )}
+              <div className="mt-4 rounded-md border border-blue-100 bg-blue-50 p-3" data-testid="local-import-guard">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-blue-950">Local Mode Import Guard</div>
+                    <p className="mt-1 text-xs text-blue-900">Test the local server, run a cloud-to-local dry-run import, review counts, then confirm the import before Local Mode is enabled.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={runLocalImportDryRun} disabled={runningLocalImportGuard || confirmingLocalImport} className="rounded-sm bg-white">
+                      <RefreshCw className={`mr-2 h-4 w-4 ${runningLocalImportGuard ? "animate-spin" : ""}`} />
+                      {runningLocalImportGuard ? "Running…" : "Run Dry-Run Import"}
+                    </Button>
+                    <Button type="button" onClick={confirmLocalImport} disabled={confirmingLocalImport || runningLocalImportGuard || !localImportGuard.localUsersReady} className="rounded-sm bg-blue-600 hover:bg-blue-700">
+                      {confirmingLocalImport ? "Importing…" : "Confirm Import"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-2 text-xs md:grid-cols-2">
+                  <div>Status: <span className="font-semibold">{localImportGuard.status}</span></div>
+                  <div>Local users: <span className={localImportGuard.localUsersReady ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>{localImportGuard.localUsersReady ? "Found" : "Missing"}</span></div>
+                  <div>Dry-run endpoint: <span className="font-mono">{localImportGuard.dryRunEndpoint}</span></div>
+                  <div>Import endpoint: <span className="font-mono">{localImportGuard.importEndpoint}</span></div>
+                </div>
+                <div className={`mt-2 rounded border px-2 py-1 text-xs font-semibold ${localImportGuard.localUsersReady ? "border-emerald-100 bg-white text-emerald-800" : "border-amber-100 bg-amber-50 text-amber-800"}`}>
+                  {localImportGuard.message}
+                </div>
+                {Object.keys(localImportGuard.counts).length > 0 && (
+                  <div className="mt-3 rounded border border-blue-100 bg-white p-2">
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Dry-run counts</div>
+                    <div className="grid gap-1 text-xs sm:grid-cols-2">
+                      {Object.entries(localImportGuard.counts).map(([key, value]) => (
+                        <div key={key} className="flex justify-between gap-3 rounded bg-slate-50 px-2 py-1">
+                          <span className="font-mono text-slate-600">{key}</span>
+                          <span className="font-semibold text-slate-900">{String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {[
