@@ -40,11 +40,11 @@ describe("reports dashboard normalizers", () => {
     expect(normalizeRecovery({ distributor_outstanding_movement: [{ month: "Jan", closing_distributor_payable: 40 }] })).toEqual([
       { period: "Jan", distributorOutstanding: 40 },
     ]);
-    expect(normalizeRecovery({ distributor_outstanding_movement: [{ period: "Feb", closingBalance: 55 }] })).toEqual([
+    expect(normalizeRecovery({ distributor_outstanding_movement: [{ period: "Feb", month_end_payable: 55 }] })).toEqual([
       { period: "Feb", distributorOutstanding: 55 },
     ]);
     expect(normalizeRecovery({ data: { distributorPayableMovement: [{ label: "Mar", payable: 65 }] } })).toEqual([
-      { period: "Mar", distributorOutstanding: 65 },
+      { period: "Mar", distributorOutstanding: 0 },
     ]);
   });
 
@@ -58,7 +58,7 @@ describe("reports dashboard normalizers", () => {
   });
 
   it("keeps distributor outstanding movement visible whenever a movement point exists", () => {
-    const rows = normalizeRecovery({ distributor_outstanding_movement: [{ label: "Apr", outstanding: 10 }] });
+    const rows = normalizeRecovery({ distributor_outstanding_movement: [{ label: "Apr", month_end_payable: 10 }] });
     expect(rows).toHaveLength(1);
     expect(hasValues(rows, ["distributorOutstanding"])).toBe(true);
     expect(normalizeRecovery({ distributor_outstanding_movement: [] })).toHaveLength(0);

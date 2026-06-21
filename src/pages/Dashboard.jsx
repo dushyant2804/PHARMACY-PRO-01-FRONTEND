@@ -122,6 +122,7 @@ const getPurchaseReturnSummary = (data, purchaseReturns) => {
   );
 
   const returnCount = toNumber(firstDefined(
+    summary.return_records,
     summary.count,
     summary.return_count,
     summary.purchase_return_count,
@@ -132,6 +133,7 @@ const getPurchaseReturnSummary = (data, purchaseReturns) => {
   ));
 
   const returnedUnits = toNumber(firstDefined(
+    summary.units_returned,
     summary.total_returned_quantity,
     summary.total_return_quantity,
     summary.returned_quantity,
@@ -143,9 +145,9 @@ const getPurchaseReturnSummary = (data, purchaseReturns) => {
   ));
 
   const returnedValue = toOptionalNumber(firstDefined(
+    summary.returned_value,
     summary.total_returned_value,
     summary.total_return_value,
-    summary.returned_value,
     summary.return_value,
     summary.total_value,
     summary.value,
