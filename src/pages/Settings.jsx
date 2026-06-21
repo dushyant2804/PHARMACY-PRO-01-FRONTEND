@@ -154,6 +154,53 @@ export default function Settings() {
     return String(value);
   };
 
+  const getLocalHealthEndpoints = (url = localBackendUrl) => {
+    const normalizedUrl = (url || getLocalBackendUrl()).trim().replace(/\/$/, "");
+    return [
+      `${normalizedUrl}/api/health`,
+      `${normalizedUrl}/health`,
+      `${normalizedUrl}/api/backup/health`,
+      `${normalizedUrl}/api/backup/status`,
+    ];
+  };
+
+  const testHealthEndpoint = async (endpoint) => {
+    const response = await fetch(`${endpoint}${endpoint.includes("?") ? "&" : "?"}t=${Date.now()}`, {
+      method: "GET",
+      credentials: "include",
+      headers: { "Cache-Control": "no-store" },
+    });
+    if (!response.ok) throw new Error(`Health check failed with ${response.status}`);
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = { ok: true };
+    }
+    return data;
+  };
+
+  const checkLocalHealthEndpoints = async (url = localBackendUrl) => {
+    const endpoints = getLocalHealthEndpoints(url);
+    const failures = [];
+
+    for (const endpoint of endpoints) {
+      try {
+        const data = await testHealthEndpoint(endpoint);
+        return { ok: true, endpoint, data, failures };
+      } catch (error) {
+        failures.push({ endpoint, error: error?.message || String(error) });
+      }
+    }
+
+    return {
+      ok: false,
+      endpoint: endpoints[endpoints.length - 1],
+      data: {},
+      failures,
+    };
+  };
+
   const normalizeBackupStatus = (data = {}) => ({
     backend: normalizeConnectionStatus(data.backend ?? data.backend_status ?? data.status ?? data.ok),
     database: normalizeConnectionStatus(data.database ?? data.database_status ?? data.db_status ?? data.database_connected ?? data.db_connected),
@@ -174,35 +221,43 @@ export default function Settings() {
   const refreshEnvironmentStatus = async () => {
     setCheckingEnvironment(true);
     try {
-      const healthEndpoint = `${getApiBaseUrl()}/health`;
-      const backupStatusEndpoint = `${getApiBaseUrl()}/backup/status`;
-      const [healthResult, backupResult] = await Promise.allSettled([
-        api.get("/health", { params: { t: Date.now() }, headers: { "Cache-Control": "no-store" } }),
-        api.get("/backup/status", { params: { t: Date.now() }, headers: { "Cache-Control": "no-store" } }),
-      ]);
-      const healthData = healthResult.status === "fulfilled" ? healthResult.value.data || {} : {};
+      const localMode = environmentMode === "local";
+      const healthEndpoint = localMode ? getLocalHealthEndpoints()[0] : `${getApiBaseUrl()}/health`;
+      const backupStatusEndpoint = localMode ? getLocalHealthEndpoints()[3] : `${getApiBaseUrl()}/backup/status`;
+      const [healthResult, backupResult] = localMode
+        ? [
+            await checkLocalHealthEndpoints(),
+            { status: "skipped", value: { data: {} } },
+          ]
+        : await Promise.allSettled([
+            api.get("/health", { params: { t: Date.now() }, headers: { "Cache-Control": "no-store" } }),
+            api.get("/backup/status", { params: { t: Date.now() }, headers: { "Cache-Control": "no-store" } }),
+          ]);
+      const healthSucceeded = localMode ? healthResult.ok : healthResult.status === "fulfilled";
+      const healthData = localMode ? healthResult.data || {} : healthResult.status === "fulfilled" ? healthResult.value.data || {} : {};
       const backupData = backupResult.status === "fulfilled" ? backupResult.value.data || {} : {};
-      if (healthResult.status === "rejected" && environmentMode === "local") {
-        toast.warning("Local PharmacyOS server is not running.");
+      if (localMode && !healthResult.ok) {
+        toast.warning(`Local PharmacyOS server is not running. Last tested: ${healthResult.endpoint}`);
       }
       const mergedStatus = normalizeBackupStatus({ ...healthData, ...backupData });
       const backupEndpointHealthy = backupResult.status === "fulfilled";
-      const backendStatus = healthResult.status === "fulfilled" || backupEndpointHealthy
+      const backendStatus = healthSucceeded || backupEndpointHealthy
         ? normalizeConnectionStatus(healthData.backend ?? healthData.backend_status ?? healthData.status ?? backupData.backend ?? backupData.backend_status ?? backupData.status, "Connected")
         : "Offline";
       setEnvironmentStatus({
         ...mergedStatus,
-        endpoint: healthEndpoint,
-        healthEndpoint,
+        endpoint: localMode && healthResult.endpoint ? healthResult.endpoint : healthEndpoint,
+        healthEndpoint: localMode && healthResult.endpoint ? healthResult.endpoint : healthEndpoint,
         backupStatusEndpoint,
         response: {
-          health: healthResult.status === "fulfilled" ? healthData : { error: formatApiError(healthResult.reason) },
-          backupStatus: backupResult.status === "fulfilled" ? backupData : { error: formatApiError(backupResult.reason) },
+          health: healthSucceeded ? healthData : { error: localMode ? `Failed URL: ${healthResult.endpoint}` : formatApiError(healthResult.reason) },
+          backupStatus: backupResult.status === "fulfilled" ? backupData : backupResult.status === "skipped" ? { skipped: true } : { error: formatApiError(backupResult.reason) },
+          failedHealthUrls: localMode ? healthResult.failures : undefined,
         },
         backend: backendStatus,
         database: normalizeConnectionStatus(healthData.database ?? healthData.database_status ?? healthData.db_status ?? healthData.database_connected ?? backupData.database ?? backupData.database_status ?? backupData.db_status ?? backupData.database_connected, backendStatus === "Offline" ? "Offline" : "Connected"),
       });
-      console.info("Backup & Restore status response", { healthEndpoint, backupStatusEndpoint, health: healthData, backupStatus: backupData });
+      console.info("Backup & Restore status response", { healthEndpoint: localMode && healthResult.endpoint ? healthResult.endpoint : healthEndpoint, backupStatusEndpoint, health: healthData, backupStatus: backupData, failedHealthUrls: localMode ? healthResult.failures : undefined });
     } finally {
       setCheckingEnvironment(false);
     }
@@ -212,16 +267,24 @@ export default function Settings() {
     const normalizedUrl = (url || getLocalBackendUrl()).trim().replace(/\/$/, "");
     setTestingLocalServer(true);
     try {
-      const response = await fetch(`${normalizedUrl}/api/health`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Health check failed");
+      const result = await checkLocalHealthEndpoints(normalizedUrl);
+      setEnvironmentStatus((current) => ({
+        ...current,
+        endpoint: result.endpoint,
+        healthEndpoint: result.endpoint,
+        backupStatusEndpoint: getLocalHealthEndpoints(normalizedUrl)[3],
+        response: {
+          health: result.ok ? result.data : { error: `Failed URL: ${result.endpoint}` },
+          failedHealthUrls: result.failures,
+        },
+        backend: result.ok ? "Connected" : "Offline",
+      }));
+      if (!result.ok) throw new Error(`All local health endpoints failed. Last tested: ${result.endpoint}`);
       setLocalBackendUrlState(persistLocalBackendUrl(normalizedUrl));
-      if (showToast) toast.success("Local PharmacyOS server is connected.");
+      if (showToast) toast.success(`Local PharmacyOS server is connected via ${result.endpoint}.`);
       return true;
     } catch (error) {
-      if (showToast) toast.error("Local PharmacyOS server is not running.");
+      if (showToast) toast.error(error?.message || "Local PharmacyOS server is not running.");
       return false;
     } finally {
       setTestingLocalServer(false);
@@ -235,7 +298,7 @@ export default function Settings() {
     if (mode === "local") {
       const localServerReady = await testLocalServer(localBackendUrl, { showToast: false });
       if (!localServerReady) {
-        toast.error("Local PharmacyOS server is not running.");
+        toast.error("Local PharmacyOS server is not running after testing all health endpoints.");
         return;
       }
     }
@@ -980,7 +1043,7 @@ export default function Settings() {
               ))}
             </div>
           </div>
-          {environmentMode === "local" && environmentStatus.backend === "Offline" && (
+          {environmentMode === "local" && environmentStatus.backend === "Offline" && environmentStatus.response?.health?.error && (
             <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
               <AlertTriangle className="h-4 w-4" /> Local PharmacyOS server is not running.
             </div>
@@ -990,6 +1053,9 @@ export default function Settings() {
             <div className="mt-2 grid gap-1">
               <div>Health endpoint: <span className="font-mono">{environmentStatus.healthEndpoint}</span></div>
               <div>Backup endpoint: <span className="font-mono">{environmentStatus.backupStatusEndpoint}</span></div>
+              {environmentStatus.response?.failedHealthUrls?.length > 0 && (
+                <div>Failed URL: <span className="font-mono text-red-700">{environmentStatus.response.failedHealthUrls[environmentStatus.response.failedHealthUrls.length - 1].endpoint}</span></div>
+              )}
             </div>
             <pre className="mt-2 max-h-48 overflow-auto rounded bg-slate-950 p-3 text-[11px] text-slate-100">{JSON.stringify(environmentStatus.response, null, 2)}</pre>
           </details>
