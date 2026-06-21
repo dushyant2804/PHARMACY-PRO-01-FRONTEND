@@ -1054,30 +1054,28 @@ export default function Settings() {
               Local Mode • Last backup: {environmentStatus.lastSuccessfulBackup}
             </div>
           )}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" onClick={backupNow} className="rounded-sm bg-emerald-700 hover:bg-emerald-800"><HardDrive className="mr-2 h-4 w-4" />Backup Now</Button>
-            <Button type="button" variant="outline" disabled className="rounded-sm" title="Restore is experimental until backend restore is fully verified."><Upload className="mr-2 h-4 w-4" />Restore backup (Experimental)</Button>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-emerald-200 bg-white p-3">
+              <Button type="button" onClick={backupNow} className="w-full rounded-sm bg-emerald-700 hover:bg-emerald-800"><HardDrive className="mr-2 h-4 w-4" />Backup Now</Button>
+              <p className="mt-2 text-xs text-slate-600">Creates a local backup and uploads it to Atlas and Google Drive.</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={exportBackup}
+                className="w-full rounded-sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download Backup File
+              </Button>
+              <p className="mt-2 text-xs text-slate-600">Downloads a manual backup file for pen drive or external storage.</p>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <Button type="button" variant="outline" disabled className="w-full rounded-sm border-amber-300 text-amber-800" title="Restore is experimental until backend restore is fully verified."><Upload className="mr-2 h-4 w-4" />Restore Backup (Experimental)</Button>
+              <p className="mt-2 text-xs text-amber-800">Experimental. Use only after testing.</p>
+            </div>
           </div>
-        </div>
-
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            onClick={exportBackup}
-            className="rounded-sm bg-blue-600 hover:bg-blue-700"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export Backup
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => fileRef.current?.click()}
-            className="rounded-sm"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Import Backup (Experimental)
-          </Button>
-
           <input
             ref={fileRef}
             type="file"
