@@ -21,7 +21,10 @@ import {
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LayoutContext } from "@/contexts/LayoutContext";
+import api, { getApiMode } from "@/lib/api";
+import { toast } from "sonner";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "cashier", "pharmacist"] },
@@ -46,8 +49,21 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [inspectorMode, setInspectorMode] = useState(false);
+  const [exitBackupOpen, setExitBackupOpen] = useState(false);
+  const [exitBackupAttempted, setExitBackupAttempted] = useState(false);
+  const [exitBackupRunning, setExitBackupRunning] = useState(false);
 
   useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (getApiMode() === "local" && !exitBackupAttempted) {
+        event.preventDefault();
+        event.returnValue = "Backup your data before exit";
+        setExitBackupOpen(true);
+        return event.returnValue;
+      }
+      return undefined;
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         setOpen(false);
@@ -56,8 +72,11 @@ export default function Layout({ children }) {
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [exitBackupAttempted]);
 
   const role = user?.role || "cashier";
   const visibleNav = nav.filter((n) => n.roles.includes(role));
@@ -65,7 +84,35 @@ export default function Layout({ children }) {
   const businessName = user?.business_name || user?.businessName || user?.pharmacy_name || user?.pharmacyName || "SHREE SHYAM PHARMACY";
   const roleLabel = role ? role.charAt(0).toUpperCase() + role.slice(1) : "Admin";
 
+  const runExitBackup = async ({ exitAfter = false } = {}) => {
+    setExitBackupRunning(true);
+    setExitBackupAttempted(true);
+    try {
+      const { data = {} } = await api.post("/backup/run", { reason: "app_exit", targets: ["mongodb_atlas", "google_drive"] });
+      const cloudPending = [data.atlas_backup_status, data.mongodb_atlas_status, data.google_drive_backup_status, data.drive_backup_status, data.cloud_sync_status]
+        .some((value) => String(value || "").toLowerCase().includes("pending"));
+      localStorage.setItem("pharmacyos_last_backup_time", data.last_backup_time || data.last_backup_at || new Date().toISOString());
+      toast[cloudPending ? "warning" : "success"](cloudPending ? "Saved locally. Cloud backup pending." : "Backup completed before exit.");
+      if (exitAfter) {
+        await logout();
+        navigate("/login");
+      }
+    } catch {
+      toast.warning("Saved locally. Cloud backup pending.");
+      if (exitAfter) {
+        await logout();
+        navigate("/login");
+      }
+    } finally {
+      setExitBackupRunning(false);
+    }
+  };
+
   const handleLogout = async () => {
+    if (getApiMode() === "local" && !exitBackupAttempted) {
+      setExitBackupOpen(true);
+      return;
+    }
     await logout();
     navigate("/login");
   };
@@ -109,6 +156,11 @@ export default function Layout({ children }) {
     <LayoutContext.Provider value={{ inspectorMode, setInspectorMode }}>
       <div className="min-h-screen app-canvas counter-layout">
         {!inspectorMode && taskbar}
+        {getApiMode() === "local" && (
+          <div className="fixed right-3 top-3 z-40 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-900 shadow-sm">
+            Local Mode • Last backup: {localStorage.getItem("pharmacyos_last_backup_time") || "—"}
+          </div>
+        )}
 
         <main className="counter-main min-h-screen flex-1">
           <header className="sticky top-0 z-30 flex items-center justify-between border-b border-emerald-100 bg-white/95 px-4 py-3 backdrop-blur md:hidden">
@@ -130,6 +182,27 @@ export default function Layout({ children }) {
           </div>
         </main>
       </div>
+      <Dialog open={exitBackupOpen} onOpenChange={(openValue) => exitBackupAttempted && setExitBackupOpen(openValue)}>
+        <DialogContent className="max-w-md rounded-sm" onEscapeKeyDown={(event) => !exitBackupAttempted && event.preventDefault()} onPointerDownOutside={(event) => !exitBackupAttempted && event.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Backup your data before exit</DialogTitle>
+            <DialogDescription>
+              Local Mode requires an attempted local and cloud backup before logout, close, or exit.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+            Do not allow silent exit if backup has not been attempted. If internet is unavailable, data is saved locally and cloud backup is queued.
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="outline" disabled={exitBackupRunning} onClick={() => runExitBackup()}>
+              {exitBackupRunning ? "Backing up…" : "Backup Now"}
+            </Button>
+            <Button type="button" disabled={exitBackupRunning} onClick={() => runExitBackup({ exitAfter: true })} className="bg-emerald-700 hover:bg-emerald-800">
+              Exit after backup
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </LayoutContext.Provider>
   );
 }
