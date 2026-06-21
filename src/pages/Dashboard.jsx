@@ -111,6 +111,50 @@ const getPurchaseReturnQuantity = (record) => toNumber(firstDefined(
   0
 ));
 
+
+const getPurchaseReturnSummary = (data, purchaseReturns) => {
+  const summary = firstDefined(
+    data?.purchase_return_summary,
+    data?.purchaseReturnSummary,
+    data?.purchase_returns_summary,
+    data?.purchaseReturnsSummary,
+    {}
+  );
+
+  const returnCount = toNumber(firstDefined(
+    summary.count,
+    summary.return_count,
+    summary.purchase_return_count,
+    data?.purchase_return_count,
+    data?.return_count,
+    purchaseReturns.length,
+    0
+  ));
+
+  const returnedUnits = toNumber(firstDefined(
+    summary.total_returned_quantity,
+    summary.total_return_quantity,
+    summary.returned_quantity,
+    summary.return_quantity,
+    summary.quantity,
+    summary.qty,
+    purchaseReturns.reduce((sum, item) => sum + getPurchaseReturnQuantity(item), 0),
+    0
+  ));
+
+  const returnedValue = toOptionalNumber(firstDefined(
+    summary.total_returned_value,
+    summary.total_return_value,
+    summary.returned_value,
+    summary.return_value,
+    summary.total_value,
+    summary.value,
+    summary.amount
+  ));
+
+  return { returnCount, returnedUnits, returnedValue };
+};
+
 const normalizeCollection = (payload) => {
   const items = firstDefined(
     payload?.items,
@@ -383,7 +427,7 @@ function SmartMedicineCard({ config, items, onClick }) {
   );
 }
 
-function PurchaseReturnSummaryCard({ returnCount, returnedUnits, onClick }) {
+function PurchaseReturnSummaryCard({ returnCount, returnedUnits, returnedValue, onClick }) {
   return (
     <button type="button" onClick={onClick} className="dashboard-panel group min-w-0 p-4 text-left transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-lg">
       <div className="flex items-start justify-between gap-2">
@@ -402,6 +446,7 @@ function PurchaseReturnSummaryCard({ returnCount, returnedUnits, onClick }) {
           <div className="mt-1 text-[10px] uppercase tracking-wider text-amber-700">Units returned</div>
         </div>
       </div>
+      {returnedValue !== undefined && <div className="mt-3 rounded-xl border border-amber-100 bg-white px-3 py-2 text-xs font-semibold text-slate-600"><span className="text-slate-400">Returned value:</span> <span className="font-bold text-amber-700">{fmtINR(returnedValue)}</span></div>}
       <p className="mt-4 text-xs leading-5 text-slate-500">Track supplier returns alongside expiry and batch status to recover inventory value faster.</p>
     </button>
   );
@@ -469,7 +514,7 @@ export default function Dashboard() {
     return stock > 0 && !["soldout", "outofstock", "empty"].includes(status);
   });
   const lowStockCount = firstDefined(data.low_stock_count, lowStockItems.length, 0);
-  const returnedUnits = purchaseReturns.reduce((sum, item) => sum + getPurchaseReturnQuantity(item), 0);
+  const purchaseReturnSummary = getPurchaseReturnSummary(data, purchaseReturns);
   const businessName = user?.business_name || user?.businessName || user?.pharmacy_name || user?.pharmacyName || "Shree Shyam Pharmacy";
   const userName = firstDefined(user?.name, user?.full_name, user?.fullName, user?.username, "Dushyant");
   const hour = new Date().getHours();
@@ -503,7 +548,7 @@ export default function Dashboard() {
       <div className="dashboard-panel overflow-hidden"><div className="p-5 pb-0"><SectionHeader eyebrow="Inventory watch" title="Low stock medicines" action="Open inventory" onAction={() => navigate("/inventory")} /></div>
         <div className="max-h-[360px] overflow-x-auto"><table className="w-full min-w-[680px] text-sm"><thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr>{["Medicine", "Available", "Status", "Action"].map((column) => <th key={column} className="border-b p-3 text-left">{column}</th>)}</tr></thead><tbody>{lowStockItems.length ? lowStockItems.slice(0, 8).map((item, index) => { const overdue = item.abandoned_aging || item.row_highlight === "abandoned_overdue"; return <tr key={item.id || item.medicine_id || index} onClick={() => navigate("/inventory")} className={`cursor-pointer border-b ${overdue ? "border-l-4 border-l-red-700 bg-red-50 text-red-950" : "border-slate-100 bg-white hover:bg-orange-50/40"}`}><td className="p-3 font-semibold text-slate-800">{getMedicineName(item)}{overdue && <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase text-red-700">Abandoned overdue</span>}</td><td className="p-3 text-slate-500">{firstDefined(item.qty, getAvailableStock(item), 0)} units left</td><td className="p-3"><LowStockWorkflowControl compact item={{ ...item, status_locked: true }} /></td><td className="p-3"><LowStockWorkflowControl compact item={item} onUpdated={(updated) => setData((current) => ({ ...current, low_stock_items: rawLowStockItems.map((row) => (row.id || row.medicine_id) === (updated.id || updated.medicine_id) ? updated : row) }))} /></td></tr>; }) : <tr><td className="p-5 text-emerald-700" colSpan={4}>Stock levels look healthy today.</td></tr>}</tbody></table></div>
       </div>
-      <PurchaseReturnSummaryCard returnCount={purchaseReturns.length} returnedUnits={returnedUnits} onClick={() => navigate("/purchase-returns")} />
+      <PurchaseReturnSummaryCard returnCount={purchaseReturnSummary.returnCount} returnedUnits={purchaseReturnSummary.returnedUnits} returnedValue={purchaseReturnSummary.returnedValue} onClick={() => navigate("/purchase-returns")} />
     </section>
 
     <section className="dashboard-panel overflow-hidden"><div className="border-b border-slate-100 p-5"><SectionHeader eyebrow="Patient care" title="Medicine due alerts" action="Open patients" onAction={() => navigate("/patients")} /></div><div className="max-h-[270px] overflow-auto"><table className="w-full min-w-[680px] text-sm"><thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr>{["Patient", "Phone", "Medicine", "Status"].map((x) => <th key={x} className="border-b p-3 text-left">{x}</th>)}</tr></thead><tbody>{patientAlerts.length ? patientAlerts.map((alert, index) => { const status = getPatientAlertStatus(alert); return <tr key={alert.id || index} className="border-b border-slate-100"><td className="p-3 font-semibold">{firstDefined(alert.name, alert.patient_name, "-")}</td><td className="p-3 text-slate-500">{firstDefined(alert.phone, alert.patient_phone, "-")}</td><td className="p-3 text-slate-500">{getMedicineName(alert)}</td><td className="p-3 font-bold text-orange-600">{status}</td></tr>; }) : <tr><td className="p-5 text-slate-400" colSpan={4}>No patient refill alerts today.</td></tr>}</tbody></table></div></section>
