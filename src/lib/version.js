@@ -57,6 +57,9 @@ export const getVersionIdentity = (version) => {
   };
 };
 
+export const FRONTEND_IDENTITY = getVersionIdentity(FRONTEND_VERSION);
+export const FRONTEND_BUILD = FRONTEND_IDENTITY.build;
+
 export const compareVersions = (left, right) => {
   const a = parseVersion(left);
   const b = parseVersion(right);
@@ -154,12 +157,14 @@ export const hasReleaseNotes = (releaseNotes = EMPTY_RELEASE_NOTES) =>
 export const normalizeVersionMetadata = (payload = {}) => {
   const data =
     payload.data && typeof payload.data === "object" ? payload.data : payload;
-  const version =
+  const rawVersion =
     data.version ||
     data.app_version ||
     data.latest_version ||
     data.current_version ||
     data.full_version;
+  const explicitBuild = data.build || data.build_id || data.buildId || data.frontend_build;
+  const version = rawVersion || (explicitBuild ? `${FRONTEND_IDENTITY.version}+${explicitBuild}` : null);
   if (!version) return null;
 
   const rawNotes =
@@ -171,8 +176,13 @@ export const normalizeVersionMetadata = (payload = {}) => {
   const releaseNotes = normalizeReleaseNotes(rawNotes);
   const updateAvailable = data.update_available ?? data.updateAvailable;
 
+  const normalizedVersion = String(version).replace(/^v/i, "");
+  const identity = getVersionIdentity(normalizedVersion);
+  const build = explicitBuild ? String(explicitBuild) : identity.build;
+
   return {
-    version: String(version).replace(/^v/i, ""),
+    version: build && !identity.build ? `${identity.version}+${build}` : normalizedVersion,
+    build,
     date: data.date || data.release_date || data.released_at || null,
     message: data.message || data.update_message || "",
     releaseNotes,

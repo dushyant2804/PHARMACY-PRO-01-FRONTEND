@@ -37,10 +37,30 @@ describe("version helpers", () => {
       }),
     ).toEqual({
       version: "2.1",
+      build: "",
       date: null,
       message: "Ready",
       releaseNotes: { new: [], improved: ["Faster", "Safer"], fixed: [] },
       updateAvailable: null,
+    });
+  });
+
+  test("detects different builds for the same semantic version", () => {
+    expect(
+      compareVersions(
+        "0.1.0+20260621T120001Z-abc1234",
+        "0.1.0+20260621T115959Z-abc1234",
+      ),
+    ).toBe(1);
+    expect(compareVersions("0.1.0+build-b", "0.1.0+build-a")).toBe(1);
+  });
+
+  test("combines explicit build ids with unchanged version numbers", () => {
+    expect(
+      normalizeVersionMetadata({ version: "0.1.0", build: "20260621T120001Z-abc1234" }),
+    ).toMatchObject({
+      version: "0.1.0+20260621T120001Z-abc1234",
+      build: "20260621T120001Z-abc1234",
     });
   });
 

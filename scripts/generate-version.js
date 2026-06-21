@@ -22,11 +22,13 @@ const runGit = (args, fallback) => {
   }
 };
 
-const buildTimestamp = date.toISOString().slice(0, 10).replace(/-/g, "");
+const buildTimestamp = date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 const commitHash = runGit(["rev-parse", "--short=7", "HEAD"], "unknown");
-const version = `${packageJson.version}+${buildTimestamp}-${commitHash}`;
+const build = `${buildTimestamp}-${commitHash}`;
+const version = `${packageJson.version}+${build}`;
 const metadata = {
   version,
+  build,
   date: date.toISOString(),
 };
 

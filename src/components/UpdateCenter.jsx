@@ -26,6 +26,7 @@ import {
 import {
   compareVersions,
   EMPTY_RELEASE_NOTES,
+  FRONTEND_BUILD,
   FRONTEND_VERSION,
   getStoredVersion,
   getUpdateType,
@@ -38,12 +39,15 @@ import {
   UPDATE_COMPLETED_KEY,
 } from "@/lib/version";
 
+const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+
 const defaultMetadata = {
   version: FRONTEND_VERSION,
+  build: FRONTEND_BUILD,
   date: null,
   message: "",
   releaseNotes: EMPTY_RELEASE_NOTES,
-  updateAvailable: false,
+  updateAvailable: null,
   endpoint: "—",
   fetchedAt: null,
 };
@@ -106,9 +110,15 @@ export default function UpdateCenter({ children }) {
   const [justUpdated, setJustUpdated] = useState(
     () => getStoredVersion(sessionStorage, UPDATE_COMPLETED_KEY) === "true",
   );
+  const deployedIdentity = getVersionIdentity(metadata.version);
+  const deployedBuild = metadata.build || deployedIdentity.build;
+  const loadedIdentity = getVersionIdentity(FRONTEND_VERSION);
+  const loadedBuild = FRONTEND_BUILD || loadedIdentity.build;
+  const buildsDiffer = Boolean(deployedBuild && loadedBuild && deployedBuild !== loadedBuild);
   const updateAvailable =
-    metadata.updateAvailable ??
-    compareVersions(metadata.version, FRONTEND_VERSION) > 0;
+    buildsDiffer ||
+    compareVersions(metadata.version, FRONTEND_VERSION) > 0 ||
+    metadata.updateAvailable === true;
   const updateType = useMemo(
     () => getUpdateType(FRONTEND_VERSION, metadata.version),
     [metadata.version],
@@ -128,11 +138,25 @@ export default function UpdateCenter({ children }) {
 
     try {
       const nextMetadata = await fetchUpdateCenterMetadata();
+      const latestIdentity = getVersionIdentity(nextMetadata.version);
+      const latestBuild = nextMetadata.build || latestIdentity.build;
+      const currentIdentity = getVersionIdentity(FRONTEND_VERSION);
+      const currentBuild = FRONTEND_BUILD || currentIdentity.build;
+      const buildChanged = Boolean(latestBuild && currentBuild && latestBuild !== currentBuild);
       const comparison = compareVersions(nextMetadata.version, FRONTEND_VERSION);
-      const hasUpdate = nextMetadata.updateAvailable ?? comparison > 0;
-      setMetadata({ ...nextMetadata, comparison });
+      const hasUpdate = buildChanged || comparison > 0 || nextMetadata.updateAvailable === true;
+      setMetadata({ ...nextMetadata, build: latestBuild, comparison });
       setCheckStatus(hasUpdate ? "Update available" : "You're up to date");
-      console.info("Update Center check", { endpoint: nextMetadata.endpoint, currentVersion: FRONTEND_VERSION, latestVersion: nextMetadata.version, comparison, hasUpdate });
+      console.info("Update Center check", {
+        endpoint: nextMetadata.endpoint,
+        loadedVersion: currentIdentity.version,
+        loadedBuild: currentBuild || "—",
+        latestDeployedVersion: latestIdentity.version,
+        latestDeployedBuild: latestBuild || "—",
+        comparison,
+        buildChanged,
+        hasUpdate,
+      });
       if (hasUpdate) {
         setUpdateOpen(true);
         setWhatsNewOpen(true);
@@ -149,6 +173,11 @@ export default function UpdateCenter({ children }) {
 
   useEffect(() => {
     checkForUpdates({ automatic: true });
+    const timer = window.setInterval(
+      () => checkForUpdates({ automatic: true }),
+      UPDATE_CHECK_INTERVAL_MS,
+    );
+    return () => window.clearInterval(timer);
   }, [checkForUpdates]);
 
   useEffect(() => {
@@ -191,7 +220,9 @@ export default function UpdateCenter({ children }) {
       <UpdateContext.Provider
         value={{
           currentVersion: FRONTEND_VERSION,
+          currentBuild: loadedBuild,
           latestVersion: metadata.version,
+          latestBuild: deployedBuild,
           updateAvailable,
           justUpdated,
           checking,
@@ -202,6 +233,7 @@ export default function UpdateCenter({ children }) {
           releaseNotes: metadata.releaseNotes,
           endpoint: metadata.endpoint,
           comparison: metadata.comparison,
+          buildsDiffer,
         }}
       >
         {children}
@@ -218,7 +250,7 @@ export default function UpdateCenter({ children }) {
             </div>
             <DialogHeader>
               <DialogTitle className="text-left text-2xl text-white sm:text-3xl">
-                PharmacyOS {versionIdentity.version} is ready
+                Update Available: PharmacyOS {versionIdentity.version} is ready
               </DialogTitle>
               {metadata.message && (
                 <DialogDescription className="text-left leading-6 text-emerald-50/75">
@@ -257,7 +289,7 @@ export default function UpdateCenter({ children }) {
                 className="bg-emerald-900 px-6 hover:bg-emerald-800"
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Reload app
+                Reload Application
               </Button>
             </div>
           </div>
@@ -286,7 +318,7 @@ export default function UpdateCenter({ children }) {
               onClick={applyUpdate}
               className="bg-emerald-900 hover:bg-emerald-800"
             >
-              Reload app
+              Reload Application
             </Button>
           )}
         </DialogContent>
@@ -386,6 +418,8 @@ export function UpdatePill() {
   const {
     currentVersion,
     latestVersion,
+    currentBuild,
+    latestBuild,
     updateAvailable,
     checking,
     checkForUpdates,
@@ -426,6 +460,20 @@ export function UpdatePill() {
         >
           Latest deployed: v{latestIdentity.version}
         </div>
+        <dl className="mt-2 grid gap-1 rounded-lg bg-emerald-950/35 p-2 text-[9px] leading-4 text-emerald-50/75">
+          <div className="flex justify-between gap-2">
+            <dt>Current loaded build:</dt>
+            <dd className="truncate font-mono" title={currentBuild || "—"}>{currentBuild || "—"}</dd>
+          </div>
+          <div className="flex justify-between gap-2">
+            <dt>Latest deployed build:</dt>
+            <dd className="truncate font-mono" title={latestBuild || "—"}>{latestBuild || "—"}</dd>
+          </div>
+          <div className="flex justify-between gap-2">
+            <dt>Update available:</dt>
+            <dd className="font-mono">{String(updateAvailable)}</dd>
+          </div>
+        </dl>
       </button>
       <div className="mt-2 grid grid-cols-2 gap-1.5">
         <button
