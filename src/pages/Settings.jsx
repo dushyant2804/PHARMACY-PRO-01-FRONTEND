@@ -1,5 +1,12 @@
 import React, { useRef, useState, useEffect } from "react";
-import api, { formatApiError } from "@/lib/api";
+import api, {
+  formatApiError,
+  getApiBaseUrl,
+  getApiMode,
+  getLocalBackendUrl,
+  setApiMode,
+  setLocalBackendUrl as persistLocalBackendUrl,
+} from "@/lib/api";
 import {
   formatPrivacyPasswordSaveError,
   savePrivacyPasswordRequest,
@@ -17,6 +24,11 @@ import {
 import {
   Download,
   Upload,
+  Server,
+  Database,
+  Cloud,
+  HardDrive,
+  AlertTriangle,
   UserPlus,
   Trash2,
   Image as ImageIcon,
@@ -83,6 +95,23 @@ export default function Settings() {
   });
 
   const [versionInfo, setVersionInfo] = useState(null);
+  const [environmentMode, setEnvironmentMode] = useState(getApiMode);
+  const [localBackendUrl, setLocalBackendUrlState] = useState(getLocalBackendUrl);
+  const [environmentStatus, setEnvironmentStatus] = useState({
+    backend: "Checking",
+    database: "Checking",
+    lastBackupTime: "—",
+    pendingSyncCount: 0,
+    lastSuccessfulBackup: "—",
+    cloudSyncStatus: "Checking",
+    pendingUploads: 0,
+  });
+  const [checkingEnvironment, setCheckingEnvironment] = useState(false);
+  const [testingLocalServer, setTestingLocalServer] = useState(false);
+  const [backupResult, setBackupResult] = useState({
+    status: "Backup pending",
+    tone: "text-amber-700",
+  });
 
   const loadUsers = () => {
     api
@@ -98,9 +127,80 @@ export default function Settings() {
       .catch(() => {});
   };
 
+  const normalizeBackupStatus = (data = {}) => ({
+    backend: data.backend || data.backend_status || "Connected",
+    database: data.database || data.database_status || (data.database_connected === false ? "Offline" : "Connected"),
+    lastBackupTime: data.last_backup_time || data.last_backup_at || data.last_successful_backup || "—",
+    pendingSyncCount: Number(data.pending_sync_count ?? data.pending_sync ?? data.pending_uploads ?? 0),
+    lastSuccessfulBackup: data.last_successful_backup || data.last_backup_time || data.last_backup_at || "—",
+    cloudSyncStatus: data.cloud_sync_status || data.sync_status || "Ready",
+    pendingUploads: Number(data.pending_uploads ?? data.pending_sync_count ?? 0),
+  });
+
+  const refreshEnvironmentStatus = async () => {
+    setCheckingEnvironment(true);
+    try {
+      const [healthResult, backupResult] = await Promise.allSettled([
+        api.get("/health"),
+        api.get("/backup/status"),
+      ]);
+      const healthData = healthResult.status === "fulfilled" ? healthResult.value.data || {} : {};
+      const backupData = backupResult.status === "fulfilled" ? backupResult.value.data || {} : {};
+      if (healthResult.status === "rejected" && environmentMode === "local") {
+        toast.warning("Local PharmacyOS server is not running.");
+      }
+      setEnvironmentStatus({
+        ...normalizeBackupStatus({ ...healthData, ...backupData }),
+        backend: healthResult.status === "fulfilled" ? "Connected" : "Offline",
+        database: healthData.database || healthData.database_status || backupData.database || (healthResult.status === "fulfilled" ? "Connected" : "Offline"),
+      });
+    } finally {
+      setCheckingEnvironment(false);
+    }
+  };
+
+  const testLocalServer = async (url = localBackendUrl, { showToast = true } = {}) => {
+    const normalizedUrl = (url || getLocalBackendUrl()).trim().replace(/\/$/, "");
+    setTestingLocalServer(true);
+    try {
+      const response = await fetch(`${normalizedUrl}/api/health`, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Health check failed");
+      setLocalBackendUrlState(persistLocalBackendUrl(normalizedUrl));
+      if (showToast) toast.success("Local PharmacyOS server is connected.");
+      return true;
+    } catch (error) {
+      if (showToast) toast.error("Local PharmacyOS server is not running.");
+      return false;
+    } finally {
+      setTestingLocalServer(false);
+    }
+  };
+
+  const saveEnvironmentMode = async (mode) => {
+    if (mode === environmentMode) return;
+    if (!window.confirm("Changing mode will reload the app.")) return;
+
+    if (mode === "local") {
+      const localServerReady = await testLocalServer(localBackendUrl, { showToast: false });
+      if (!localServerReady) {
+        toast.error("Local PharmacyOS server is not running.");
+        return;
+      }
+    }
+
+    setApiMode(mode);
+    setEnvironmentMode(mode);
+    setEnvironmentStatus((current) => ({ ...current, backend: "Checking", database: "Checking" }));
+    window.location.reload();
+  };
+
   useEffect(() => {
     if (user?.role === "admin") loadUsers();
     loadSettings();
+    refreshEnvironmentStatus();
     Promise.allSettled([
       api.get("/updates/check", {
         params: { current_version: FRONTEND_VERSION },
@@ -114,6 +214,32 @@ export default function Settings() {
       .catch(() => {});
     // eslint-disable-next-line
   }, [user]);
+
+  const backupNow = async () => {
+    setBackupResult({ status: "Backup pending", tone: "text-amber-700" });
+    try {
+      const { data } = await api.post("/backup/run");
+      const lastBackupTime = data?.last_backup_time || data?.last_backup_at || new Date().toISOString();
+      setBackupResult({ status: "Backup successful", tone: "text-emerald-700" });
+      setEnvironmentStatus((current) => ({
+        ...current,
+        lastBackupTime,
+        lastSuccessfulBackup: lastBackupTime,
+        cloudSyncStatus: data?.cloud_sync_status || current.cloudSyncStatus || "Ready",
+        pendingUploads: Number(data?.pending_uploads ?? current.pendingUploads ?? 0),
+      }));
+      toast.success("Backup successful");
+      refreshEnvironmentStatus();
+    } catch (e) {
+      setBackupResult({ status: "Backup failed", tone: "text-red-600" });
+      setEnvironmentStatus((current) => ({
+        ...current,
+        cloudSyncStatus: "Backup pending",
+        pendingUploads: Math.max(Number(current.pendingUploads || 0), 1),
+      }));
+      toast.warning("Saved locally. Cloud backup pending.");
+    }
+  };
 
   const exportBackup = async () => {
     try {
@@ -212,9 +338,14 @@ export default function Settings() {
         <div className="text-xs uppercase tracking-[0.15em] font-semibold text-slate-500">
           Admin
         </div>
-        <h1 className="font-heading text-3xl md:text-4xl font-bold">
-          Settings
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-heading text-3xl md:text-4xl font-bold">
+            Settings
+          </h1>
+          <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${environmentMode === "local" ? "bg-amber-100 text-amber-900" : "bg-blue-100 text-blue-900"}`}>
+            {environmentMode === "local" ? "Local Mode" : "Cloud Mode"}
+          </span>
+        </div>
         <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900" aria-label="Settings modules">
           {[
             ["Business Profile", "#business-profile-section"],
@@ -665,6 +796,83 @@ export default function Settings() {
           Download a JSON snapshot of all data, or restore from a previously
           exported file.
         </p>
+        <div className="mb-5 rounded-lg border border-emerald-100 bg-emerald-50 p-4" data-testid="environment-status-panel">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <div className="flex items-center gap-2 font-heading font-semibold text-emerald-950">
+                <Server className="h-4 w-4" /> Environment Status
+              </div>
+              <p className="mt-1 text-sm text-emerald-900">Switch between the current cloud backend and a local PharmacyOS server without changing API paths.</p>
+            </div>
+            <Button type="button" variant="outline" onClick={refreshEnvironmentStatus} disabled={checkingEnvironment} className="rounded-sm border-emerald-200 bg-white">
+              <RefreshCw className={`mr-2 h-4 w-4 ${checkingEnvironment ? "animate-spin" : ""}`} />
+              Refresh status
+            </Button>
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
+            <div className="rounded-md border border-white/70 bg-white p-3">
+              <Label className="text-xs uppercase font-semibold text-slate-600">Mode</Label>
+              <Select value={environmentMode} onValueChange={saveEnvironmentMode}>
+                <SelectTrigger className="mt-1 rounded-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cloud">Cloud</SelectItem>
+                  <SelectItem value="local">Local</SelectItem>
+                </SelectContent>
+              </Select>
+              <Label className="mt-3 block text-xs uppercase font-semibold text-slate-600">Local backend URL</Label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                <Input value={localBackendUrl} onChange={(event) => setLocalBackendUrlState(event.target.value)} className="min-w-64 flex-1 rounded-sm" placeholder="http://localhost:8000" />
+                <Button type="button" variant="outline" onClick={() => setLocalBackendUrlState(persistLocalBackendUrl(localBackendUrl))}>Save URL</Button>
+                <Button type="button" variant="outline" onClick={() => testLocalServer()} disabled={testingLocalServer}>
+                  <Server className="mr-2 h-4 w-4" />
+                  {testingLocalServer ? "Testing…" : "Test Local Server"}
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">Active API base: <span className="font-mono">{getApiBaseUrl(environmentMode)}</span></p>
+              <p className="mt-1 text-xs font-semibold text-amber-700">Changing mode will reload the app. Local mode is saved only after the health check passes.</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                [Cloud, "Mode", environmentMode === "local" ? "Local" : "Cloud"],
+                [Server, "Backend", environmentStatus.backend],
+                [Database, "Database", environmentStatus.database],
+                [HardDrive, "Last backup time", environmentStatus.lastBackupTime],
+                [RefreshCw, "Pending sync count", environmentStatus.pendingSyncCount],
+              ].map(([Icon, label, value]) => (
+                <div key={label} className="rounded-md border border-white/70 bg-white p-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500"><Icon className="h-3.5 w-3.5" />{label}</div>
+                  <div className={`mt-1 font-semibold ${String(value).toLowerCase() === "offline" ? "text-red-600" : "text-slate-900"}`}>{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {environmentMode === "local" && environmentStatus.backend === "Offline" && (
+            <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+              <AlertTriangle className="h-4 w-4" /> Local PharmacyOS server is not running.
+            </div>
+          )}
+        </div>
+
+        <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 p-4" data-testid="backup-center-section">
+          <div className="font-heading font-semibold mb-1">Backup Center</div>
+          <p className="text-sm text-slate-600 mb-4">Run backups, restore data, and monitor cloud sync without interrupting billing.</p>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div><div className="text-xs uppercase font-semibold text-slate-500">Backup result</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.status}</div></div>
+            <div><div className="text-xs uppercase font-semibold text-slate-500">Last backup time</div><div className="font-semibold">{environmentStatus.lastSuccessfulBackup}</div></div>
+            <div><div className="text-xs uppercase font-semibold text-slate-500">Cloud sync status</div><div className="font-semibold">{environmentStatus.cloudSyncStatus}</div></div>
+            <div><div className="text-xs uppercase font-semibold text-slate-500">Pending uploads</div><div className="font-semibold">{environmentStatus.pendingUploads}</div></div>
+            <div><div className="text-xs uppercase font-semibold text-slate-500">Billing safety</div><div className="font-semibold text-emerald-700">Saved locally. Cloud backup pending.</div></div>
+          </div>
+          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+            Do not close the app while backup is running.
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button type="button" onClick={backupNow} className="rounded-sm bg-emerald-700 hover:bg-emerald-800"><HardDrive className="mr-2 h-4 w-4" />Backup now</Button>
+            <Button type="button" variant="outline" disabled className="rounded-sm" title="Restore is experimental until backend restore is fully verified."><Upload className="mr-2 h-4 w-4" />Restore backup (Experimental)</Button>
+          </div>
+        </div>
 
         <div className="flex gap-2 flex-wrap">
           <Button
@@ -681,7 +889,7 @@ export default function Settings() {
             className="rounded-sm"
           >
             <Upload className="w-4 h-4 mr-2" />
-            Import Backup
+            Import Backup (Experimental)
           </Button>
 
           <input

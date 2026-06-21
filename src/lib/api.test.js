@@ -7,12 +7,39 @@ jest.mock("axios", () => ({
   }),
 }));
 
-import { API, formatAuthError } from "./api";
+import {
+  API,
+  API_MODE_STORAGE_KEY,
+  LOCAL_API_URL_STORAGE_KEY,
+  formatAuthError,
+  getApiBaseUrl,
+  getApiMode,
+  setApiMode,
+  setLocalBackendUrl,
+} from "./api";
 
 const apiError = (detail) => ({ response: { data: { detail } } });
 
+beforeEach(() => {
+  window.localStorage.removeItem(API_MODE_STORAGE_KEY);
+  window.localStorage.removeItem(LOCAL_API_URL_STORAGE_KEY);
+});
+
 test("uses /api as the shared client base path when no backend URL is configured", () => {
   expect(API).toBe("/api");
+});
+
+test("keeps cloud mode on the existing API path by default", () => {
+  expect(getApiMode()).toBe("cloud");
+  expect(getApiBaseUrl()).toBe("/api");
+});
+
+test("can select a local backend while preserving the /api path suffix", () => {
+  setLocalBackendUrl("http://localhost:9000/");
+  setApiMode("local");
+
+  expect(getApiMode()).toBe("local");
+  expect(getApiBaseUrl()).toBe("http://localhost:9000/api");
 });
 
 describe("formatAuthError", () => {

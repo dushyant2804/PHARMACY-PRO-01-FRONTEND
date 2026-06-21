@@ -1,7 +1,40 @@
 import axios from "axios";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-export const API = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
+export const LOCAL_BACKEND_URL = process.env.REACT_APP_LOCAL_BACKEND_URL || "http://localhost:8000";
+export const API_MODE_STORAGE_KEY = "pharmacyos_api_mode";
+export const LOCAL_API_URL_STORAGE_KEY = "pharmacyos_local_api_url";
+
+const hasBrowserStorage = () => typeof window !== "undefined" && window.localStorage;
+
+export function getApiMode() {
+  if (!hasBrowserStorage()) return "cloud";
+  return window.localStorage.getItem(API_MODE_STORAGE_KEY) === "local" ? "local" : "cloud";
+}
+
+export function getLocalBackendUrl() {
+  if (!hasBrowserStorage()) return LOCAL_BACKEND_URL;
+  return window.localStorage.getItem(LOCAL_API_URL_STORAGE_KEY) || LOCAL_BACKEND_URL;
+}
+
+export function getApiBaseUrl(mode = getApiMode()) {
+  if (mode === "local") return `${getLocalBackendUrl().replace(/\/$/, "")}/api`;
+  return BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
+}
+
+export function setApiMode(mode) {
+  if (!hasBrowserStorage()) return getApiBaseUrl(mode);
+  window.localStorage.setItem(API_MODE_STORAGE_KEY, mode === "local" ? "local" : "cloud");
+  return getApiBaseUrl(mode);
+}
+
+export function setLocalBackendUrl(url) {
+  const nextUrl = (url || LOCAL_BACKEND_URL).trim().replace(/\/$/, "");
+  if (hasBrowserStorage()) window.localStorage.setItem(LOCAL_API_URL_STORAGE_KEY, nextUrl);
+  return nextUrl;
+}
+
+export const API = getApiBaseUrl();
 
 const instance = axios.create({
   baseURL: API,
@@ -9,6 +42,7 @@ const instance = axios.create({
 });
 
 instance.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
