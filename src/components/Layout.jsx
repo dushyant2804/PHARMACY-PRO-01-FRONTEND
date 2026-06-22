@@ -187,9 +187,30 @@ export default function Layout({ children }) {
     );
   };
 
+  const localBackendStatusLabel = localBackendConnected ? "Connected" : "Disconnected";
+  const localModeDetailText = localBackendConnected
+    ? `localhost connected • Last backup: ${lastBackupTime}`
+    : "Local PharmacyOS server stopped. Please restart PharmacyOS.";
+
   const taskbar = (
     <nav className="counter-taskbar" aria-label="Primary modules">
       <div className="counter-taskbar-scroll">{visibleNav.map(renderTaskbarLink)}</div>
+      {getApiMode() === "local" && (
+        <div
+          className={`local-mode-badge ${localBackendConnected ? "local-mode-badge--connected" : "local-mode-badge--offline"}`}
+          data-testid="local-mode-badge"
+          tabIndex={0}
+          aria-label={`Local Mode ${localBackendStatusLabel}. ${localModeDetailText}`}
+        >
+          <span className="local-mode-badge-main">Local Mode</span>
+          <span className="local-mode-badge-dot" aria-hidden="true">●</span>
+          <span className="local-mode-badge-status">{localBackendStatusLabel}</span>
+          <span className="local-mode-popover" role="tooltip">
+            <span>localhost status: {localBackendStatusLabel}</span>
+            <span>Last backup: {lastBackupTime}</span>
+          </span>
+        </div>
+      )}
       <div className="counter-account" aria-label="Current account">
         <div className="counter-account-avatar" aria-hidden="true"><UserRound className="h-5 w-5" strokeWidth={2} /></div>
         <div className="counter-account-text">
@@ -208,12 +229,6 @@ export default function Layout({ children }) {
     <LayoutContext.Provider value={{ inspectorMode, setInspectorMode }}>
       <div className="min-h-screen app-canvas counter-layout">
         {!inspectorMode && taskbar}
-        {getApiMode() === "local" && (
-          <div className={`fixed right-3 top-3 z-40 rounded-full border px-3 py-1 text-xs font-bold shadow-sm ${localBackendConnected ? "border-emerald-200 bg-white text-emerald-900" : "border-red-200 bg-red-50 text-red-800"}`} data-testid="local-mode-badge">
-            {localBackendConnected ? `Local Mode • localhost connected • Last backup: ${lastBackupTime}` : "Local PharmacyOS server stopped. Please restart PharmacyOS."}
-          </div>
-        )}
-
         <main className="counter-main min-h-screen flex-1">
           <header className="sticky top-0 z-30 flex items-center justify-between border-b border-emerald-100 bg-white/95 px-4 py-3 backdrop-blur md:hidden">
             <button onClick={() => setOpen((value) => !value)} className="p-1" data-testid="mobile-menu-btn">
