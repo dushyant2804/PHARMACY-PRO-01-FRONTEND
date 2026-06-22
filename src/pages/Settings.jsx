@@ -127,6 +127,11 @@ export default function Settings() {
     message: "Run dry-run import before switching to Local Mode.",
     dryRunEndpoint: "—",
     importEndpoint: "—",
+    requestUrl: "—",
+    requestMethod: "—",
+    browserErrorName: "—",
+    browserErrorMessage: "—",
+    responseExists: "—",
     counts: {},
     localUsersReady: false,
     confirmed: false,
@@ -253,20 +258,62 @@ export default function Settings() {
 
   const callLocalImport = async ({ dryRun, url = localBackendUrl }) => {
     const endpoint = getLocalImportEndpoint({ dryRun, url });
+    const method = "POST";
     const token = localStorage.getItem("token");
+    const requestDetails = {
+      requestUrl: endpoint,
+      requestMethod: method,
+      responseExists: false,
+    };
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ dry_run: dryRun, source: "cloud", target: "local" }),
-    });
-    if (!response.ok) throw new Error(`Import ${dryRun ? "dry-run" : "confirm"} failed with ${response.status} at ${endpoint}`);
-    const data = await response.json().catch(() => ({}));
-    return { endpoint, data };
+    try {
+      const response = await fetch(endpoint, {
+        method,
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ dry_run: dryRun, source: "cloud", target: "local" }),
+      });
+      requestDetails.responseExists = true;
+      console.info("Local import request completed", {
+        ...requestDetails,
+        status: response.status,
+        ok: response.ok,
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = data?.detail || data?.message || data?.error || `Import ${dryRun ? "dry-run" : "confirm"} failed with ${response.status} at ${endpoint}`;
+        const error = new Error(message);
+        error.localImportRequest = {
+          ...requestDetails,
+          browserErrorName: error.name,
+          browserErrorMessage: error.message,
+          status: response.status,
+        };
+        throw error;
+      }
+      return { endpoint, data, requestDetails };
+    } catch (error) {
+      const responseExists = Boolean(error?.localImportRequest?.responseExists);
+      const browserErrorName = error?.name || "Error";
+      const browserErrorMessage = error?.message || String(error);
+      const localImportRequest = {
+        ...requestDetails,
+        ...error?.localImportRequest,
+        responseExists,
+        browserErrorName,
+        browserErrorMessage,
+      };
+      console.error("Local import request failed", localImportRequest);
+      error.localImportRequest = localImportRequest;
+      if (!responseExists) {
+        error.message = "Could not reach local import endpoint. Check CORS or local server logs.";
+      }
+      throw error;
+    }
   };
 
   const runLocalImportDryRun = async () => {
@@ -282,6 +329,11 @@ export default function Settings() {
         status: "Running dry-run import",
         dryRunEndpoint,
         importEndpoint: "—",
+        requestUrl: dryRunEndpoint,
+        requestMethod: "POST",
+        browserErrorName: "—",
+        browserErrorMessage: "—",
+        responseExists: "Pending",
       }));
       const { endpoint, data } = await callLocalImport({ dryRun: true });
       const counts = extractImportCounts(data);
@@ -291,13 +343,30 @@ export default function Settings() {
         message: localUsersReady ? "Review counts, then confirm import to enable Local Mode." : "Import cloud data first so your login works locally.",
         dryRunEndpoint: endpoint,
         importEndpoint: "—",
+        requestUrl: endpoint,
+        requestMethod: "POST",
+        browserErrorName: "—",
+        browserErrorMessage: "—",
+        responseExists: "Yes",
         counts,
         localUsersReady,
         confirmed: false,
       });
       toast[localUsersReady ? "success" : "error"](localUsersReady ? "Dry-run import completed. Review counts before confirming." : "Import cloud data first so your login works locally.");
     } catch (error) {
-      setLocalImportGuard((current) => ({ ...current, status: "Dry-run failed", message: error?.message || "Dry-run import failed.", localUsersReady: false, confirmed: false }));
+      const details = error?.localImportRequest || {};
+      setLocalImportGuard((current) => ({
+        ...current,
+        status: "Dry-run failed",
+        message: error?.message || "Dry-run import failed.",
+        requestUrl: details.requestUrl || current.requestUrl || getLocalImportEndpoint({ dryRun: true }),
+        requestMethod: details.requestMethod || "POST",
+        browserErrorName: details.browserErrorName || error?.name || "Error",
+        browserErrorMessage: details.browserErrorMessage || error?.message || "Dry-run import failed.",
+        responseExists: details.responseExists ? "Yes" : "No",
+        localUsersReady: false,
+        confirmed: false,
+      }));
       toast.error(error?.message || "Dry-run import failed.");
     } finally {
       setRunningLocalImportGuard(false);
@@ -312,7 +381,16 @@ export default function Settings() {
     if (!window.confirm("Import cloud data into the local server now?")) return;
     const importEndpoint = getLocalImportEndpoint({ dryRun: false });
     setConfirmingLocalImport(true);
-    setLocalImportGuard((current) => ({ ...current, status: "Confirming import", importEndpoint }));
+    setLocalImportGuard((current) => ({
+      ...current,
+      status: "Confirming import",
+      importEndpoint,
+      requestUrl: importEndpoint,
+      requestMethod: "POST",
+      browserErrorName: "—",
+      browserErrorMessage: "—",
+      responseExists: "Pending",
+    }));
     try {
       const { endpoint, data } = await callLocalImport({ dryRun: false });
       const counts = extractImportCounts(data);
@@ -322,13 +400,29 @@ export default function Settings() {
         status: localUsersReady ? "Import Completed" : "Local users missing",
         message: localUsersReady ? "Import completed. Local Mode switch is now allowed." : "Import cloud data first so your login works locally.",
         importEndpoint: endpoint,
+        requestUrl: endpoint,
+        requestMethod: "POST",
+        browserErrorName: "—",
+        browserErrorMessage: "—",
+        responseExists: "Yes",
         counts: Object.keys(counts).length ? counts : current.counts,
         localUsersReady,
         confirmed: localUsersReady,
       }));
       toast[localUsersReady ? "success" : "error"](localUsersReady ? "Import completed. You can switch to Local Mode." : "Import cloud data first so your login works locally.");
     } catch (error) {
-      setLocalImportGuard((current) => ({ ...current, status: "Import failed", message: error?.message || "Local import failed.", confirmed: false }));
+      const details = error?.localImportRequest || {};
+      setLocalImportGuard((current) => ({
+        ...current,
+        status: "Import failed",
+        message: error?.message || "Local import failed.",
+        requestUrl: details.requestUrl || current.requestUrl || importEndpoint,
+        requestMethod: details.requestMethod || "POST",
+        browserErrorName: details.browserErrorName || error?.name || "Error",
+        browserErrorMessage: details.browserErrorMessage || error?.message || "Local import failed.",
+        responseExists: details.responseExists ? "Yes" : "No",
+        confirmed: false,
+      }));
       toast.error(error?.message || "Local import failed.");
     } finally {
       setConfirmingLocalImport(false);
@@ -1225,6 +1319,11 @@ export default function Settings() {
                   <div>Local users: <span className={localImportGuard.localUsersReady ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>{localImportGuard.localUsersReady ? "Found" : "Missing"}</span></div>
                   <div>Dry-run endpoint: <span className="font-mono">{localImportGuard.dryRunEndpoint}</span></div>
                   <div>Import endpoint: <span className="font-mono">{localImportGuard.importEndpoint}</span></div>
+                  <div>Request URL: <span className="font-mono">{localImportGuard.requestUrl}</span></div>
+                  <div>HTTP method: <span className="font-mono">{localImportGuard.requestMethod}</span></div>
+                  <div>Browser error: <span className="font-mono">{localImportGuard.browserErrorName}</span></div>
+                  <div>Response object: <span className="font-mono">{localImportGuard.responseExists}</span></div>
+                  <div className="md:col-span-2">Browser message: <span className="font-mono">{localImportGuard.browserErrorMessage}</span></div>
                 </div>
                 <div className={`mt-2 rounded border px-2 py-1 text-xs font-semibold ${localImportGuard.localUsersReady ? "border-emerald-100 bg-white text-emerald-800" : "border-amber-100 bg-amber-50 text-amber-800"}`}>
                   {localImportGuard.message}
