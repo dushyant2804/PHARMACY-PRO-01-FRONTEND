@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, BookOpen, Pencil, Search, WalletCards, ShoppingBag, CircleDollarSign, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import useDebouncedValue from "@/hooks/useDebouncedValue";
 
 const empty = { name: "", phone: "", email: "", gstin: "", address: "" };
 
@@ -16,16 +17,17 @@ export default function Customers() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 250);
 
   const customerBalance = (customer) => Number(customer.receivable_balance ?? customer.outstanding_balance ?? customer.balance ?? customer.amount_due ?? 0);
   const customerSales = (customer) => Number(customer.total_sales ?? customer.sales_total ?? 0);
   const customerPaid = (customer) => Number(customer.total_paid ?? customer.paid_total ?? 0);
   const filteredList = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = debouncedSearch.trim().toLowerCase();
     if (!query) return list;
     return list.filter((customer) => [customer.name, customer.phone, customer.email, customer.gstin]
       .some((value) => String(value || "").toLowerCase().includes(query)));
-  }, [list, search]);
+  }, [list, debouncedSearch]);
   const summary = useMemo(() => ({
     receivable: list.reduce((sum, customer) => sum + customerBalance(customer), 0),
     sales: list.reduce((sum, customer) => sum + customerSales(customer), 0),

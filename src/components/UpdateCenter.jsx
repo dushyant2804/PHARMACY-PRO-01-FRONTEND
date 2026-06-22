@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import api, { formatApiError } from "@/lib/api";
+import api, { formatApiError, getApiMode } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -182,6 +182,10 @@ export default function UpdateCenter({ children }) {
   }, []);
 
   useEffect(() => {
+    if (getApiMode() === "local") {
+      setCheckStatus("Manual checks only in Local Mode");
+      return undefined;
+    }
     checkForUpdates({ automatic: true });
     const timer = window.setInterval(
       () => checkForUpdates({ automatic: true }),

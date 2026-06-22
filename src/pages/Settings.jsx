@@ -4,6 +4,8 @@ import api, {
   getApiBaseUrl,
   getApiMode,
   getLocalBackendUrl,
+  getSlowApiCalls,
+  isLocalApiUrl,
   setApiMode,
   setLocalBackendUrl as persistLocalBackendUrl,
 } from "@/lib/api";
@@ -98,6 +100,7 @@ export default function Settings() {
   const [versionInfo, setVersionInfo] = useState(null);
   const [environmentMode, setEnvironmentMode] = useState(getApiMode);
   const [localBackendUrl, setLocalBackendUrlState] = useState(getLocalBackendUrl);
+  const [slowApiCalls, setSlowApiCalls] = useState(getSlowApiCalls);
   const [environmentStatus, setEnvironmentStatus] = useState({
     endpoint: "—",
     healthEndpoint: "—",
@@ -154,6 +157,16 @@ export default function Settings() {
     failedEndpoint: "—",
     error: "—",
   });
+
+  useEffect(() => {
+    const refreshSlowCalls = (event) => setSlowApiCalls(event.detail || getSlowApiCalls());
+    window.addEventListener("pharmacyos:slow-api-calls-updated", refreshSlowCalls);
+    window.addEventListener("storage", refreshSlowCalls);
+    return () => {
+      window.removeEventListener("pharmacyos:slow-api-calls-updated", refreshSlowCalls);
+      window.removeEventListener("storage", refreshSlowCalls);
+    };
+  }, []);
 
   const loadUsers = () => {
     api
@@ -1294,6 +1307,9 @@ export default function Settings() {
                 </Button>
               </div>
               <p className="mt-2 text-xs text-slate-500">Active API base: <span className="font-mono">{getApiBaseUrl(environmentMode)}</span></p>
+              <p className={`mt-1 text-xs font-semibold ${environmentMode === "local" && isLocalApiUrl(getApiBaseUrl("local")) ? "text-emerald-700" : "text-slate-500"}`}>
+                Local API guard: {environmentMode === "local" ? "all shared API calls are forced to localhost before sending." : "enable Local Mode to force localhost API routing."}
+              </p>
               <p className="mt-1 text-xs text-slate-500">Status endpoint: <span className="font-mono">{environmentStatus.endpoint}</span></p>
               <p className="mt-1 text-xs font-semibold text-amber-700">Changing mode will reload the app. Local mode is saved only after the health check passes.</p>
               {localServerTest.status === "Connected" && (
@@ -1359,6 +1375,30 @@ export default function Settings() {
                   <div className={`mt-1 font-semibold ${String(value).toLowerCase() === "offline" ? "text-red-600" : "text-slate-900"}`}>{value}</div>
                 </div>
               ))}
+            </div>
+            <div className="rounded-md border border-white/70 bg-white p-3" data-testid="performance-panel">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold text-slate-950">Performance</div>
+                  <p className="mt-1 text-xs text-slate-500">Slow API calls over 900ms are recorded locally so old PCs can identify screens that need attention.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSlowApiCalls(getSlowApiCalls())}>Refresh</Button>
+              </div>
+              <div className="mt-3 max-h-56 overflow-auto rounded border border-slate-100">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 text-slate-500"><tr><th className="p-2 text-left">API</th><th className="p-2 text-right">Time</th><th className="p-2 text-right">Status</th></tr></thead>
+                  <tbody>
+                    {slowApiCalls.length === 0 && <tr><td colSpan={3} className="p-3 text-center text-slate-500">No slow API calls recorded.</td></tr>}
+                    {slowApiCalls.map((call, index) => (
+                      <tr key={`${call.at}-${index}`} className="border-t border-slate-100">
+                        <td className="p-2"><div className="font-mono font-semibold">{call.method} {call.url}</div><div className="font-mono text-[10px] text-slate-400">{new Date(call.at).toLocaleString()}</div></td>
+                        <td className="p-2 text-right font-mono font-bold text-amber-700">{call.durationMs}ms</td>
+                        <td className="p-2 text-right font-mono">{call.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
           {environmentMode === "local" && environmentStatus.backend === "Offline" && environmentStatus.response?.health?.error && (
