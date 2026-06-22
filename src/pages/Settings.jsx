@@ -274,7 +274,7 @@ export default function Settings() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ dry_run: dryRun, source: "cloud", target: "local" }),
+        body: JSON.stringify(dryRun ? { dry_run: true, source: "cloud", target: "local" } : { overwrite_local: true }),
       });
       requestDetails.responseExists = true;
       console.info("Local import request completed", {
