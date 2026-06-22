@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, BookOpen, Pencil, Search, Truck, WalletCards, ShoppingCart, BadgeIndianRupee, CircleDollarSign, Scale } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import useDebouncedValue from "@/hooks/useDebouncedValue";
 
 const empty = { name: "", phone: "", email: "", address: "", gstin: "", opening_balance: 0 };
 
@@ -43,6 +44,7 @@ export default function Distributors() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(empty);
+  const debouncedSearch = useDebouncedValue(search, 250);
 
   const load = () => api.get("/distributors").then((r) => setList(Array.isArray(r.data) ? r.data : r.data?.items || r.data?.data || []));
   useEffect(() => { load(); }, []);
@@ -83,10 +85,10 @@ export default function Distributors() {
     } catch (e) { toast.error(formatApiError(e)); }
   };
   const filteredList = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = debouncedSearch.trim().toLowerCase();
     if (!query) return list;
     return list.filter((d) => [d.name, d.phone, d.gstin].some((value) => String(value || "").toLowerCase().includes(query)));
-  }, [list, search]);
+  }, [list, debouncedSearch]);
   const summary = useMemo(() => ({
     payable: list.reduce((sum, d) => sum + getTotalPayable(d), 0),
     receivable: list.reduce((sum, d) => sum + getDistributorReceivable(d), 0),

@@ -294,3 +294,22 @@ html[data-theme-mode="dark"] option { background: #fff; color: #0f172a; }
   .counter-taskbar-scroll { gap: 7px; padding-left: 4px; }
   .counter-account { max-width: 270px; padding-left: 8px; gap: 7px; }
 }
+
+/* Local Desktop Mode: reduce expensive paint work for slow Windows 7 PCs. */
+body.local-performance-mode *,
+body.local-performance-mode *::before,
+body.local-performance-mode *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+body.local-performance-mode .dashboard-shell { animation: none !important; background: #f4f7f5 !important; }
+body.local-performance-mode .dashboard-hero,
+body.local-performance-mode .dashboard-panel,
+body.local-performance-mode .dashboard-stat,
+body.local-performance-mode .kpi-card,
+body.local-performance-mode .counter-taskbar,
+body.local-performance-mode .taskbar-icon,
+body.local-performance-mode .counter-sidebar:hover,
+body.local-performance-mode .counter-sidebar:focus-within,
+body.local-performance-mode .counter-sidebar--pinned { box-shadow: none !important; backdrop-filter: none !important; }
+body.local-performance-mode .dashboard-hero { background: #0a2a22 !important; }
+body.local-performance-mode .dashboard-action:hover,
+body.local-performance-mode .dashboard-stat:hover,
+body.local-performance-mode .taskbar-icon:hover { transform: none !important; }

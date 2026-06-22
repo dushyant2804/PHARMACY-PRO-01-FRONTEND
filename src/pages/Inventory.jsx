@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import useDebouncedValue from "@/hooks/useDebouncedValue";
 
 const getAvailableQty = (item) =>
   Number(
@@ -212,6 +213,7 @@ export default function Inventory() {
   const [privacyPassword, setPrivacyPassword] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const { setInspectorMode } = useLayout();
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   useEffect(() => {
     setInspectorMode(detailsOpen);
@@ -222,7 +224,7 @@ export default function Inventory() {
   const load = useCallback(
     async (selectedId) => {
       try {
-        const { data } = await api.get("/medicines", { params: { search } });
+        const { data } = await api.get("/medicines", { params: { search: debouncedSearch } });
         const nextMeds = Array.isArray(data) ? data : [];
 
         setMeds(nextMeds);
@@ -236,7 +238,7 @@ export default function Inventory() {
         toast.error(formatApiError(e));
       }
     },
-    [search],
+    [debouncedSearch],
   );
 
   useEffect(() => {
@@ -416,7 +418,7 @@ export default function Inventory() {
     }
   };
 
-  const query = search.trim().toLowerCase();
+  const query = debouncedSearch.trim().toLowerCase();
   const visibleMeds = query
     ? meds.filter((medicine) =>
         [

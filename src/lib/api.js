@@ -4,6 +4,8 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const LOCAL_BACKEND_URL = process.env.REACT_APP_LOCAL_BACKEND_URL || "http://localhost:8000";
 export const API_MODE_STORAGE_KEY = "pharmacyos_api_mode";
 export const LOCAL_API_URL_STORAGE_KEY = "pharmacyos_local_api_url";
+export const SLOW_API_CALLS_STORAGE_KEY = "pharmacyos_slow_api_calls";
+export const SLOW_API_THRESHOLD_MS = 900;
 
 const hasBrowserStorage = () => typeof window !== "undefined" && window.localStorage;
 
@@ -20,6 +22,31 @@ export function getLocalBackendUrl() {
 export function getApiBaseUrl(mode = getApiMode()) {
   if (mode === "local") return `${getLocalBackendUrl().replace(/\/$/, "")}/api`;
   return BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
+}
+
+export function isLocalApiUrl(url = getApiBaseUrl("local")) {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+export function getSlowApiCalls() {
+  if (!hasBrowserStorage()) return [];
+  try {
+    return JSON.parse(window.localStorage.getItem(SLOW_API_CALLS_STORAGE_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function rememberSlowApiCall(entry) {
+  if (!hasBrowserStorage()) return;
+  const next = [entry, ...getSlowApiCalls()].slice(0, 25);
+  window.localStorage.setItem(SLOW_API_CALLS_STORAGE_KEY, JSON.stringify(next));
+  window.dispatchEvent(new CustomEvent("pharmacyos:slow-api-calls-updated", { detail: next }));
 }
 
 export function setApiMode(mode) {
@@ -43,14 +70,44 @@ const instance = axios.create({
 
 instance.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl();
+  config.metadata = { ...(config.metadata || {}), startedAt: performance.now() };
+  if (getApiMode() === "local" && !isLocalApiUrl(config.baseURL)) {
+    throw new Error(`Local Mode blocked non-local API base: ${config.baseURL}`);
+  }
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
 instance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const durationMs = Math.round(performance.now() - (response.config?.metadata?.startedAt || performance.now()));
+    if (durationMs >= SLOW_API_THRESHOLD_MS) {
+      rememberSlowApiCall({
+        method: String(response.config?.method || "GET").toUpperCase(),
+        url: response.config?.url || "—",
+        baseURL: response.config?.baseURL || "—",
+        durationMs,
+        status: response.status,
+        at: new Date().toISOString(),
+      });
+    }
+    return response;
+  },
   (error) => {
+    if (error?.config?.metadata?.startedAt) {
+      const durationMs = Math.round(performance.now() - error.config.metadata.startedAt);
+      if (durationMs >= SLOW_API_THRESHOLD_MS) {
+        rememberSlowApiCall({
+          method: String(error.config?.method || "GET").toUpperCase(),
+          url: error.config?.url || "—",
+          baseURL: error.config?.baseURL || "—",
+          durationMs,
+          status: error.response?.status || "network",
+          at: new Date().toISOString(),
+        });
+      }
+    }
     const authFormEndpoints = [
       "/auth/login",
       "/auth/demo-login",

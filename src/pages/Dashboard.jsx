@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api, { fmtINR } from "@/lib/api";
+import api, { fmtINR, getApiMode } from "@/lib/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -485,12 +485,20 @@ export default function Dashboard() {
       setLoading(true);
       const summaryRes = await api.get("/dashboard/summary");
       setData(summaryRes.data || {});
+      setLoading(false);
+      const loadHeavyPanels = () => {
       const requests = [
         api.get("/reports/outstanding").then((res) => setOutstanding(res.data)).catch((e) => { console.warn("Failed to load outstanding totals", e); setOutstanding(null); }),
         api.get("/purchase-returns").then((res) => setPurchaseReturns(normalizeCollection(res.data))).catch((e) => { console.warn("Failed to load purchase return status records", e); setPurchaseReturns([]); }),
         api.get("/medicines").then((res) => setInventoryBatches(buildInventoryBatchRecords(normalizeCollection(res.data)))).catch((e) => { console.warn("Failed to load inventory batch status records", e); setInventoryBatches([]); }),
       ];
-      await Promise.all(requests);
+      Promise.all(requests);
+      };
+      if (getApiMode() === "local") {
+        window.setTimeout(loadHeavyPanels, 900);
+      } else {
+        loadHeavyPanels();
+      }
     } catch (e) { toast.error("Failed to load dashboard"); } finally { setLoading(false); }
   };
 

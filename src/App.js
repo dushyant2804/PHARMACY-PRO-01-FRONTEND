@@ -1,5 +1,6 @@
 import "@/App.css";
 
+import React, { Suspense, lazy, useEffect } from "react";
 import {
   HashRouter,
   Routes,
@@ -24,8 +25,6 @@ import InvoiceDetail from "@/pages/InvoiceDetail";
 import Distributors from "@/pages/Distributors";
 import Customers from "@/pages/Customers";
 import Ledger from "@/pages/Ledger";
-import Reports from "@/pages/Reports";
-import Settings from "@/pages/Settings";
 import PurchaseOrders from "@/pages/PurchaseOrders";
 import PurchaseOrderDetail from "@/pages/PurchaseOrderDetail";
 import PurchaseReturns from "@/pages/PurchaseReturns";
@@ -37,6 +36,14 @@ import Onboarding from "@/pages/Onboarding";
 import Layout from "@/components/Layout";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import UpdateCenter from "@/components/UpdateCenter";
+import { getApiMode, isLocalApiUrl, getApiBaseUrl } from "@/lib/api";
+
+const Reports = lazy(() => import("@/pages/Reports"));
+const Settings = lazy(() => import("@/pages/Settings"));
+
+function LazyPageFallback() {
+  return <div className="rounded-sm border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading module…</div>;
+}
 
 function NotFound() {
   return (
@@ -92,6 +99,19 @@ function Protected({ children }) {
 
 
 function App() {
+  useEffect(() => {
+    const applyModeClass = () => {
+      const local = getApiMode() === "local";
+      document.body.classList.toggle("local-performance-mode", local);
+      if (local && !isLocalApiUrl(getApiBaseUrl("local"))) {
+        console.error("Local Mode API must resolve to localhost.");
+      }
+    };
+    applyModeClass();
+    window.addEventListener("storage", applyModeClass);
+    return () => window.removeEventListener("storage", applyModeClass);
+  }, []);
+
   return (
     <div className="App">
       <UpdateCenter>
@@ -246,7 +266,9 @@ function App() {
               path="/reports"
               element={
                 <Protected>
-                  <Reports />
+                  <Suspense fallback={<LazyPageFallback />}>
+                    <Reports />
+                  </Suspense>
                 </Protected>
               }
             />
@@ -255,7 +277,9 @@ function App() {
               path="/settings"
               element={
                 <Protected>
-                  <Settings />
+                  <Suspense fallback={<LazyPageFallback />}>
+                    <Settings />
+                  </Suspense>
                 </Protected>
               }
             />

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import api, { fmtINR, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +61,7 @@ export default function Billing() {
   const [customers, setCustomers] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [cart, setCart] = useState([]);
   const [quickMedicine, setQuickMedicine] = useState(null);
   const [quickQuantity, setQuickQuantity] = useState("1");
@@ -141,7 +142,7 @@ export default function Billing() {
     setNotes("");
   };
 
-  const filtered = useMemo(() => searchMedicines(meds, search), [search, meds]);
+  const filtered = useMemo(() => searchMedicines(meds, deferredSearch), [deferredSearch, meds]);
 
   useEffect(() => setActiveResult(0), [search]);
 
