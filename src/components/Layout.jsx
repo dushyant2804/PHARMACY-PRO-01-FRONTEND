@@ -30,7 +30,7 @@ const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/inventory", label: "Inventory", icon: Package, roles: ["admin", "pharmacist"] },
   { to: "/stock-adjustments", label: "Stock Adjustments", icon: SlidersHorizontal, roles: ["admin", "pharmacist"] },
-  { to: "/purchase-orders", label: "Purchases", icon: PackagePlus, roles: ["admin", "pharmacist"] },
+  { to: "/purchase-orders", label: "Purchases", tooltipLabel: "Purchase Orders", icon: PackagePlus, roles: ["admin", "pharmacist"] },
   { to: "/purchase-returns", label: "Purchase Returns", icon: RotateCcw, roles: ["admin", "pharmacist"] },
   { to: "/billing", label: "New Bill", icon: Receipt, roles: ["admin", "cashier", "pharmacist"] },
   { to: "/daily-sales", label: "Daily Sales", icon: BookOpen, roles: ["admin", "cashier", "pharmacist"] },
@@ -172,17 +172,19 @@ export default function Layout({ children }) {
   const renderTaskbarLink = (n) => {
     const Icon = n.icon;
     const active = location.pathname === n.to || (n.to !== "/" && location.pathname.startsWith(n.to));
+    const tooltipLabel = n.tooltipLabel || n.label;
     return (
       <Link
         key={n.to}
         to={n.to}
         onClick={() => setOpen(false)}
         data-testid={`nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
-        aria-label={n.label}
+        aria-label={tooltipLabel}
+        title={tooltipLabel}
         className={`taskbar-icon ${active ? "taskbar-icon--active" : ""}`}
       >
         <Icon className="h-5 w-5" strokeWidth={1.85} />
-        <span className="taskbar-tooltip" role="tooltip">{n.label}</span>
+        <span className="taskbar-tooltip" role="tooltip">{tooltipLabel}</span>
       </Link>
     );
   };
@@ -201,6 +203,7 @@ export default function Layout({ children }) {
           data-testid="local-mode-badge"
           tabIndex={0}
           aria-label={`Local Mode ${localBackendStatusLabel}. ${localModeDetailText}`}
+          title={`Local Mode ${localBackendStatusLabel}. ${localModeDetailText}`}
         >
           <span className="local-mode-badge-main">Local Mode</span>
           <span className="local-mode-badge-dot" aria-hidden="true">●</span>
@@ -217,7 +220,7 @@ export default function Layout({ children }) {
           <div className="counter-account-name">{businessName}</div>
           <div className="counter-account-role">{roleLabel}</div>
         </div>
-        <Button onClick={handleLogout} variant="ghost" aria-label="Log out" className="taskbar-icon taskbar-icon--logout h-10 w-10 p-0" data-testid="logout-btn">
+        <Button onClick={handleLogout} variant="ghost" aria-label="Log out" title="Log out" className="taskbar-icon taskbar-icon--logout h-10 w-10 p-0" data-testid="logout-btn">
           <LogOut className="h-5 w-5" />
           <span className="taskbar-tooltip" role="tooltip">Log out</span>
         </Button>
