@@ -63,6 +63,10 @@ instance.interceptors.response.use(
       error?.config?.url?.endsWith(endpoint)
     );
 
+    if (getApiMode() === "local" && !error?.response && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("pharmacyos:local-backend-disconnected"));
+    }
+
     if (error?.response?.status === 401 && !isAuthFormRequest) {
       localStorage.removeItem("token");
       window.location.hash = "#/login";

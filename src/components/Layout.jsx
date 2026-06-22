@@ -23,7 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LayoutContext } from "@/contexts/LayoutContext";
-import api, { getApiMode } from "@/lib/api";
+import api, { getApiMode, getLocalBackendUrl } from "@/lib/api";
 import { toast } from "sonner";
 
 const nav = [
@@ -52,6 +52,8 @@ export default function Layout({ children }) {
   const [exitBackupOpen, setExitBackupOpen] = useState(false);
   const [exitBackupAttempted, setExitBackupAttempted] = useState(false);
   const [exitBackupRunning, setExitBackupRunning] = useState(false);
+  const [localBackendConnected, setLocalBackendConnected] = useState(() => getApiMode() !== "local");
+  const [lastBackupTime, setLastBackupTime] = useState(() => localStorage.getItem("pharmacyos_last_backup_time") || "—");
 
   useEffect(() => {
     const handleBeforeUnload = (event) => {
@@ -78,6 +80,54 @@ export default function Layout({ children }) {
     };
   }, [exitBackupAttempted]);
 
+
+  useEffect(() => {
+    if (getApiMode() !== "local") return undefined;
+
+    let cancelled = false;
+    const normalizedUrl = () => (getLocalBackendUrl() || "http://localhost:8000").trim().replace(/\/$/, "");
+    const healthEndpoints = () => {
+      const baseUrl = normalizedUrl();
+      return [`${baseUrl}/api/health`, `${baseUrl}/health`, `${baseUrl}/api/backup/health`, `${baseUrl}/api/backup/status`];
+    };
+
+    const checkLocalBackend = async () => {
+      for (const endpoint of healthEndpoints()) {
+        try {
+          const response = await fetch(`${endpoint}${endpoint.includes("?") ? "&" : "?"}t=${Date.now()}`, {
+            method: "GET",
+            credentials: "include",
+            headers: { "Cache-Control": "no-store" },
+          });
+          if (response.ok) {
+            if (!cancelled) setLocalBackendConnected(true);
+            return;
+          }
+        } catch {
+          // Try the next known Local Desktop health endpoint before showing an offline state.
+        }
+      }
+      if (!cancelled) setLocalBackendConnected(false);
+    };
+
+    const handleLocalBackendDisconnected = () => setLocalBackendConnected(false);
+    const handleStorage = (event) => {
+      if (event.key === "pharmacyos_last_backup_time") setLastBackupTime(event.newValue || "—");
+    };
+
+    checkLocalBackend();
+    const intervalId = window.setInterval(checkLocalBackend, 15000);
+    window.addEventListener("pharmacyos:local-backend-disconnected", handleLocalBackendDisconnected);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("pharmacyos:local-backend-disconnected", handleLocalBackendDisconnected);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
   const role = user?.role || "cashier";
   const visibleNav = nav.filter((n) => n.roles.includes(role));
 
@@ -91,7 +141,9 @@ export default function Layout({ children }) {
       const { data = {} } = await api.post("/backup/run", { reason: "app_exit", targets: ["mongodb_atlas", "google_drive"] });
       const cloudPending = [data.atlas_backup_status, data.mongodb_atlas_status, data.google_drive_backup_status, data.drive_backup_status, data.cloud_sync_status]
         .some((value) => String(value || "").toLowerCase().includes("pending"));
-      localStorage.setItem("pharmacyos_last_backup_time", data.last_backup_time || data.last_backup_at || new Date().toISOString());
+      const backupTime = data.last_backup_time || data.last_backup_at || new Date().toISOString();
+      localStorage.setItem("pharmacyos_last_backup_time", backupTime);
+      setLastBackupTime(backupTime);
       toast[cloudPending ? "warning" : "success"](cloudPending ? "Saved locally. Cloud backup pending." : "Backup completed before exit.");
       if (exitAfter) {
         await logout();
@@ -157,8 +209,8 @@ export default function Layout({ children }) {
       <div className="min-h-screen app-canvas counter-layout">
         {!inspectorMode && taskbar}
         {getApiMode() === "local" && (
-          <div className="fixed right-3 top-3 z-40 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-900 shadow-sm">
-            Local Mode • Last backup: {localStorage.getItem("pharmacyos_last_backup_time") || "—"}
+          <div className={`fixed right-3 top-3 z-40 rounded-full border px-3 py-1 text-xs font-bold shadow-sm ${localBackendConnected ? "border-emerald-200 bg-white text-emerald-900" : "border-red-200 bg-red-50 text-red-800"}`} data-testid="local-mode-badge">
+            {localBackendConnected ? `Local Mode • localhost connected • Last backup: ${lastBackupTime}` : "Local PharmacyOS server stopped. Please restart PharmacyOS."}
           </div>
         )}
 
