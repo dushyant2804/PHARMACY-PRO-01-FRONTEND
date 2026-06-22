@@ -1256,6 +1256,9 @@ export default function Settings() {
           Download a JSON snapshot of all data, or restore from a previously
           exported file.
         </p>
+        <p className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-900">
+          To use Local Desktop Mode, start PharmacyOS-Start.bat first.
+        </p>
         <div className="mb-5 rounded-lg border border-emerald-100 bg-emerald-50 p-4" data-testid="environment-status-panel">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
@@ -1363,10 +1366,10 @@ export default function Settings() {
               <div className="flex items-start gap-2 font-semibold">
                 <AlertTriangle className="mt-0.5 h-4 w-4" />
                 <div>
-                  <div>Local PharmacyOS server is not running.</div>
+                  <div>Local PharmacyOS server stopped. Please restart PharmacyOS.</div>
                   <div className="mt-2 font-normal">
                     To use Local Mode:<br />
-                    1. Start PharmacyOS Local Server.<br />
+                    1. Start PharmacyOS-Start.bat.<br />
                     2. Click Test Local Server.<br />
                     3. Switch to Local Mode after the connection succeeds.
                   </div>
