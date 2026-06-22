@@ -194,11 +194,11 @@ body { background: var(--pharmacy-bg); color: var(--pharmacy-text); }
   background: rgba(255,255,255,.94); backdrop-filter: blur(14px); box-shadow: 0 8px 18px rgba(15,40,33,.055);
 }
 .counter-main { padding-top: 56px; }
-.counter-taskbar-scroll { display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex: 1 1 auto; min-width: 0; overflow: hidden; padding: 0 0 0 10px; }
+.counter-taskbar-scroll { display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex: 1 1 auto; min-width: 0; overflow: visible; padding: 0 0 0 10px; }
 .counter-taskbar-scroll::-webkit-scrollbar { display: none; }
-.counter-account { display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; flex: 0 0 auto; max-width: min(46vw, 560px); border-left: 1px solid #e4eee9; padding-left: 14px; }
+.counter-account { display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; flex: 0 1 auto; min-width: 210px; max-width: min(50vw, 640px); border-left: 1px solid #e4eee9; padding-left: 14px; }
 .counter-account-avatar { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 36px; height: 36px; border: 1px solid rgba(8,122,91,.22); border-radius: 999px; background: var(--pharmacy-primary-soft); color: var(--pharmacy-primary); box-shadow: inset 0 1px 0 rgba(255,255,255,.7); }
-.counter-account-text { min-width: 0; line-height: 1.1; }
+.counter-account-text { min-width: 0; flex: 1 1 auto; line-height: 1.1; }
 .counter-account-name { overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; color: #10231d; font-size: 13px; font-weight: 900; letter-spacing: .01em; }
 .counter-account-role { margin-top: 2px; color: #64756f; font-size: 11px; font-weight: 700; text-transform: capitalize; }
 .taskbar-icon {
@@ -214,12 +214,12 @@ body { background: var(--pharmacy-bg); color: var(--pharmacy-text); }
   position: absolute; left: 50%; top: calc(100% + 8px); z-index: 80; transform: translateX(-50%) translateY(-2px);
   max-width: 160px; white-space: nowrap; border-radius: 8px; background: #10231d; color: #fff;
   padding: 5px 8px; font-size: 11px; font-weight: 700; letter-spacing: .01em; opacity: 0; pointer-events: none;
-  box-shadow: 0 8px 20px rgba(16,35,29,.18); transition: opacity .08s ease, transform .08s ease;
+  box-shadow: 0 8px 20px rgba(16,35,29,.18); transition: none;
 }
 .taskbar-icon:hover .taskbar-tooltip, .taskbar-icon:focus-visible .taskbar-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
 .local-mode-badge {
   position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  flex: 1 1 170px; min-width: 112px; max-width: 210px; height: 30px; padding: 0 10px;
+  flex: 0 1 170px; min-width: 112px; max-width: 180px; height: 30px; padding: 0 10px;
   border: 1px solid #bbf7d0; border-radius: 999px; background: #fff; color: #064e3b;
   font-size: 12px; font-weight: 900; line-height: 1; white-space: nowrap; box-shadow: inset 0 1px 0 rgba(255,255,255,.86);
 }
@@ -231,7 +231,7 @@ body { background: var(--pharmacy-bg); color: var(--pharmacy-text); }
   position: absolute; right: 0; top: calc(100% + 9px); z-index: 90; display: grid; gap: 4px;
   min-width: 260px; max-width: min(360px, 90vw); padding: 9px 10px; border-radius: 10px;
   background: #10231d; color: #fff; font-size: 11px; font-weight: 800; line-height: 1.35; white-space: normal;
-  opacity: 0; pointer-events: none; transform: translateY(-3px); box-shadow: 0 10px 24px rgba(16,35,29,.2); transition: opacity .08s ease, transform .08s ease;
+  opacity: 0; pointer-events: none; transform: translateY(-3px); box-shadow: 0 10px 24px rgba(16,35,29,.2); transition: none;
 }
 .local-mode-badge:hover .local-mode-popover, .local-mode-badge:focus-visible .local-mode-popover { opacity: 1; transform: translateY(0); }
 .app-page { background: transparent; }
@@ -288,7 +288,7 @@ body { background: var(--pharmacy-bg); color: var(--pharmacy-text); }
 .taskbar-icon { width: 38px; height: 38px; border-color: var(--pharmacy-border); color: var(--pharmacy-primary); background: color-mix(in srgb, var(--pharmacy-card) 84%, transparent); }
 .taskbar-icon:hover { background: var(--pharmacy-active-tab); border-color: var(--pharmacy-primary); color: var(--pharmacy-primary); }
 .taskbar-icon--active { background: var(--pharmacy-active-tab); border-color: var(--pharmacy-primary); color: var(--pharmacy-primary); box-shadow: inset 0 -3px 0 var(--pharmacy-primary), 0 5px 14px color-mix(in srgb, var(--pharmacy-primary) 14%, transparent); }
-.counter-taskbar-scroll { gap: 10px; overflow: hidden; }
+.counter-taskbar-scroll { gap: 10px; overflow: visible; }
 .taskbar-tooltip { background: var(--pharmacy-text); color: var(--pharmacy-bg); }
 
 html[data-theme-mode="dark"] body,
@@ -313,21 +313,21 @@ html[data-theme-mode="dark"] option { background: #fff; color: #0f172a; }
   .local-mode-badge { flex-basis: 136px; max-width: 168px; min-width: 104px; }
 }
 
+@media (max-width: 1366px) {
+  .counter-taskbar { overflow: visible; }
+  .counter-taskbar-scroll { overflow: visible; }
+  .counter-account { flex-shrink: 0; min-width: 230px; max-width: min(48vw, 560px); }
+  .local-mode-badge { flex: 0 1 146px; max-width: 146px; min-width: 112px; }
+}
+@media (max-width: 1180px) {
+  .local-mode-badge { max-width: 118px; padding-inline: 7px; gap: 4px; }
+  .local-mode-badge-main { max-width: 70px; }
+  .local-mode-badge-status { max-width: 64px; }
+  .counter-account { min-width: 220px; max-width: min(52vw, 520px); }
+}
+
 /* Local Desktop Mode: reduce expensive paint work for slow Windows 7 PCs. */
 body.local-performance-mode *,
 body.local-performance-mode *::before,
 body.local-performance-mode *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
-body.local-performance-mode .dashboard-shell { animation: none !important; background: #f4f7f5 !important; }
-body.local-performance-mode .dashboard-hero,
-body.local-performance-mode .dashboard-panel,
-body.local-performance-mode .dashboard-stat,
-body.local-performance-mode .kpi-card,
-body.local-performance-mode .counter-taskbar,
-body.local-performance-mode .taskbar-icon,
-body.local-performance-mode .counter-sidebar:hover,
-body.local-performance-mode .counter-sidebar:focus-within,
-body.local-performance-mode .counter-sidebar--pinned { box-shadow: none !important; backdrop-filter: none !important; }
-body.local-performance-mode .dashboard-hero { background: #0a2a22 !important; }
-body.local-performance-mode .dashboard-action:hover,
-body.local-performance-mode .dashboard-stat:hover,
-body.local-performance-mode .taskbar-icon:hover { transform: none !important; }
+body.local-performance-mode .dashboard-shell { animation: none !important; }
