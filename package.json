@@ -63,6 +63,7 @@
   "scripts": {
     "start": "craco start",
     "build": "node scripts/generate-version.js && craco build",
+    "build:local": "node scripts/build-local.js",
     "test": "craco test",
     "cap:sync": "yarn build && npx cap sync android",
     "cap:copy": "yarn build && npx cap copy android",
