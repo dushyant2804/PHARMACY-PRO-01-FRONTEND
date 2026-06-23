@@ -1,5 +1,6 @@
 // craco.config.js
 const path = require("path");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
 require("dotenv").config();
 
 // Use the generated deployment metadata as the version compiled into this frontend build.
@@ -13,6 +14,28 @@ try {
 // Check if we're in development/preview mode (not production build)
 // Craco sets NODE_ENV=development for start, NODE_ENV=production for build
 const isDevServer = process.env.NODE_ENV !== "production";
+const isLocalDesktopBuild = process.env.REACT_APP_LOCAL_DESKTOP === "true";
+
+const removeLocalDesktopExternalStartupResources = (html) => html
+  .replace(/\s*<link rel="preconnect" href="https:\/\/fonts\.googleapis\.com"\s*\/?>/g, "")
+  .replace(/\s*<link rel="preconnect" href="https:\/\/fonts\.gstatic\.com" crossorigin\s*\/?>/g, "")
+  .replace(/\s*<link href="https:\/\/fonts\.googleapis\.com\/css2\?family=Inter:wght@600&display=swap" rel="stylesheet"\s*\/?>/g, "")
+  .replace(/\s*<script src="https:\/\/assets\.emergent\.sh\/scripts\/emergent-main\.js"><\/script>/g, "")
+  .replace(/\s*<script>(?:(?!<\/script>)[\s\S])*posthog\.init[\s\S]*?<\/script>/g, "");
+
+class LocalDesktopHtmlPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap("LocalDesktopHtmlPlugin", (compilation) => {
+      HtmlWebpackPlugin.getHooks(compilation).beforeEmit.tap(
+        "LocalDesktopHtmlPlugin",
+        (data) => {
+          data.html = removeLocalDesktopExternalStartupResources(data.html);
+          return data;
+        },
+      );
+    });
+  }
+}
 
 // Environment variable overrides
 const config = {
@@ -70,6 +93,11 @@ let webpackConfig = {
       if (config.enableHealthCheck && healthPluginInstance) {
         webpackConfig.plugins.push(healthPluginInstance);
       }
+
+      if (isLocalDesktopBuild) {
+        webpackConfig.plugins.push(new LocalDesktopHtmlPlugin());
+      }
+
       return webpackConfig;
     },
   },
