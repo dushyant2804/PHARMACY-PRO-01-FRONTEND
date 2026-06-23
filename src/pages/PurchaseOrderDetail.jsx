@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api, { fmtINR, fmtDate, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ export default function PurchaseOrderDetail() {
   const [error, setError] = useState(null);
   const [receiving, setReceiving] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -26,9 +26,9 @@ export default function PurchaseOrderDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   const receive = async () => {
     if (!window.confirm("Mark as received? This will add stock to inventory and record a purchase in the distributor ledger.")) return;
