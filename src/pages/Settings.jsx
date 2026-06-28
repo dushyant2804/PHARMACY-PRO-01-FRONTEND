@@ -5,8 +5,6 @@ import api, {
   getApiMode,
   getLocalBackendUrl,
   getSlowApiCalls,
-  isLocalApiUrl,
-  setApiMode,
   setLocalBackendUrl as persistLocalBackendUrl,
 } from "@/lib/api";
 import {
@@ -30,7 +28,6 @@ import {
   Database,
   Cloud,
   HardDrive,
-  AlertTriangle,
   UserPlus,
   Trash2,
   Image as ImageIcon,
@@ -38,7 +35,6 @@ import {
   Building2,
   RefreshCw,
   CheckCircle2,
-  Link as LinkIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -116,37 +112,17 @@ export default function Settings() {
     atlasConnectionStatus: "Checking",
     atlasLastBackupTime: "—",
     atlasPendingSyncCount: 0,
-    googleDriveConnectionStatus: "Not connected",
-    googleDriveAccount: "—",
+    googleDriveConnectionStatus: "Not configured",
     googleDriveLastBackupTime: "—",
     googleDrivePendingUploadCount: 0,
   });
   const [checkingEnvironment, setCheckingEnvironment] = useState(false);
   const [testingLocalServer, setTestingLocalServer] = useState(false);
-  const [runningLocalImportGuard, setRunningLocalImportGuard] = useState(false);
-  const [confirmingLocalImport, setConfirmingLocalImport] = useState(false);
-  const [localImportGuard, setLocalImportGuard] = useState({
-    status: "Not started",
-    message: "Run dry-run import before switching to Local Mode.",
-    dryRunEndpoint: "—",
-    importEndpoint: "—",
-    requestUrl: "—",
-    requestMethod: "—",
-    browserErrorName: "—",
-    browserErrorMessage: "—",
-    responseExists: "—",
-    counts: {},
-    localUsersReady: false,
-    confirmed: false,
-  });
-  const [testingAtlas, setTestingAtlas] = useState(false);
-  const [testingGoogleDrive, setTestingGoogleDrive] = useState(false);
-  const [connectingGoogleDrive, setConnectingGoogleDrive] = useState(false);
   const [backupResult, setBackupResult] = useState({
     local: "Local backup pending",
     atlas: "MongoDB Atlas backup pending",
-    googleDrive: "Google Drive backup pending",
-    message: "Backup pending",
+    googleDrive: "Google Drive upload pending",
+    message: "Cloud upload pending",
     tone: "text-amber-700",
   });
   const [localServerTest, setLocalServerTest] = useState({
@@ -156,6 +132,13 @@ export default function Settings() {
     healthResult: "Not tested",
     failedEndpoint: "—",
     error: "—",
+  });
+  const [syncingLocalData, setSyncingLocalData] = useState(false);
+  const [localSyncResult, setLocalSyncResult] = useState({
+    records_synced: "—",
+    failed_tables: "—",
+    last_sync_status: "—",
+    last_sync_time: "—",
   });
 
   useEffect(() => {
@@ -182,13 +165,24 @@ export default function Settings() {
       .catch(() => {});
   };
 
+  const formatProductionStatus = (value, fallback = "Ready") => {
+    const normalized = String(value ?? "").trim().toLowerCase().replace(/[ -]/g, "_");
+    if (!normalized) return fallback;
+    if (normalized === "queued_offline") return "Pending upload";
+    if (normalized === "cloud_backup_pending" || normalized === "backup_pending") return "Cloud upload pending";
+    if (["error", "failed", "failure", "unhealthy"].includes(normalized)) return "Needs attention";
+    if (["not_connected", "disconnected", "missing", "false"].includes(normalized)) return "Not configured";
+    if (["configured", "ok", "ready", "success", "connected", "true", "healthy"].includes(normalized)) return "Configured";
+    return String(value);
+  };
+
   const normalizeConnectionStatus = (value, fallback = "Connected") => {
     if (typeof value === "boolean") return value ? "Connected" : "Offline";
     const normalized = String(value ?? "").trim().toLowerCase();
     if (!normalized) return fallback;
     if (["ok", "up", "online", "healthy", "ready", "success", "connected", "true"].includes(normalized)) return "Connected";
     if (["down", "offline", "unhealthy", "failed", "error", "false", "disconnected"].includes(normalized)) return "Offline";
-    return String(value);
+    return formatProductionStatus(value, String(value));
   };
 
   const getLocalHealthEndpoints = (url = localBackendUrl) => {
@@ -238,210 +232,6 @@ export default function Settings() {
     };
   };
 
-  const getLocalImportEndpoint = ({ dryRun, url = localBackendUrl }) => {
-    const normalizedUrl = (url || getLocalBackendUrl()).trim().replace(/\/$/, "");
-    return `${normalizedUrl}/api/local/import/${dryRun ? "dry-run" : "confirm"}`;
-  };
-
-  const flattenImportCounts = (value, prefix = "") => {
-    if (!value || typeof value !== "object") return {};
-    return Object.entries(value).reduce((acc, [key, entry]) => {
-      const label = prefix ? `${prefix}.${key}` : key;
-      if (typeof entry === "number" || typeof entry === "string" || typeof entry === "boolean") {
-        acc[label] = entry;
-      } else if (entry && typeof entry === "object") {
-        Object.assign(acc, flattenImportCounts(entry, label));
-      }
-      return acc;
-    }, {});
-  };
-
-  const extractImportCounts = (data = {}) => {
-    const source = data.counts || data.dry_run_counts || data.imported || data.summary || data;
-    return flattenImportCounts(source);
-  };
-
-  const hasLocalUsers = (data = {}) => {
-    const counts = extractImportCounts(data);
-    const userKeys = Object.keys(counts).filter((key) => key.toLowerCase().includes("user"));
-    if (userKeys.some((key) => Number(counts[key]) > 0)) return true;
-    const userCollections = [data.users, data.local_users, data.imported?.users, data.counts?.users, data.summary?.users];
-    return userCollections.some((value) => Array.isArray(value) ? value.length > 0 : Number(value) > 0);
-  };
-
-  const callLocalImport = async ({ dryRun, url = localBackendUrl }) => {
-    const endpoint = getLocalImportEndpoint({ dryRun, url });
-    const method = "POST";
-    const token = localStorage.getItem("token");
-    const requestDetails = {
-      requestUrl: endpoint,
-      requestMethod: method,
-      responseExists: false,
-    };
-
-    try {
-      const response = await fetch(endpoint, {
-        method,
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(dryRun ? { dry_run: true, source: "cloud", target: "local" } : { overwrite_local: true }),
-      });
-      requestDetails.responseExists = true;
-      console.info("Local import request completed", {
-        ...requestDetails,
-        status: response.status,
-        ok: response.ok,
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const message = data?.detail || data?.message || data?.error || `Import ${dryRun ? "dry-run" : "confirm"} failed with ${response.status} at ${endpoint}`;
-        const error = new Error(message);
-        error.localImportRequest = {
-          ...requestDetails,
-          browserErrorName: error.name,
-          browserErrorMessage: error.message,
-          status: response.status,
-        };
-        throw error;
-      }
-      return { endpoint, data, requestDetails };
-    } catch (error) {
-      const responseExists = Boolean(error?.localImportRequest?.responseExists);
-      const browserErrorName = error?.name || "Error";
-      const browserErrorMessage = error?.message || String(error);
-      const localImportRequest = {
-        ...requestDetails,
-        ...error?.localImportRequest,
-        responseExists,
-        browserErrorName,
-        browserErrorMessage,
-      };
-      console.error("Local import request failed", localImportRequest);
-      error.localImportRequest = localImportRequest;
-      if (!responseExists) {
-        error.message = "Could not reach local import endpoint. Check CORS or local server logs.";
-      }
-      throw error;
-    }
-  };
-
-  const runLocalImportDryRun = async () => {
-    setRunningLocalImportGuard(true);
-    setLocalImportGuard((current) => ({ ...current, status: "Testing local server", confirmed: false }));
-    try {
-      const localServerReady = await testLocalServer(localBackendUrl, { showToast: false });
-      if (!localServerReady) throw new Error("Local PharmacyOS server is not running.");
-
-      const dryRunEndpoint = getLocalImportEndpoint({ dryRun: true });
-      setLocalImportGuard((current) => ({
-        ...current,
-        status: "Running dry-run import",
-        dryRunEndpoint,
-        importEndpoint: "—",
-        requestUrl: dryRunEndpoint,
-        requestMethod: "POST",
-        browserErrorName: "—",
-        browserErrorMessage: "—",
-        responseExists: "Pending",
-      }));
-      const { endpoint, data } = await callLocalImport({ dryRun: true });
-      const counts = extractImportCounts(data);
-      const localUsersReady = hasLocalUsers(data);
-      setLocalImportGuard({
-        status: localUsersReady ? "Dry-run complete" : "Local users missing",
-        message: localUsersReady ? "Review counts, then confirm import to enable Local Mode." : "Import cloud data first so your login works locally.",
-        dryRunEndpoint: endpoint,
-        importEndpoint: "—",
-        requestUrl: endpoint,
-        requestMethod: "POST",
-        browserErrorName: "—",
-        browserErrorMessage: "—",
-        responseExists: "Yes",
-        counts,
-        localUsersReady,
-        confirmed: false,
-      });
-      toast[localUsersReady ? "success" : "error"](localUsersReady ? "Dry-run import completed. Review counts before confirming." : "Import cloud data first so your login works locally.");
-    } catch (error) {
-      const details = error?.localImportRequest || {};
-      setLocalImportGuard((current) => ({
-        ...current,
-        status: "Dry-run failed",
-        message: error?.message || "Dry-run import failed.",
-        requestUrl: details.requestUrl || current.requestUrl || getLocalImportEndpoint({ dryRun: true }),
-        requestMethod: details.requestMethod || "POST",
-        browserErrorName: details.browserErrorName || error?.name || "Error",
-        browserErrorMessage: details.browserErrorMessage || error?.message || "Dry-run import failed.",
-        responseExists: details.responseExists ? "Yes" : "No",
-        localUsersReady: false,
-        confirmed: false,
-      }));
-      toast.error(error?.message || "Dry-run import failed.");
-    } finally {
-      setRunningLocalImportGuard(false);
-    }
-  };
-
-  const confirmLocalImport = async () => {
-    if (!localImportGuard.localUsersReady) {
-      toast.error("Import cloud data first so your login works locally.");
-      return;
-    }
-    if (!window.confirm("Import cloud data into the local server now?")) return;
-    const importEndpoint = getLocalImportEndpoint({ dryRun: false });
-    setConfirmingLocalImport(true);
-    setLocalImportGuard((current) => ({
-      ...current,
-      status: "Confirming import",
-      importEndpoint,
-      requestUrl: importEndpoint,
-      requestMethod: "POST",
-      browserErrorName: "—",
-      browserErrorMessage: "—",
-      responseExists: "Pending",
-    }));
-    try {
-      const { endpoint, data } = await callLocalImport({ dryRun: false });
-      const counts = extractImportCounts(data);
-      const localUsersReady = hasLocalUsers(data) || localImportGuard.localUsersReady;
-      setLocalImportGuard((current) => ({
-        ...current,
-        status: localUsersReady ? "Import Completed" : "Local users missing",
-        message: localUsersReady ? "Import completed. Local Mode switch is now allowed." : "Import cloud data first so your login works locally.",
-        importEndpoint: endpoint,
-        requestUrl: endpoint,
-        requestMethod: "POST",
-        browserErrorName: "—",
-        browserErrorMessage: "—",
-        responseExists: "Yes",
-        counts: Object.keys(counts).length ? counts : current.counts,
-        localUsersReady,
-        confirmed: localUsersReady,
-      }));
-      toast[localUsersReady ? "success" : "error"](localUsersReady ? "Import completed. You can switch to Local Mode." : "Import cloud data first so your login works locally.");
-    } catch (error) {
-      const details = error?.localImportRequest || {};
-      setLocalImportGuard((current) => ({
-        ...current,
-        status: "Import failed",
-        message: error?.message || "Local import failed.",
-        requestUrl: details.requestUrl || current.requestUrl || importEndpoint,
-        requestMethod: details.requestMethod || "POST",
-        browserErrorName: details.browserErrorName || error?.name || "Error",
-        browserErrorMessage: details.browserErrorMessage || error?.message || "Local import failed.",
-        responseExists: details.responseExists ? "Yes" : "No",
-        confirmed: false,
-      }));
-      toast.error(error?.message || "Local import failed.");
-    } finally {
-      setConfirmingLocalImport(false);
-    }
-  };
-
   const formatHealthEndpointResult = (result) => {
     if (!result) return "Not tested";
     if (result.ok) return "Connected";
@@ -455,13 +245,12 @@ export default function Settings() {
     lastBackupTime: data.last_backup_time || data.last_backup_at || data.last_successful_backup || "—",
     pendingSyncCount: Number(data.pending_sync_count ?? data.pending_sync ?? data.pending_uploads ?? 0),
     lastSuccessfulBackup: data.last_successful_backup || data.last_backup_time || data.last_backup_at || "—",
-    cloudSyncStatus: data.cloud_sync_status || data.sync_status || "Ready",
+    cloudSyncStatus: formatProductionStatus(data.cloud_sync_status || data.sync_status, "Ready"),
     pendingUploads: Number(data.pending_uploads ?? data.pending_sync_count ?? 0),
-    atlasConnectionStatus: data.atlas_connection_status || data.mongodb_atlas_status || data.atlas_status || data.cloud_sync_status || "Ready",
+    atlasConnectionStatus: formatProductionStatus(data.atlas_connection_status || data.mongodb_atlas_status || data.atlas_status || data.cloud_sync_status, "Configured"),
     atlasLastBackupTime: data.atlas_last_backup_time || data.mongodb_atlas_last_backup_at || data.atlas_last_backup_at || data.last_backup_time || "—",
     atlasPendingSyncCount: Number(data.atlas_pending_sync_count ?? data.mongodb_atlas_pending_sync_count ?? data.pending_sync_count ?? 0),
-    googleDriveConnectionStatus: data.google_drive_connection_status || data.drive_connection_status || (data.google_drive_account ? "Connected" : "Not connected"),
-    googleDriveAccount: data.google_drive_account || data.drive_account_email || data.google_account_email || "—",
+    googleDriveConnectionStatus: formatProductionStatus(data.google_drive_service_account_status || data.google_drive_config_status || data.google_drive_connection_status || data.drive_connection_status, "Not configured"),
     googleDriveLastBackupTime: data.google_drive_last_backup_time || data.drive_last_backup_at || data.google_drive_last_backup_at || "—",
     googleDrivePendingUploadCount: Number(data.google_drive_pending_upload_count ?? data.drive_pending_upload_count ?? data.pending_uploads ?? 0),
   });
@@ -484,6 +273,16 @@ export default function Settings() {
       const healthSucceeded = localMode ? healthResult.ok : healthResult.status === "fulfilled";
       const healthData = localMode ? healthResult.data || {} : healthResult.status === "fulfilled" ? healthResult.value.data || {} : {};
       const backupData = backupResult.status === "fulfilled" ? backupResult.value.data || {} : {};
+      const localSyncStatusResult = await api.get("/local-sync/status", { params: { t: Date.now() }, headers: { "Cache-Control": "no-store" } }).catch((error) => ({ error }));
+      const localSyncStatusData = localSyncStatusResult.data || {};
+      if (localSyncStatusResult.data) {
+        setLocalSyncResult({
+          records_synced: localSyncStatusData.records_synced ?? localSyncStatusData.synced_records ?? "—",
+          failed_tables: Array.isArray(localSyncStatusData.failed_tables) ? localSyncStatusData.failed_tables.join(", ") || "None" : localSyncStatusData.failed_tables ?? "None",
+          last_sync_status: formatProductionStatus(localSyncStatusData.last_sync_status || localSyncStatusData.status, "Configured"),
+          last_sync_time: localSyncStatusData.last_sync_time || localSyncStatusData.last_sync_at || "—",
+        });
+      }
       if (localMode) {
         const failedEndpoint = healthResult.failures?.[healthResult.failures.length - 1];
         setLocalServerTest({
@@ -499,7 +298,7 @@ export default function Settings() {
         const failedEndpoint = healthResult.failures?.[healthResult.failures.length - 1];
         toast.warning(`Local PharmacyOS server is not running. Last tested: ${failedEndpoint?.endpoint || healthResult.endpoint}. ${failedEndpoint?.error || ""}`.trim());
       }
-      const mergedStatus = normalizeBackupStatus({ ...healthData, ...backupData });
+      const mergedStatus = normalizeBackupStatus({ ...healthData, ...backupData, ...localSyncStatusData });
       const backupEndpointHealthy = backupResult.status === "fulfilled";
       const backendStatus = healthSucceeded || backupEndpointHealthy
         ? normalizeConnectionStatus(healthData.backend ?? healthData.backend_status ?? healthData.status ?? backupData.backend ?? backupData.backend_status ?? backupData.status, "Connected")
@@ -512,12 +311,13 @@ export default function Settings() {
         response: {
           health: healthSucceeded ? healthData : { error: localMode ? `Failed URL: ${healthResult.endpoint}` : formatApiError(healthResult.reason) },
           backupStatus: backupResult.status === "fulfilled" ? backupData : backupResult.status === "skipped" ? { skipped: true } : { error: formatApiError(backupResult.reason) },
+          localSyncStatus: localSyncStatusResult.data ? localSyncStatusData : { error: formatApiError(localSyncStatusResult.error) },
           failedHealthUrls: localMode ? healthResult.failures : undefined,
         },
         backend: backendStatus,
         database: normalizeConnectionStatus(healthData.database ?? healthData.database_status ?? healthData.db_status ?? healthData.database_connected ?? backupData.database ?? backupData.database_status ?? backupData.db_status ?? backupData.database_connected, backendStatus === "Offline" ? "Offline" : "Connected"),
       });
-      console.info("Backup & Restore status response", { healthEndpoint: localMode && healthResult.endpoint ? healthResult.endpoint : healthEndpoint, backupStatusEndpoint, health: healthData, backupStatus: backupData, failedHealthUrls: localMode ? healthResult.failures : undefined });
+      console.info("Backup & Restore status response", { healthEndpoint: localMode && healthResult.endpoint ? healthResult.endpoint : healthEndpoint, backupStatusEndpoint, health: healthData, backupStatus: backupData, localSyncStatus: localSyncStatusData, failedHealthUrls: localMode ? healthResult.failures : undefined });
     } finally {
       setCheckingEnvironment(false);
     }
@@ -560,34 +360,6 @@ export default function Settings() {
     }
   };
 
-  const saveEnvironmentMode = async (mode) => {
-    if (mode === environmentMode) return;
-    if (!window.confirm("Changing mode will reload the app.")) return;
-
-    if (mode === "local") {
-      const localServerReady = await testLocalServer(localBackendUrl, { showToast: false });
-      if (!localServerReady) {
-        const failedText = localServerTest.failedEndpoint !== "—" ? ` Last failed endpoint: ${localServerTest.failedEndpoint}. ${localServerTest.error}` : "";
-        toast.error(`Local PharmacyOS server is not running after testing all health endpoints.${failedText}`);
-        return;
-      }
-      if (!localImportGuard.confirmed || !localImportGuard.localUsersReady) {
-        toast.error("Import cloud data first so your login works locally.");
-        setLocalImportGuard((current) => ({
-          ...current,
-          status: "Local Mode blocked",
-          message: "Import cloud data first so your login works locally.",
-        }));
-        return;
-      }
-    }
-
-    setApiMode(mode);
-    setEnvironmentMode(mode);
-    setEnvironmentStatus((current) => ({ ...current, backend: "Checking", database: "Checking" }));
-    window.location.reload();
-  };
-
   useEffect(() => {
     if (user?.role === "admin") loadUsers();
     loadSettings();
@@ -612,8 +384,8 @@ export default function Settings() {
     setBackupResult({
       local: "Local backup pending",
       atlas: "MongoDB Atlas backup pending",
-      googleDrive: "Google Drive backup pending",
-      message: "Backup pending",
+      googleDrive: "Google Drive upload pending",
+      message: "Cloud upload pending",
       tone: "text-amber-700",
     });
     try {
@@ -629,7 +401,7 @@ export default function Settings() {
       };
       const hasPendingCloud = [nextResult.atlas, nextResult.googleDrive].some((value) => String(value).toLowerCase().includes("pending"));
       if (hasPendingCloud) {
-        nextResult.message = "Saved locally. Cloud backup pending.";
+        nextResult.message = "Saved locally. Cloud upload pending.";
         nextResult.tone = "text-amber-700";
       }
       setBackupResult(nextResult);
@@ -637,13 +409,12 @@ export default function Settings() {
         ...current,
         lastBackupTime,
         lastSuccessfulBackup: lastBackupTime,
-        cloudSyncStatus: data.cloud_sync_status || (hasPendingCloud ? "Backup pending" : current.cloudSyncStatus || "Ready"),
+        cloudSyncStatus: formatProductionStatus(data.cloud_sync_status, hasPendingCloud ? "Cloud upload pending" : current.cloudSyncStatus || "Ready"),
         pendingUploads: Number(data.pending_uploads ?? current.pendingUploads ?? 0),
-        atlasConnectionStatus: data.atlas_connection_status || data.mongodb_atlas_status || current.atlasConnectionStatus,
+        atlasConnectionStatus: formatProductionStatus(data.atlas_connection_status || data.mongodb_atlas_status, current.atlasConnectionStatus),
         atlasLastBackupTime: data.atlas_last_backup_time || data.mongodb_atlas_last_backup_at || lastBackupTime,
         atlasPendingSyncCount: Number(data.atlas_pending_sync_count ?? current.atlasPendingSyncCount ?? 0),
-        googleDriveConnectionStatus: data.google_drive_connection_status || current.googleDriveConnectionStatus,
-        googleDriveAccount: data.google_drive_account || data.drive_account_email || current.googleDriveAccount,
+        googleDriveConnectionStatus: formatProductionStatus(data.google_drive_service_account_status || data.google_drive_config_status || data.google_drive_connection_status, current.googleDriveConnectionStatus),
         googleDriveLastBackupTime: data.google_drive_last_backup_time || data.drive_last_backup_at || lastBackupTime,
         googleDrivePendingUploadCount: Number(data.google_drive_pending_upload_count ?? data.pending_uploads ?? current.googleDrivePendingUploadCount ?? 0),
       }));
@@ -653,64 +424,38 @@ export default function Settings() {
       setBackupResult({
         local: "Local backup successful",
         atlas: "MongoDB Atlas backup pending",
-        googleDrive: "Google Drive backup pending",
-        message: "Saved locally. Cloud backup pending.",
+        googleDrive: "Google Drive upload pending",
+        message: "Saved locally. Cloud upload pending.",
         tone: "text-amber-700",
       });
       setEnvironmentStatus((current) => ({
         ...current,
-        cloudSyncStatus: "Backup pending",
+        cloudSyncStatus: "Cloud upload pending",
         pendingUploads: Math.max(Number(current.pendingUploads || 0), 1),
-        atlasConnectionStatus: "Pending",
+        atlasConnectionStatus: "Cloud upload pending",
         googleDriveConnectionStatus: current.googleDriveConnectionStatus === "Connected" ? "Pending" : current.googleDriveConnectionStatus,
       }));
-      toast.warning("Saved locally. Cloud backup pending.");
+      toast.warning("Saved locally. Cloud upload pending.");
     }
   };
 
-  const testAtlasConnection = async () => {
-    setTestingAtlas(true);
+  const syncLocalDataToCloud = async () => {
+    setSyncingLocalData(true);
     try {
-      const { data = {} } = await api.post("/backup/atlas/test");
-      setEnvironmentStatus((current) => ({ ...current, atlasConnectionStatus: data.status || "Connected" }));
-      toast.success("MongoDB Atlas backup connection is ready.");
+      const { data = {} } = await api.post("/local-sync/push-to-cloud");
+      setLocalSyncResult({
+        records_synced: data.records_synced ?? 0,
+        failed_tables: Array.isArray(data.failed_tables) ? data.failed_tables.join(", ") || "None" : data.failed_tables ?? "None",
+        last_sync_status: formatProductionStatus(data.last_sync_status || data.status, "Configured"),
+        last_sync_time: data.last_sync_time || data.last_sync_at || new Date().toISOString(),
+      });
+      toast.success("Local data synced to cloud.");
+      refreshEnvironmentStatus();
     } catch (e) {
-      setEnvironmentStatus((current) => ({ ...current, atlasConnectionStatus: "Failed" }));
-      toast.error("MongoDB Atlas backup connection failed.");
+      setLocalSyncResult((current) => ({ ...current, last_sync_status: "Needs attention" }));
+      toast.error(formatApiError(e));
     } finally {
-      setTestingAtlas(false);
-    }
-  };
-
-  const connectGoogleDrive = async () => {
-    setConnectingGoogleDrive(true);
-    try {
-      const { data = {} } = await api.post("/backup/google-drive/connect");
-      if (data.auth_url) window.location.href = data.auth_url;
-      setEnvironmentStatus((current) => ({
-        ...current,
-        googleDriveConnectionStatus: data.status || "Connected",
-        googleDriveAccount: data.account || data.email || current.googleDriveAccount,
-      }));
-      toast.success("Google Drive connection started.");
-    } catch (e) {
-      toast.error("Could not connect Google Drive.");
-    } finally {
-      setConnectingGoogleDrive(false);
-    }
-  };
-
-  const testGoogleDriveConnection = async () => {
-    setTestingGoogleDrive(true);
-    try {
-      const { data = {} } = await api.post("/backup/google-drive/test");
-      setEnvironmentStatus((current) => ({ ...current, googleDriveConnectionStatus: data.status || "Connected" }));
-      toast.success("Google Drive backup connection is ready.");
-    } catch (e) {
-      setEnvironmentStatus((current) => ({ ...current, googleDriveConnectionStatus: "Failed" }));
-      toast.error("Google Drive backup connection failed.");
-    } finally {
-      setTestingGoogleDrive(false);
+      setSyncingLocalData(false);
     }
   };
 
@@ -1269,16 +1014,13 @@ export default function Settings() {
           Download a JSON snapshot of all data, or restore from a previously
           exported file.
         </p>
-        <p className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-900">
-          To use Local Desktop Mode, start PharmacyOS-Start.bat first.
-        </p>
         <div className="mb-5 rounded-lg border border-emerald-100 bg-emerald-50 p-4" data-testid="environment-status-panel">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <div className="flex items-center gap-2 font-heading font-semibold text-emerald-950">
                 <Server className="h-4 w-4" /> Environment Status
               </div>
-              <p className="mt-1 text-sm text-emerald-900">Switch between the current cloud backend and a local PharmacyOS server without changing API paths.</p>
+              <p className="mt-1 text-sm text-emerald-900">Review local backup readiness and cloud service-account sync status without changing pharmacy workflow.</p>
             </div>
             <Button type="button" variant="outline" onClick={refreshEnvironmentStatus} disabled={checkingEnvironment} className="rounded-sm border-emerald-200 bg-white">
               <RefreshCw className={`mr-2 h-4 w-4 ${checkingEnvironment ? "animate-spin" : ""}`} />
@@ -1287,80 +1029,10 @@ export default function Settings() {
           </div>
           <div className="mt-4 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
             <div className="rounded-md border border-white/70 bg-white p-3">
-              <Label className="text-xs uppercase font-semibold text-slate-600">Mode</Label>
-              <Select value={environmentMode} onValueChange={saveEnvironmentMode}>
-                <SelectTrigger className="mt-1 rounded-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cloud">Cloud</SelectItem>
-                  <SelectItem value="local">Local</SelectItem>
-                </SelectContent>
-              </Select>
-              <Label className="mt-3 block text-xs uppercase font-semibold text-slate-600">Local backend URL</Label>
-              <div className="mt-1 flex flex-wrap gap-2">
-                <Input value={localBackendUrl} onChange={(event) => setLocalBackendUrlState(event.target.value)} className="min-w-64 flex-1 rounded-sm" placeholder="http://localhost:8000" />
-                <Button type="button" variant="outline" onClick={() => setLocalBackendUrlState(persistLocalBackendUrl(localBackendUrl))}>Save URL</Button>
-                <Button type="button" variant="outline" onClick={() => testLocalServer()} disabled={testingLocalServer}>
-                  <Server className="mr-2 h-4 w-4" />
-                  {testingLocalServer ? "Testing…" : "Test Local Server"}
-                </Button>
-              </div>
-              <p className="mt-2 text-xs text-slate-500">Active API base: <span className="font-mono">{getApiBaseUrl(environmentMode)}</span></p>
-              <p className={`mt-1 text-xs font-semibold ${environmentMode === "local" && isLocalApiUrl(getApiBaseUrl("local")) ? "text-emerald-700" : "text-slate-500"}`}>
-                Local API guard: {environmentMode === "local" ? "all shared API calls are forced to localhost before sending." : "enable Local Mode to force localhost API routing."}
-              </p>
+              <div className="text-sm font-semibold text-slate-950">Local Mode Status</div>
+              <p className="mt-1 text-sm text-slate-600">Local Mode is managed by the Windows launcher. This page only shows backup and cloud-sync readiness.</p>
+              <p className="mt-3 text-xs text-slate-500">Active API base: <span className="font-mono">{getApiBaseUrl(environmentMode)}</span></p>
               <p className="mt-1 text-xs text-slate-500">Status endpoint: <span className="font-mono">{environmentStatus.endpoint}</span></p>
-              <p className="mt-1 text-xs font-semibold text-amber-700">Changing mode will reload the app. Local mode is saved only after the health check passes.</p>
-              {localServerTest.status === "Connected" && (
-                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Local Server Connected
-                </div>
-              )}
-              <div className="mt-4 rounded-md border border-blue-100 bg-blue-50 p-3" data-testid="local-import-guard">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-blue-950">Local Mode Import Guard</div>
-                    <p className="mt-1 text-xs text-blue-900">Test the local server, run a local import dry-run, review counts, then confirm the import before Local Mode is enabled.</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" onClick={runLocalImportDryRun} disabled={runningLocalImportGuard || confirmingLocalImport} className="rounded-sm bg-white">
-                      <RefreshCw className={`mr-2 h-4 w-4 ${runningLocalImportGuard ? "animate-spin" : ""}`} />
-                      {runningLocalImportGuard ? "Running…" : "Run Dry-Run Import"}
-                    </Button>
-                    <Button type="button" onClick={confirmLocalImport} disabled={confirmingLocalImport || runningLocalImportGuard || !localImportGuard.localUsersReady} className="rounded-sm bg-blue-600 hover:bg-blue-700">
-                      {confirmingLocalImport ? "Importing…" : "Confirm Import"}
-                    </Button>
-                  </div>
-                </div>
-                <div className="mt-3 grid gap-2 text-xs md:grid-cols-2">
-                  <div>Status: <span className="font-semibold">{localImportGuard.status}</span></div>
-                  <div>Local users: <span className={localImportGuard.localUsersReady ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>{localImportGuard.localUsersReady ? "Found" : "Missing"}</span></div>
-                  <div>Dry-run endpoint: <span className="font-mono">{localImportGuard.dryRunEndpoint}</span></div>
-                  <div>Import endpoint: <span className="font-mono">{localImportGuard.importEndpoint}</span></div>
-                  <div>Request URL: <span className="font-mono">{localImportGuard.requestUrl}</span></div>
-                  <div>HTTP method: <span className="font-mono">{localImportGuard.requestMethod}</span></div>
-                  <div>Browser error: <span className="font-mono">{localImportGuard.browserErrorName}</span></div>
-                  <div>Response object: <span className="font-mono">{localImportGuard.responseExists}</span></div>
-                  <div className="md:col-span-2">Browser message: <span className="font-mono">{localImportGuard.browserErrorMessage}</span></div>
-                </div>
-                <div className={`mt-2 rounded border px-2 py-1 text-xs font-semibold ${localImportGuard.localUsersReady ? "border-emerald-100 bg-white text-emerald-800" : "border-amber-100 bg-amber-50 text-amber-800"}`}>
-                  {localImportGuard.message}
-                </div>
-                {Object.keys(localImportGuard.counts).length > 0 && (
-                  <div className="mt-3 rounded border border-blue-100 bg-white p-2">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Dry-run counts</div>
-                    <div className="grid gap-1 text-xs sm:grid-cols-2">
-                      {Object.entries(localImportGuard.counts).map(([key, value]) => (
-                        <div key={key} className="flex justify-between gap-3 rounded bg-slate-50 px-2 py-1">
-                          <span className="font-mono text-slate-600">{key}</span>
-                          <span className="font-semibold text-slate-900">{String(value)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {[
@@ -1376,75 +1048,7 @@ export default function Settings() {
                 </div>
               ))}
             </div>
-            <div className="rounded-md border border-white/70 bg-white p-3" data-testid="performance-panel">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="text-sm font-semibold text-slate-950">Performance</div>
-                  <p className="mt-1 text-xs text-slate-500">Slow API calls over 900ms are recorded locally so old PCs can identify screens that need attention.</p>
-                </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => setSlowApiCalls(getSlowApiCalls())}>Refresh</Button>
-              </div>
-              <div className="mt-3 max-h-56 overflow-auto rounded border border-slate-100">
-                <table className="w-full text-xs">
-                  <thead className="bg-slate-50 text-slate-500"><tr><th className="p-2 text-left">API</th><th className="p-2 text-right">Time</th><th className="p-2 text-right">Status</th></tr></thead>
-                  <tbody>
-                    {slowApiCalls.length === 0 && <tr><td colSpan={3} className="p-3 text-center text-slate-500">No slow API calls recorded.</td></tr>}
-                    {slowApiCalls.map((call, index) => (
-                      <tr key={`${call.at}-${index}`} className="border-t border-slate-100">
-                        <td className="p-2"><div className="font-mono font-semibold">{call.method} {call.url}</div><div className="font-mono text-[10px] text-slate-400">{new Date(call.at).toLocaleString()}</div></td>
-                        <td className="p-2 text-right font-mono font-bold text-amber-700">{call.durationMs}ms</td>
-                        <td className="p-2 text-right font-mono">{call.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </div>
-          {environmentMode === "local" && environmentStatus.backend === "Offline" && environmentStatus.response?.health?.error && (
-            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              <div className="flex items-start gap-2 font-semibold">
-                <AlertTriangle className="mt-0.5 h-4 w-4" />
-                <div>
-                  <div>Local PharmacyOS server stopped. Please restart PharmacyOS.</div>
-                  <div className="mt-2 font-normal">
-                    To use Local Mode:<br />
-                    1. Start PharmacyOS-Start.bat.<br />
-                    2. Click Test Local Server.<br />
-                    3. Switch to Local Mode after the connection succeeds.
-                  </div>
-                  {localServerTest.failedEndpoint !== "—" && (
-                    <div className="mt-2 font-mono text-xs text-red-700">Failed endpoint: {localServerTest.failedEndpoint} — {localServerTest.error}</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="mt-3 rounded-md border border-blue-100 bg-blue-50 p-3 text-xs text-slate-700">
-            <div className="mb-2 flex items-center gap-2 font-semibold text-blue-950"><Server className="h-3.5 w-3.5" />Local Mode Setup Help</div>
-            <div className="grid gap-2 md:grid-cols-2">
-              <div>Current local server URL: <span className="font-mono">{(localBackendUrl || getLocalBackendUrl()).trim().replace(/\/$/, "")}</span></div>
-              <div>Last tested URL: <span className="font-mono">{localServerTest.lastTestedUrl}</span></div>
-              <div>Connection status: <span className={localServerTest.status === "Connected" ? "font-semibold text-emerald-700" : localServerTest.status === "Offline" ? "font-semibold text-red-700" : "font-semibold text-slate-700"}>{localServerTest.status}</span></div>
-              <div>Health endpoint result: <span className="font-mono">{localServerTest.healthResult}</span></div>
-            </div>
-            {localServerTest.status === "Offline" && localServerTest.failedEndpoint !== "—" && (
-              <div className="mt-2 rounded border border-red-100 bg-white px-2 py-1 text-red-700">
-                Test failed at <span className="font-mono">{localServerTest.failedEndpoint}</span>: {localServerTest.error}
-              </div>
-            )}
-          </div>
-          <details className="mt-3 rounded-md border border-emerald-100 bg-white p-3 text-xs text-slate-600">
-            <summary className="cursor-pointer font-semibold text-emerald-900">Health/status response</summary>
-            <div className="mt-2 grid gap-1">
-              <div>Health endpoint: <span className="font-mono">{environmentStatus.healthEndpoint}</span></div>
-              <div>Backup endpoint: <span className="font-mono">{environmentStatus.backupStatusEndpoint}</span></div>
-              {environmentStatus.response?.failedHealthUrls?.length > 0 && (
-                <div>Failed URL: <span className="font-mono text-red-700">{environmentStatus.response.failedHealthUrls[environmentStatus.response.failedHealthUrls.length - 1].endpoint}</span></div>
-              )}
-            </div>
-            <pre className="mt-2 max-h-48 overflow-auto rounded bg-slate-950 p-3 text-[11px] text-slate-100">{JSON.stringify(environmentStatus.response, null, 2)}</pre>
-          </details>
         </div>
 
         <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 p-4" data-testid="backup-center-section">
@@ -1455,7 +1059,7 @@ export default function Settings() {
             <div><div className="text-xs uppercase font-semibold text-slate-500">Last backup time</div><div className="font-semibold">{environmentStatus.lastSuccessfulBackup}</div></div>
             <div><div className="text-xs uppercase font-semibold text-slate-500">Cloud sync status</div><div className="font-semibold">{environmentStatus.cloudSyncStatus}</div></div>
             <div><div className="text-xs uppercase font-semibold text-slate-500">Pending uploads</div><div className="font-semibold">{environmentStatus.pendingUploads}</div></div>
-            <div><div className="text-xs uppercase font-semibold text-slate-500">Billing safety</div><div className="font-semibold text-emerald-700">Saved locally. Cloud backup pending.</div></div>
+            <div><div className="text-xs uppercase font-semibold text-slate-500">Billing safety</div><div className="font-semibold text-emerald-700">Saved locally. Cloud upload pending.</div></div>
           </div>
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
             Do not close the app while backup is running.
@@ -1468,22 +1072,14 @@ export default function Settings() {
                 <div className="flex justify-between gap-3"><span className="text-slate-500">Last backup time</span><span className="font-semibold">{environmentStatus.atlasLastBackupTime}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-slate-500">Pending sync count</span><span className="font-semibold">{environmentStatus.atlasPendingSyncCount}</span></div>
               </div>
-              <Button type="button" variant="outline" onClick={testAtlasConnection} disabled={testingAtlas} className="mt-3 rounded-sm">
-                <RefreshCw className={`mr-2 h-4 w-4 ${testingAtlas ? "animate-spin" : ""}`} />
-                {testingAtlas ? "Testing Atlas…" : "Test Atlas connection"}
-              </Button>
             </div>
             <div className="rounded-md border border-slate-200 bg-white p-3">
               <div className="mb-3 flex items-center gap-2 font-heading font-semibold text-slate-900"><Cloud className="h-4 w-4" />Google Drive Backup</div>
+              <p className="mb-3 text-xs text-slate-500">Service-account backup status. No owner login is required.</p>
               <div className="grid gap-2 text-sm">
-                <div className="flex justify-between gap-3"><span className="text-slate-500">Connected account</span><span className="font-semibold">{environmentStatus.googleDriveAccount}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-slate-500">Connection status</span><span className="font-semibold">{environmentStatus.googleDriveConnectionStatus}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Service-account status</span><span className="font-semibold">{environmentStatus.googleDriveConnectionStatus}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-slate-500">Last backup time</span><span className="font-semibold">{environmentStatus.googleDriveLastBackupTime}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-slate-500">Pending upload count</span><span className="font-semibold">{environmentStatus.googleDrivePendingUploadCount}</span></div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={connectGoogleDrive} disabled={connectingGoogleDrive} className="rounded-sm"><LinkIcon className="mr-2 h-4 w-4" />{connectingGoogleDrive ? "Connecting…" : "Connect Google Drive"}</Button>
-                <Button type="button" variant="outline" onClick={testGoogleDriveConnection} disabled={testingGoogleDrive} className="rounded-sm"><RefreshCw className={`mr-2 h-4 w-4 ${testingGoogleDrive ? "animate-spin" : ""}`} />{testingGoogleDrive ? "Testing Drive…" : "Test Google Drive connection"}</Button>
               </div>
             </div>
           </div>
@@ -1496,7 +1092,7 @@ export default function Settings() {
               <div>Manual backup available</div>
             </div>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div><div className="text-xs uppercase font-semibold text-slate-500">Local backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.local}</div></div>
             <div><div className="text-xs uppercase font-semibold text-slate-500">MongoDB Atlas backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.atlas}</div></div>
             <div><div className="text-xs uppercase font-semibold text-slate-500">Google Drive backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.googleDrive}</div></div>
@@ -1506,7 +1102,7 @@ export default function Settings() {
               Local Mode • Last backup: {environmentStatus.lastSuccessfulBackup}
             </div>
           )}
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg border border-emerald-200 bg-white p-3">
               <Button type="button" onClick={backupNow} className="w-full rounded-sm bg-emerald-700 hover:bg-emerald-800"><HardDrive className="mr-2 h-4 w-4" />Backup Now</Button>
               <p className="mt-2 text-xs text-slate-600">Creates a local backup and uploads it to Atlas and Google Drive.</p>
@@ -1524,9 +1120,23 @@ export default function Settings() {
               <p className="mt-2 text-xs text-slate-600">Downloads a manual backup file for pen drive or external storage.</p>
             </div>
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <Button type="button" variant="outline" disabled className="w-full rounded-sm border-amber-300 text-amber-800" title="Restore is experimental until backend restore is fully verified."><Upload className="mr-2 h-4 w-4" />Restore Backup (Experimental)</Button>
-              <p className="mt-2 text-xs text-amber-800">Experimental. Use only after testing.</p>
+              <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} className="w-full rounded-sm border-amber-300 text-amber-800"><Upload className="mr-2 h-4 w-4" />Restore Backup</Button>
+              <p className="mt-2 text-xs text-amber-800">Use only after taking a fresh backup.</p>
             </div>
+            {user?.role === "admin" && (
+              <div className="rounded-lg border border-blue-200 bg-white p-3">
+                <Button type="button" variant="outline" onClick={syncLocalDataToCloud} disabled={syncingLocalData} className="w-full rounded-sm border-blue-200 text-blue-800">
+                  <RefreshCw className={`mr-2 h-4 w-4 ${syncingLocalData ? "animate-spin" : ""}`} />
+                  {syncingLocalData ? "Syncing…" : "Sync Local Data to Cloud"}
+                </Button>
+                <div className="mt-2 grid gap-1 text-xs text-slate-600">
+                  <div>records_synced: <span className="font-semibold">{localSyncResult.records_synced}</span></div>
+                  <div>failed_tables: <span className="font-semibold">{localSyncResult.failed_tables}</span></div>
+                  <div>last_sync_status: <span className="font-semibold">{localSyncResult.last_sync_status}</span></div>
+                  <div>last_sync_time: <span className="font-semibold">{localSyncResult.last_sync_time}</span></div>
+                </div>
+              </div>
+            )}
           </div>
           <input
             ref={fileRef}
