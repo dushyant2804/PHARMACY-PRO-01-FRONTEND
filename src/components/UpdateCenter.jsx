@@ -1,10 +1,11 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState, useEffect } from "react";
-import { Check, Download, RefreshCw, Rocket, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, Download, RefreshCw, Rocket, Sparkles } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EMPTY_RELEASE_NOTES, FRONTEND_BUILD, FRONTEND_VERSION, getVersionIdentity, hasReleaseNotes, normalizeVersionMetadata, RELEASE_NOTE_GROUPS } from "@/lib/version";
+import { startPharmacyOSUpdate, UPDATE_RESTART_WARNING, UPDATE_SAVE_WARNING, UPDATE_STARTING_MESSAGE } from "@/lib/startUpdate";
 
 const UpdateContext = createContext(null);
 export const useUpdateCenter = () => useContext(UpdateContext);
@@ -58,6 +59,7 @@ export default function UpdateCenter({ children }) {
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [checking, setChecking] = useState(false);
   const [checkStatus, setCheckStatus] = useState("Not checked yet");
+  const [updateAction, setUpdateAction] = useState({ loading: false, message: "", disabled: false, canOpenDownload: false });
   const popupShownRef = useRef(false);
   const dismissedRef = useRef(false);
 
@@ -97,10 +99,24 @@ export default function UpdateCenter({ children }) {
     setUpdateOpen(false);
   };
 
-  const updateNow = () => {
-    if (metadata.downloadUrl) window.open(metadata.downloadUrl, "_blank");
-    if (!metadata.mandatory) setUpdateOpen(false);
-  };
+  const openDownload = useCallback(() => {
+    if (metadata.downloadUrl) window.open(metadata.downloadUrl, "_blank", "noopener,noreferrer");
+  }, [metadata.downloadUrl]);
+
+  const updateNow = useCallback(async () => {
+    setUpdateAction({ loading: true, message: UPDATE_STARTING_MESSAGE, disabled: false, canOpenDownload: false });
+    const result = await startPharmacyOSUpdate({ downloadUrl: metadata.downloadUrl });
+    if (result.openDownload) openDownload();
+    setUpdateAction({
+      loading: false,
+      message: result.message,
+      disabled: Boolean(result.disableUpdateNow),
+      canOpenDownload: Boolean(result.canOpenDownload),
+    });
+    if (result.status === "started" && !metadata.mandatory) {
+      window.setTimeout(() => setUpdateOpen(false), 2500);
+    }
+  }, [metadata.downloadUrl, metadata.mandatory, openDownload]);
 
   return (
     <>
@@ -123,6 +139,10 @@ export default function UpdateCenter({ children }) {
         channel: metadata.channel,
         lastCheckedAt: metadata.fetchedAt,
         mandatory: metadata.mandatory,
+        updateNow,
+        updateAction,
+        openDownload,
+        hasDownloadUrl: Boolean(metadata.downloadUrl),
       }}>{children}</UpdateContext.Provider>
 
       <Dialog open={updateOpen} onOpenChange={(open) => (metadata.mandatory ? setUpdateOpen(true) : setUpdateOpen(open))}>
@@ -139,13 +159,20 @@ export default function UpdateCenter({ children }) {
           </div>
           <div className="space-y-5 px-6 pb-6 pt-5 sm:px-8 sm:pb-8">
             <UpdateFacts currentIdentity={currentIdentity} latestIdentity={latestIdentity} metadata={metadata} />
+            <UpdateWarnings />
+            {updateAction.message && (
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm font-medium text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100" role="status">
+                {updateAction.message}
+              </div>
+            )}
             <section>
               <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[.16em] text-emerald-900"><Sparkles className="h-4 w-4 text-amber-500" /> What’s New</div>
               <PlainNotes notes={dedupe(metadata.whatsNew)} />
             </section>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               {!metadata.mandatory && <Button type="button" variant="outline" onClick={closeForLater}>Update Later</Button>}
-              <Button type="button" onClick={updateNow} className="bg-emerald-900 hover:bg-emerald-800"><Download className="mr-2 h-4 w-4" />Update Now</Button>
+              {updateAction.canOpenDownload && metadata.downloadUrl && <Button type="button" variant="outline" onClick={openDownload}>Open Download</Button>}
+              <Button type="button" onClick={updateNow} disabled={updateAction.loading || updateAction.disabled} className="bg-emerald-900 hover:bg-emerald-800"><Download className="mr-2 h-4 w-4" />{updateAction.loading ? UPDATE_STARTING_MESSAGE : "Update Now"}</Button>
             </div>
           </div>
         </DialogContent>
@@ -159,6 +186,10 @@ export default function UpdateCenter({ children }) {
       </Dialog>
     </>
   );
+}
+
+function UpdateWarnings() {
+  return <div className="grid gap-2 text-sm"><div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{UPDATE_SAVE_WARNING}</div><div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">{UPDATE_RESTART_WARNING}</div></div>;
 }
 
 function UpdateFacts({ currentIdentity, latestIdentity, metadata }) {
