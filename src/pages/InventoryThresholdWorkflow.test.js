@@ -19,7 +19,7 @@ test("Inventory popup keeps low-stock threshold compact in Medicine Details head
   expect(inventory).toContain('data-testid="unlock-threshold-button"');
   expect(
     inventory.indexOf("headerAction={renderThresholdControl()}"),
-  ).toBeLessThan(inventory.indexOf('title="Batch Details"'));
+  ).toBeLessThan(inventory.indexOf('title="Stock Lot Details"'));
   expect(inventory).not.toContain('title="Low Stock Threshold"');
   expect(inventory).not.toContain('eyebrow="Low stock control"');
 });
@@ -56,4 +56,52 @@ test("Dashboard low-stock workflow remains limited to Reordered and Abandoned", 
     'export const LOW_STOCK_ACTION_STATUSES = ["Reordered", "Abandoned"]',
   );
   expect(workflow).not.toContain("Restocked");
+});
+
+test("Inventory table uses backend medicine rows and backend lot counts", () => {
+  const inventory = read("src/pages/Inventory.jsx");
+
+  expect(inventory).toContain(
+    'api.get("/medicines", { params: { search: debouncedSearch } })',
+  );
+  expect(inventory).toContain(
+    'const nextMeds = Array.isArray(data) ? data : []',
+  );
+  expect(inventory).toContain('{visibleMeds.map((medicine) => {');
+  expect(inventory).toContain(
+    '<th className="p-3 text-center">Stock Lots</th>',
+  );
+  expect(inventory).toContain('{getInventoryLotCount(medicine)}');
+  expect(inventory).toMatch(
+    /medicine\?\.lot_count[\s\S]*medicine\?\.batch_count/,
+  );
+  expect(inventory).not.toContain("reduce((");
+  expect(inventory).not.toContain("new Map(");
+});
+
+test("Inventory details render backend stock lots separately with distributor names", () => {
+  const inventory = read("src/pages/Inventory.jsx");
+
+  expect(inventory).toContain("api.get(`/medicines/${medicine.id}`)");
+  expect(inventory).toContain("medicine?.stock_lots");
+  expect(inventory).toContain("medicine?.lots");
+  expect(inventory).toContain("medicine?.batches");
+  expect(inventory).toContain("getInventoryLots(selected).map((batch, index) =>");
+  expect(inventory).toContain("getDistributorName(batch)");
+  expect(inventory).toContain("getBatchNumber(batch)");
+  expect(inventory).toContain("value={getAvailableQty(batch)}");
+  expect(inventory).toContain("label=\"Distributor\"");
+  expect(inventory).toContain("label=\"Purchase rate\"");
+  expect(inventory).toContain("label=\"MRP\"");
+});
+
+test("Inventory details do not merge same-batch lots on the frontend", () => {
+  const inventory = read("src/pages/Inventory.jsx");
+
+  expect(inventory).toContain(
+    'lots.filter((lot) => lot && typeof lot === "object")',
+  );
+  expect(inventory).toContain('batch.lot_id');
+  expect(inventory).toContain('batch.distributor_id || getDistributorName(batch)');
+  expect(inventory).not.toMatch(/groupBy|mergeLots|mergeBatches|combinedQty|sumByBatch/);
 });
