@@ -176,7 +176,10 @@ export const normalizeVersionMetadata = (payload = {}) => {
     data.whats_new ||
     data.changelog;
   const releaseNotes = normalizeReleaseNotes(rawNotes);
+  const whatsNew = normalizeNoteList(data.whats_new || data.whatsNew);
   const updateAvailable = data.update_available ?? data.updateAvailable;
+  const currentVersion = data.current_version || data.installed_version || FRONTEND_VERSION;
+  const currentBuild = data.current_build || data.installed_build || FRONTEND_BUILD;
 
   const normalizedVersion = String(version).replace(/^v/i, "");
   const identity = getVersionIdentity(normalizedVersion);
@@ -185,9 +188,18 @@ export const normalizeVersionMetadata = (payload = {}) => {
   return {
     version: build && !identity.build ? `${identity.version}+${build}` : normalizedVersion,
     build,
+    currentVersion: String(currentVersion || FRONTEND_VERSION).replace(/^v/i, ""),
+    currentBuild: currentBuild ? String(currentBuild) : FRONTEND_BUILD,
+    latestVersion: String(data.latest_version || version).replace(/^v/i, ""),
+    latestBuild: data.latest_build ? String(data.latest_build) : build,
     date: data.date || data.release_date || data.released_at || null,
     message: data.message || data.update_message || "",
     releaseNotes,
+    whatsNew,
+    updateSizeLabel: data.update_size_label || data.updateSizeLabel || data.size_label || "",
+    downloadUrl: data.download_url || data.downloadUrl || "",
+    channel: data.channel || "",
+    mandatory: Boolean(data.mandatory),
     updateAvailable:
       typeof updateAvailable === "boolean" ? updateAvailable : null,
   };

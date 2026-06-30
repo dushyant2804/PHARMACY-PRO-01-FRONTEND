@@ -39,13 +39,44 @@ describe("version helpers", () => {
         update_message: "Ready",
         notes: "Faster\nSafer",
       }),
-    ).toEqual({
+    ).toMatchObject({
       version: "2.1",
       build: "",
+      latestVersion: "2.1",
       date: null,
       message: "Ready",
       releaseNotes: { new: [], improved: ["Faster", "Safer"], fixed: [] },
       updateAvailable: null,
+    });
+  });
+
+  test("normalizes update check manifest fields", () => {
+    expect(
+      normalizeVersionMetadata({
+        current_version: "1.0.0",
+        current_build: "100",
+        latest_version: "1.1.0",
+        latest_build: "110",
+        update_available: true,
+        update_size_label: "82 MB",
+        release_date: "2026-06-30",
+        channel: "stable",
+        mandatory: true,
+        download_url: "https://example.test/update.exe",
+        whats_new: ["Faster", "Faster", "Safer"],
+      }),
+    ).toMatchObject({
+      currentVersion: "1.0.0",
+      currentBuild: "100",
+      latestVersion: "1.1.0",
+      latestBuild: "110",
+      updateAvailable: true,
+      updateSizeLabel: "82 MB",
+      date: "2026-06-30",
+      channel: "stable",
+      mandatory: true,
+      downloadUrl: "https://example.test/update.exe",
+      whatsNew: ["Faster", "Faster", "Safer"],
     });
   });
 

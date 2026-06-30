@@ -54,6 +54,22 @@ import {
   RELEASE_NOTE_GROUPS,
 } from "@/lib/version";
 
+const formatUpdateDate = (value) => {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+};
+
+const formatUpdateCheckedAt = (value) => {
+  if (!value) return "Not checked yet";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+};
+
+const dedupeUpdateNotes = (notes = []) => Array.from(new Set(notes.map((note) => String(note).trim()).filter(Boolean)));
+
 export default function Settings() {
   const { user } = useAuth();
   const updateCenter = useUpdateCenter();
@@ -1248,83 +1264,93 @@ export default function Settings() {
         </div>
       )}
       <section
-        className="rounded-xl border border-slate-200 bg-white p-5"
+        className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm dark:border-emerald-900/40 dark:bg-slate-950"
         id="update-center-section"
         data-testid="update-center-section"
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="font-heading font-semibold">Update Center</div>
-            <p className="mt-1 text-sm text-slate-600">
-              Version details and the latest improvements available to your
-              pharmacy.
-            </p>
-          </div>
-          <div className="rounded-lg bg-emerald-950 px-3 py-2 text-left text-white sm:text-right">
-            <div className="text-xs text-emerald-100/70">Current version/build</div>
-            <div className="font-mono text-sm">
-              v
-              {
-                getVersionIdentity(updateCenter?.latestVersion || versionInfo?.version || FRONTEND_VERSION)
-                  .version
-              }
-            </div>
-            {getVersionIdentity(updateCenter?.latestVersion || versionInfo?.version || FRONTEND_VERSION)
-              .build && (
-              <div className="mt-1 text-[11px] text-emerald-100/70">
-                Build{" "}
-                {
-                  getVersionIdentity(updateCenter?.latestVersion || versionInfo?.version || FRONTEND_VERSION)
-                    .build
-                }
+        {(() => {
+          const currentIdentity = getVersionIdentity(updateCenter?.currentVersion || versionInfo?.version || FRONTEND_VERSION);
+          const latestIdentity = getVersionIdentity(updateCenter?.latestVersion || versionInfo?.version || FRONTEND_VERSION);
+          const notes = updateCenter?.releaseNotes || versionInfo?.releaseNotes;
+          const status = updateCenter?.unavailable
+            ? "Update check unavailable"
+            : updateCenter?.updateAvailable
+              ? "Update available"
+              : updateCenter?.lastCheckedAt
+                ? "Up to date"
+                : "Not checked yet";
+          return (
+            <>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="font-heading font-semibold text-slate-950 dark:text-slate-100">Update Center</div>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    PharmacyOS checks for desktop updates automatically after sign-in. You can also check manually any time.
+                  </p>
+                </div>
+                <div className="rounded-xl bg-emerald-950 px-4 py-3 text-left text-white sm:text-right">
+                  <div className="text-xs text-emerald-100/70">Current Version / Build</div>
+                  <div className="font-mono text-sm">v{currentIdentity.version}</div>
+                  <div className="mt-1 text-[11px] text-emerald-100/70">Build {updateCenter?.currentBuild || currentIdentity.build || "—"}</div>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-        <div className="mt-5 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 p-3">
-          <Button type="button" onClick={() => updateCenter?.checkForUpdates()} disabled={updateCenter?.checking} className="rounded-sm bg-emerald-700 hover:bg-emerald-800">
-            <RefreshCw className={`mr-2 h-4 w-4 ${updateCenter?.checking ? "animate-spin" : ""}`} />
-            {updateCenter?.checking ? "Checking updates…" : "Check updates"}
-          </Button>
-          <Button type="button" variant="outline" onClick={() => updateCenter?.openWhatsNew()} className="rounded-sm border-emerald-200">
-            What’s New
-          </Button>
-          <span className="text-sm font-semibold text-emerald-950">Update status: {updateCenter?.checkStatus || "Ready to check"}</span>
-        </div>
-        <div className="mt-5">
-          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-600">
-            <RefreshCw className="h-4 w-4" />
-            What’s new / Release notes
-          </div>
-          {hasReleaseNotes(updateCenter?.releaseNotes || versionInfo?.releaseNotes) ? (
-            <div className="grid gap-4 sm:grid-cols-3">
-              {RELEASE_NOTE_GROUPS.filter(
-                ({ key }) => (updateCenter?.releaseNotes || versionInfo?.releaseNotes)?.[key]?.length,
-              ).map(({ key, label }) => (
-                <section key={key}>
-                  <div className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-900">
-                    {label}
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {[
+                  ["Latest Version / Build", `v${latestIdentity.version} / Build ${updateCenter?.latestBuild || latestIdentity.build || "—"}`],
+                  ["Status", status],
+                  ["Update size", updateCenter?.updateSizeLabel || "—"],
+                  ["Release date", formatUpdateDate(updateCenter?.releaseDate)],
+                  ["Channel", updateCenter?.channel || "—"],
+                  ["Last checked", formatUpdateCheckedAt(updateCenter?.lastCheckedAt)],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-300">{label}</div>
+                    <div className="mt-1 break-words text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</div>
                   </div>
-                  <ul className="grid gap-2">
-                    {(updateCenter?.releaseNotes || versionInfo?.releaseNotes)[key].map((note) => (
-                      <li
-                        key={`${key}-${note}`}
-                        className="flex gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700"
-                      >
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                        {note}
-                      </li>
+                ))}
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <Button type="button" onClick={() => updateCenter?.checkForUpdates()} disabled={updateCenter?.checking} className="rounded-sm bg-emerald-700 hover:bg-emerald-800">
+                  <RefreshCw className={`mr-2 h-4 w-4 ${updateCenter?.checking ? "animate-spin" : ""}`} />
+                  {updateCenter?.checking ? "Checking updates…" : "Check updates"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => updateCenter?.openWhatsNew()} className="rounded-sm border-emerald-200">
+                  What’s New
+                </Button>
+              </div>
+
+              <div className="mt-6">
+                <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                  <RefreshCw className="h-4 w-4" />
+                  What’s new / Release notes
+                </div>
+                {hasReleaseNotes(notes) ? (
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    {RELEASE_NOTE_GROUPS.filter(({ key }) => notes?.[key]?.length).map(({ key, label }) => (
+                      <section key={key}>
+                        <div className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-300">{label}</div>
+                        <ul className="grid gap-2">
+                          {dedupeUpdateNotes(notes[key]).map((note) => (
+                            <li key={`${key}-${note}`} className="flex gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                              {note}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
                     ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">
-              No release notes available for this update.
-            </p>
-          )}
-        </div>
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+                    No release notes available.
+                  </p>
+                )}
+              </div>
+            </>
+          );
+        })()}
       </section>
     </div>
   );
