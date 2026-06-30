@@ -114,8 +114,8 @@ function App() {
 
   return (
     <div className="App">
-      <UpdateCenter>
       <AuthProvider>
+        <UpdateCenter>
          <HashRouter>
           <Toaster position="top-right" richColors />
 
@@ -295,8 +295,8 @@ function App() {
             />
           </Routes>
         </HashRouter>
+        </UpdateCenter>
       </AuthProvider>
-      </UpdateCenter>
     </div>
   );
 }

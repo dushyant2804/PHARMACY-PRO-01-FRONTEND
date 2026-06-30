@@ -1,180 +1,86 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import {
-  CalendarDays,
-  Check,
-  RefreshCw,
-  Rocket,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
-import api, { formatApiError, getApiMode } from "@/lib/api";
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState, useEffect } from "react";
+import { Check, Download, RefreshCw, Rocket, Sparkles } from "lucide-react";
+import api, { formatApiError } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  ACKNOWLEDGED_BUILD_KEY,
-  compareVersions,
-  EMPTY_RELEASE_NOTES,
-  FRONTEND_BUILD,
-  FRONTEND_VERSION,
-  getFrontendUpdateState,
-  getStoredVersion,
-  getUpdateType,
-  getVersionIdentity,
-  hasReleaseNotes,
-  normalizeVersionMetadata,
-  RELEASE_NOTE_GROUPS,
-  removeStoredVersion,
-  setStoredVersion,
-  UPDATE_COMPLETED_KEY,
-} from "@/lib/version";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EMPTY_RELEASE_NOTES, FRONTEND_BUILD, FRONTEND_VERSION, getVersionIdentity, hasReleaseNotes, normalizeVersionMetadata, RELEASE_NOTE_GROUPS } from "@/lib/version";
 
-const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const UpdateContext = createContext(null);
+export const useUpdateCenter = () => useContext(UpdateContext);
 
 const defaultMetadata = {
   version: FRONTEND_VERSION,
   build: FRONTEND_BUILD,
+  currentVersion: FRONTEND_VERSION,
+  currentBuild: FRONTEND_BUILD,
+  latestVersion: FRONTEND_VERSION,
+  latestBuild: FRONTEND_BUILD,
   date: null,
-  message: "",
   releaseNotes: EMPTY_RELEASE_NOTES,
-  updateAvailable: null,
-  endpoint: "—",
+  whatsNew: [],
+  updateAvailable: false,
+  updateSizeLabel: "",
+  downloadUrl: "",
+  channel: "",
+  mandatory: false,
   fetchedAt: null,
+  unavailable: false,
 };
 
-const updateCenterEndpoints = [
-  { type: "api", url: "/updates/check" },
-  { type: "static", url: "/version.json" },
-];
-
-const UpdateContext = createContext(null);
-
-export const useUpdateCenter = () => useContext(UpdateContext);
+const dedupe = (items = []) => Array.from(new Set(items.map((item) => String(item).trim()).filter(Boolean)));
 
 const formatReleaseDate = (date) => {
-  if (!date) return "Release date unavailable";
-  const parsedDate = new Date(date);
-  if (Number.isNaN(parsedDate.getTime())) return String(date);
-  return parsedDate.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  if (!date) return "—";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return String(date);
+  return parsed.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 };
 
+
 const fetchUpdateCenterMetadata = async () => {
-  let lastError;
-  for (const endpoint of updateCenterEndpoints) {
-    try {
-      let data;
-      const timestamp = Date.now();
-      if (endpoint.type === "static") {
-        const response = await fetch(`${endpoint.url}?t=${timestamp}`, {
-          cache: "no-store",
-          headers: { "Cache-Control": "no-store" },
-        });
-        if (!response.ok) throw new Error(`Update metadata request failed (${response.status})`);
-        data = await response.json();
-      } else {
-        ({ data } = await api.get(endpoint.url, {
-          params: { current_version: FRONTEND_VERSION, t: timestamp },
-          headers: { "Cache-Control": "no-store", Pragma: "no-cache" },
-        }));
-      }
-      const metadata = normalizeVersionMetadata(data);
-      if (metadata) return { ...metadata, endpoint: endpoint.url, fetchedAt: new Date().toISOString() };
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error("Unable to fetch update metadata");
+  const { data } = await api.get("/app/update-check", { headers: { "Cache-Control": "no-store", Pragma: "no-cache" } });
+  const metadata = normalizeVersionMetadata(data) || defaultMetadata;
+  return { ...defaultMetadata, ...metadata, fetchedAt: new Date().toISOString(), unavailable: false };
+};
+
+const notesForDisplay = (metadata) => {
+  const grouped = RELEASE_NOTE_GROUPS.reduce((acc, { key }) => ({ ...acc, [key]: [] }), {});
+  if (metadata.updateAvailable && metadata.whatsNew?.length) grouped.improved = dedupe(metadata.whatsNew);
+  else RELEASE_NOTE_GROUPS.forEach(({ key }) => { grouped[key] = dedupe(metadata.releaseNotes?.[key] || []); });
+  return grouped;
 };
 
 export default function UpdateCenter({ children }) {
+  const auth = useAuth();
   const [metadata, setMetadata] = useState(defaultMetadata);
   const [updateOpen, setUpdateOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
-  const [updating, setUpdating] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [checkStatus, setCheckStatus] = useState("Ready to check");
-  const [justUpdated, setJustUpdated] = useState(
-    () => getStoredVersion(sessionStorage, UPDATE_COMPLETED_KEY) === "true",
-  );
-  const deployedIdentity = getVersionIdentity(metadata.version);
-  const {
-    loadedBuild,
-    latestBuild: deployedBuild,
-    updateAvailable,
-    buildsDiffer,
-  } = getFrontendUpdateState({ metadata });
-  const loadedIdentity = getVersionIdentity(FRONTEND_VERSION);
-  const updateType = useMemo(
-    () => getUpdateType(FRONTEND_VERSION, metadata.version),
-    [metadata.version],
-  );
-  const releaseDate = useMemo(
-    () => formatReleaseDate(metadata.date),
-    [metadata.date],
-  );
-  const versionIdentity = useMemo(
-    () => getVersionIdentity(metadata.version),
-    [metadata.version],
-  );
+  const [checkStatus, setCheckStatus] = useState("Not checked yet");
+  const popupShownRef = useRef(false);
+  const dismissedRef = useRef(false);
+
+  const displayNotes = useMemo(() => notesForDisplay(metadata), [metadata]);
+  const updateAvailable = Boolean(metadata.updateAvailable);
+  const currentIdentity = getVersionIdentity(metadata.currentVersion || FRONTEND_VERSION);
+  const latestIdentity = getVersionIdentity(metadata.latestVersion || metadata.version || FRONTEND_VERSION);
 
   const checkForUpdates = useCallback(async ({ automatic = false } = {}) => {
     setChecking(true);
     if (!automatic) setCheckStatus("Checking for updates…");
-
     try {
-      const nextMetadata = await fetchUpdateCenterMetadata();
-      const latestIdentity = getVersionIdentity(nextMetadata.version);
-      const currentIdentity = getVersionIdentity(FRONTEND_VERSION);
-      const comparison = compareVersions(nextMetadata.version, FRONTEND_VERSION);
-      const nextUpdateState = getFrontendUpdateState({ metadata: nextMetadata });
-      const {
-        latestBuild,
-        loadedBuild: currentBuild,
-        updateAvailable: hasUpdate,
-        buildsDiffer: buildChanged,
-      } = nextUpdateState;
-      setMetadata({
-        ...nextMetadata,
-        build: latestBuild,
-        comparison,
-        updateAvailable: hasUpdate,
-      });
-      setCheckStatus(hasUpdate ? "Update available" : "You're up to date");
-      console.info("Update Center check", {
-        endpoint: nextMetadata.endpoint,
-        loadedVersion: currentIdentity.version,
-        loadedBuild: currentBuild || "—",
-        latestDeployedVersion: latestIdentity.version,
-        latestDeployedBuild: latestBuild || "—",
-        update_available: hasUpdate,
-        comparison,
-        buildChanged,
-        hasUpdate,
-      });
-      if (hasUpdate) {
-        setWhatsNewOpen(false);
+      const next = await fetchUpdateCenterMetadata();
+      setMetadata(next);
+      setCheckStatus(next.updateAvailable ? "Update available" : "Up to date");
+      if (automatic && next.updateAvailable && !popupShownRef.current && !dismissedRef.current) {
+        popupShownRef.current = true;
         setUpdateOpen(true);
       }
-      return hasUpdate;
+      return next.updateAvailable;
     } catch (error) {
-      setMetadata(defaultMetadata);
-      setCheckStatus(`Update check failed: ${formatApiError(error)}`);
+      setMetadata((current) => ({ ...current, unavailable: true, fetchedAt: new Date().toISOString() }));
+      setCheckStatus(automatic ? "Update check unavailable" : `Update check unavailable: ${formatApiError(error)}`);
       return false;
     } finally {
       setChecking(false);
@@ -182,340 +88,104 @@ export default function UpdateCenter({ children }) {
   }, []);
 
   useEffect(() => {
-    if (getApiMode() === "local") {
-      setCheckStatus("Manual checks only in Local Mode");
-      return undefined;
-    }
+    if (!auth || auth.loading || !auth.user || auth.passwordExpired) return;
     checkForUpdates({ automatic: true });
-    const timer = window.setInterval(
-      () => checkForUpdates({ automatic: true }),
-      UPDATE_CHECK_INTERVAL_MS,
-    );
-    return () => window.clearInterval(timer);
-  }, [checkForUpdates]);
+  }, [auth, auth?.loading, auth?.user, auth?.passwordExpired, checkForUpdates]);
 
-  useEffect(() => {
-    if (!justUpdated) return undefined;
-    removeStoredVersion(sessionStorage, UPDATE_COMPLETED_KEY);
-    setCheckStatus("You're up to date");
-    const timer = window.setTimeout(() => setJustUpdated(false), 6000);
-    return () => window.clearTimeout(timer);
-  }, [justUpdated]);
-
-  const applyUpdate = async () => {
+  const closeForLater = () => {
+    dismissedRef.current = true;
     setUpdateOpen(false);
-    setWhatsNewOpen(false);
-    setUpdating(true);
-    setMetadata((current) => ({ ...current, updateAvailable: false }));
-    setStoredVersion(sessionStorage, UPDATE_COMPLETED_KEY, "true");
-    setStoredVersion(
-      localStorage,
-      ACKNOWLEDGED_BUILD_KEY,
-      deployedBuild || loadedBuild || "",
-    );
+  };
 
-    try {
-      if ("caches" in window) {
-        const cacheKeys = await window.caches.keys();
-        await Promise.all(cacheKeys.map((key) => window.caches.delete(key)));
-      }
-      if ("serviceWorker" in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(
-          registrations.map(async (registration) => {
-            await registration.update();
-            registration.waiting?.postMessage({ type: "SKIP_WAITING" });
-          }),
-        );
-      }
-    } finally {
-      const url = new URL(window.location.href);
-      url.searchParams.set("updated", Date.now().toString());
-      window.location.replace(url.toString());
-    }
+  const updateNow = () => {
+    if (metadata.downloadUrl) window.open(metadata.downloadUrl, "_blank");
+    if (!metadata.mandatory) setUpdateOpen(false);
   };
 
   return (
     <>
-      <UpdateContext.Provider
-        value={{
-          currentVersion: FRONTEND_VERSION,
-          currentBuild: loadedBuild,
-          latestVersion: metadata.version,
-          latestBuild: deployedBuild,
-          updateAvailable,
-          justUpdated,
-          checking,
-          checkStatus,
-          checkForUpdates,
-          openUpdate: () => {
-            setWhatsNewOpen(false);
-            setUpdateOpen(true);
-          },
-          openWhatsNew: () => {
-            if (updateAvailable) {
-              setWhatsNewOpen(false);
-              setUpdateOpen(true);
-              return;
-            }
-            setUpdateOpen(false);
-            setWhatsNewOpen(true);
-          },
-          releaseNotes: metadata.releaseNotes,
-          endpoint: metadata.endpoint,
-          comparison: metadata.comparison,
-          buildsDiffer,
-        }}
-      >
-        {children}
-      </UpdateContext.Provider>
+      <UpdateContext.Provider value={{
+        currentVersion: metadata.currentVersion || FRONTEND_VERSION,
+        currentBuild: metadata.currentBuild || FRONTEND_BUILD,
+        latestVersion: metadata.latestVersion || metadata.version,
+        latestBuild: metadata.latestBuild || metadata.build,
+        updateAvailable,
+        unavailable: metadata.unavailable,
+        checking,
+        checkStatus,
+        checkForUpdates,
+        openUpdate: () => setUpdateOpen(true),
+        openWhatsNew: () => setWhatsNewOpen(true),
+        releaseNotes: displayNotes,
+        whatsNew: metadata.whatsNew,
+        updateSizeLabel: metadata.updateSizeLabel,
+        releaseDate: metadata.date,
+        channel: metadata.channel,
+        lastCheckedAt: metadata.fetchedAt,
+        mandatory: metadata.mandatory,
+      }}>{children}</UpdateContext.Provider>
 
-      <Dialog open={updateOpen && !updating} onOpenChange={setUpdateOpen}>
-        <DialogContent className="update-dialog max-w-lg overflow-hidden border-0 p-0 sm:rounded-3xl">
+      <Dialog open={updateOpen} onOpenChange={(open) => (metadata.mandatory ? setUpdateOpen(true) : setUpdateOpen(open))}>
+        <DialogContent className="update-dialog max-h-[92vh] max-w-xl overflow-y-auto border-0 p-0 sm:rounded-3xl" data-testid="update-available-modal">
           <div className="update-dialog-hero px-6 pb-6 pt-8 sm:px-8">
             <div className="mb-5 flex items-start justify-between gap-4 pr-8">
-              <div className="update-icon-shell">
-                <Rocket className="h-6 w-6" />
-              </div>
-              <span className="update-type-badge">{updateType} update</span>
+              <div className="update-icon-shell"><Rocket className="h-6 w-6" /></div>
+              {metadata.mandatory && <span className="update-type-badge">Important Update</span>}
             </div>
             <DialogHeader>
-              <DialogTitle className="text-left text-2xl text-white sm:text-3xl">
-                Update Available: PharmacyOS {versionIdentity.version} is ready
-              </DialogTitle>
-              {metadata.message && (
-                <DialogDescription className="text-left leading-6 text-emerald-50/75">
-                  {metadata.message}
-                </DialogDescription>
-              )}
+              <DialogTitle className="text-left text-2xl text-white sm:text-3xl">Update Available</DialogTitle>
+              <DialogDescription className="text-left text-emerald-50/80">Version {latestIdentity.version} is available</DialogDescription>
             </DialogHeader>
           </div>
           <div className="space-y-5 px-6 pb-6 pt-5 sm:px-8 sm:pb-8">
-            <VersionDetails identity={versionIdentity} />
-            <div>
-              <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[.16em] text-emerald-900">
-                <Sparkles className="h-4 w-4 text-amber-500" /> Release notes
-              </div>
-              <ReleaseNotes releaseNotes={metadata.releaseNotes} compact />
-            </div>
-            <div className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3.5 text-xs leading-5 text-emerald-900">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>
-                Your pharmacy data stays safe. PharmacyOS will reload once to
-                activate the update.
-              </span>
-            </div>
-            <div className="flex justify-end">
-              <Button
-                onClick={applyUpdate}
-                className="bg-emerald-900 px-6 hover:bg-emerald-800"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Reload Application
-              </Button>
+            <UpdateFacts currentIdentity={currentIdentity} latestIdentity={latestIdentity} metadata={metadata} />
+            <section>
+              <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[.16em] text-emerald-900"><Sparkles className="h-4 w-4 text-amber-500" /> What’s New</div>
+              <PlainNotes notes={dedupe(metadata.whatsNew)} />
+            </section>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              {!metadata.mandatory && <Button type="button" variant="outline" onClick={closeForLater}>Update Later</Button>}
+              <Button type="button" onClick={updateNow} className="bg-emerald-900 hover:bg-emerald-800"><Download className="mr-2 h-4 w-4" />Update Now</Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={whatsNewOpen && !updating} onOpenChange={setWhatsNewOpen}>
+      <Dialog open={whatsNewOpen} onOpenChange={setWhatsNewOpen}>
         <DialogContent className="max-w-md rounded-2xl border-emerald-100">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-emerald-950">
-              <Sparkles className="h-5 w-5 text-amber-500" />
-              What’s new in PharmacyOS {versionIdentity.version}
-            </DialogTitle>
-            {metadata.message && (
-              <DialogDescription>{metadata.message}</DialogDescription>
-            )}
-          </DialogHeader>
-          <VersionDetails identity={versionIdentity} />
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-            <CalendarDays className="h-4 w-4 text-emerald-600" />
-            Released {releaseDate}
-          </div>
-          <ReleaseNotes releaseNotes={metadata.releaseNotes} />
-          {updateAvailable && (
-            <Button
-              onClick={applyUpdate}
-              className="bg-emerald-900 hover:bg-emerald-800"
-            >
-              Reload Application
-            </Button>
-          )}
+          <DialogHeader><DialogTitle className="flex items-center gap-2 text-emerald-950"><Sparkles className="h-5 w-5 text-amber-500" />What’s New</DialogTitle></DialogHeader>
+          <ReleaseNotes releaseNotes={displayNotes} />
         </DialogContent>
       </Dialog>
-
-      {updating && (
-        <div
-          className="update-lock-screen"
-          role="alert"
-          aria-live="assertive"
-          aria-busy="true"
-        >
-          <div className="update-progress-card">
-            <div className="update-orbit">
-              <span />
-              <RefreshCw className="h-7 w-7 text-amber-300" />
-            </div>
-            <h2>Updating PharmacyOS…</h2>
-            <p>
-              Preparing the latest experience securely.
-              <br />
-              This will only take a moment.
-            </p>
-            <div className="update-progress-line">
-              <span />
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
 
-function VersionDetails({ identity }) {
-  return (
-    <div className="grid gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
-      <div>
-        <span className="font-semibold text-slate-900">Version:</span>{" "}
-        {identity.version}
-      </div>
-      {identity.build && (
-        <div>
-          <span className="font-semibold text-slate-900">Build:</span>{" "}
-          {identity.build}
-        </div>
-      )}
-      <div>
-        <span className="font-semibold text-slate-900">Full:</span>{" "}
-        {identity.full}
-      </div>
-    </div>
-  );
+function UpdateFacts({ currentIdentity, latestIdentity, metadata }) {
+  const rows = [
+    ["Current version", `v${currentIdentity.version}${metadata.currentBuild ? ` / Build ${metadata.currentBuild}` : ""}`],
+    ["Latest version", `v${latestIdentity.version}${metadata.latestBuild ? ` / Build ${metadata.latestBuild}` : ""}`],
+    ["Update size", metadata.updateSizeLabel],
+    ["Release date", formatReleaseDate(metadata.date)],
+    ["Channel", metadata.channel],
+  ].filter(([, value]) => value);
+  return <dl className="grid gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-sm dark:border-emerald-900/50 dark:bg-emerald-950/20">{rows.map(([label, value]) => <div key={label} className="flex flex-col gap-1 sm:flex-row sm:justify-between"><dt className="text-slate-500 dark:text-slate-400">{label}</dt><dd className="font-semibold text-slate-900 dark:text-slate-100">{value}</dd></div>)}</dl>;
 }
 
-function ReleaseNotes({ releaseNotes, compact = false }) {
-  if (!hasReleaseNotes(releaseNotes)) {
-    return (
-      <p className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-500">
-        No release notes available for this update.
-      </p>
-    );
-  }
+function PlainNotes({ notes }) {
+  if (!notes.length) return <p className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">No release notes available.</p>;
+  return <ul className="space-y-2">{notes.map((note) => <li key={note} className="flex gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{note}</li>)}</ul>;
+}
 
-  return (
-    <div className={compact ? "space-y-3" : "space-y-4"}>
-      {RELEASE_NOTE_GROUPS.filter(({ key }) => releaseNotes[key]?.length).map(
-        ({ key, label }) => (
-          <section key={key}>
-            <h4 className="mb-2 text-xs font-bold uppercase tracking-[.14em] text-emerald-900">
-              {label}
-            </h4>
-            <ul className="space-y-2">
-              {releaseNotes[key].map((note) => (
-                <li
-                  key={`${key}-${note}`}
-                  className={
-                    compact
-                      ? "flex gap-2.5 text-sm leading-5 text-slate-600"
-                      : "flex gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-600"
-                  }
-                >
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  {note}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ),
-      )}
-    </div>
-  );
+function ReleaseNotes({ releaseNotes }) {
+  if (!hasReleaseNotes(releaseNotes)) return <p className="text-sm text-slate-500">No release notes available.</p>;
+  return <div className="space-y-4">{RELEASE_NOTE_GROUPS.filter(({ key }) => releaseNotes[key]?.length).map(({ key, label }) => <section key={key}><h4 className="mb-2 text-xs font-bold uppercase tracking-[.14em] text-emerald-900">{label}</h4><PlainNotes notes={releaseNotes[key]} /></section>)}</div>;
 }
 
 export function UpdatePill() {
   const update = useContext(UpdateContext);
   if (!update) return null;
-  const {
-    currentVersion,
-    latestVersion,
-    currentBuild,
-    latestBuild,
-    updateAvailable,
-    checking,
-    checkForUpdates,
-    openUpdate,
-    openWhatsNew,
-  } = update;
-  const status = updateAvailable ? "Update available" : "You're up to date";
-  const currentIdentity = getVersionIdentity(currentVersion);
-  const latestIdentity = getVersionIdentity(latestVersion);
-  return (
-    <div
-      className={`update-pill mx-3 mb-3 rounded-xl p-3 text-white ${updateAvailable ? "update-pill-available" : ""}`}
-    >
-      <button
-        type="button"
-        onClick={updateAvailable ? openUpdate : openWhatsNew}
-        className="w-full text-left"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-[.18em] text-amber-200">
-            Update Center
-          </span>
-          <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-200">
-            v{currentIdentity.version}
-          </span>
-        </div>
-        <div
-          className={`mt-2 flex items-center gap-1.5 text-[11px] ${updateAvailable ? "font-semibold text-amber-100" : "text-emerald-300"}`}
-        >
-          <span
-            className={`update-status-dot ${updateAvailable ? "bg-amber-300" : "bg-emerald-300"}`}
-          />
-          {status}
-        </div>
-        <div
-          className="mt-1 truncate text-[9px] text-emerald-100/45"
-          title={latestIdentity.full}
-        >
-          Latest deployed: v{latestIdentity.version}
-        </div>
-        <dl className="mt-2 grid gap-1 rounded-lg bg-emerald-950/35 p-2 text-[9px] leading-4 text-emerald-50/75">
-          <div className="flex justify-between gap-2">
-            <dt>Current loaded build:</dt>
-            <dd className="truncate font-mono" title={currentBuild || "—"}>{currentBuild || "—"}</dd>
-          </div>
-          <div className="flex justify-between gap-2">
-            <dt>Latest deployed build:</dt>
-            <dd className="truncate font-mono" title={latestBuild || "—"}>{latestBuild || "—"}</dd>
-          </div>
-          <div className="flex justify-between gap-2">
-            <dt>Update available:</dt>
-            <dd className="font-mono">{String(updateAvailable)}</dd>
-          </div>
-        </dl>
-      </button>
-      <div className="mt-2 grid grid-cols-2 gap-1.5">
-        <button
-          type="button"
-          disabled={checking}
-          onClick={() => checkForUpdates()}
-          className="update-pill-action"
-        >
-          <RefreshCw className={`h-3 w-3 ${checking ? "animate-spin" : ""}`} />
-          {checking ? "Checking…" : "Check Updates"}
-        </button>
-        <button
-          type="button"
-          onClick={openWhatsNew}
-          className="update-pill-action"
-        >
-          <Sparkles className="h-3 w-3" />
-          What’s New
-        </button>
-      </div>
-    </div>
-  );
+  const status = update.unavailable ? "Check unavailable" : update.updateAvailable ? "Update available" : "Up to date";
+  const currentIdentity = getVersionIdentity(update.currentVersion);
+  return <div className={`update-pill mx-3 mb-3 rounded-xl p-3 text-white ${update.updateAvailable ? "update-pill-available" : ""}`}><button type="button" onClick={update.updateAvailable ? update.openUpdate : update.openWhatsNew} className="w-full text-left"><div className="flex items-center justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-[.18em] text-amber-200">Update Center</span><span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-200">v{currentIdentity.version}</span></div><div className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-300"><span className={`update-status-dot ${update.updateAvailable ? "bg-amber-300" : "bg-emerald-300"}`} />{status}</div></button><div className="mt-2 grid grid-cols-2 gap-1.5"><button type="button" disabled={update.checking} onClick={() => update.checkForUpdates()} className="update-pill-action"><RefreshCw className={`h-3 w-3 ${update.checking ? "animate-spin" : ""}`} />{update.checking ? "Checking…" : "Check"}</button><button type="button" onClick={update.openWhatsNew} className="update-pill-action"><Sparkles className="h-3 w-3" />What’s New</button></div></div>;
 }
