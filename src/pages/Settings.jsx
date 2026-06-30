@@ -1316,10 +1316,36 @@ export default function Settings() {
                   <RefreshCw className={`mr-2 h-4 w-4 ${updateCenter?.checking ? "animate-spin" : ""}`} />
                   {updateCenter?.checking ? "Checking updates…" : "Check updates"}
                 </Button>
+                {updateCenter?.updateAvailable && (
+                  <Button type="button" onClick={() => updateCenter?.updateNow()} disabled={updateCenter?.updateAction?.loading || updateCenter?.updateAction?.disabled} className="rounded-sm bg-emerald-900 hover:bg-emerald-800">
+                    {updateCenter?.updateAction?.loading ? "Starting update..." : "Update Now"}
+                  </Button>
+                )}
+                {updateCenter?.updateAction?.canOpenDownload && updateCenter?.hasDownloadUrl && (
+                  <Button type="button" variant="outline" onClick={() => updateCenter?.openDownload()} className="rounded-sm border-emerald-200">
+                    Open Download
+                  </Button>
+                )}
                 <Button type="button" variant="outline" onClick={() => updateCenter?.openWhatsNew()} className="rounded-sm border-emerald-200">
                   What’s New
                 </Button>
               </div>
+
+              {updateCenter?.updateAvailable && (
+                <div className="mt-4 grid gap-2 text-sm">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 font-medium text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+                    Please save any current bill or purchase entry before updating.
+                  </div>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                    The app may close and reopen during update.
+                  </div>
+                  {updateCenter?.updateAction?.message && (
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 font-medium text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100" role="status">
+                      {updateCenter.updateAction.message}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="mt-6">
                 <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
