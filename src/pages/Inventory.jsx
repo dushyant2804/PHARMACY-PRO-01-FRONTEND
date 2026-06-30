@@ -26,15 +26,66 @@ import {
 import { toast } from "sonner";
 import useDebouncedValue from "@/hooks/useDebouncedValue";
 
+const firstDefined = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== "");
+
 const getAvailableQty = (item) =>
   Number(
-    item?.available_stock ??
-      item?.available_units ??
-      item?.available_quantity ??
-      item?.quantity_units ??
-      item?.total_stock ??
+    firstDefined(
+      item?.available_stock,
+      item?.available_units,
+      item?.available_quantity,
+      item?.quantity_units,
+      item?.total_stock,
+      item?.current_stock,
+      item?.stock,
+      item?.quantity,
       0,
+    ),
   );
+
+export const getInventoryLots = (medicine) => {
+  const lots = firstDefined(
+    medicine?.stock_lots,
+    medicine?.stockLots,
+    medicine?.lots,
+    medicine?.inventory_lots,
+    medicine?.batches,
+    [],
+  );
+
+  return Array.isArray(lots)
+    ? lots.filter((lot) => lot && typeof lot === "object")
+    : [];
+};
+
+export const getInventoryLotCount = (medicine) => {
+  const backendCount = firstDefined(
+    medicine?.lot_count,
+    medicine?.stock_lot_count,
+    medicine?.stockLotCount,
+    medicine?.batch_count,
+    medicine?.batchCount,
+  );
+
+  if (backendCount !== undefined) return Number(backendCount) || 0;
+  return getInventoryLots(medicine).length;
+};
+
+const getBatchNumber = (lot) =>
+  firstDefined(lot?.batch_no, lot?.batch_number, lot?.batchNo, lot?.batch, "—");
+const getDistributorName = (lot) =>
+  firstDefined(
+    lot?.distributor_name,
+    lot?.distributor,
+    lot?.supplier_name,
+    lot?.supplier,
+    "—",
+  );
+const getExpiryDate = (lot) =>
+  firstDefined(lot?.expiry_date, lot?.expiry, lot?.expiryDate, "—");
+const getPurchaseRate = (lot) =>
+  firstDefined(lot?.purchase_rate, lot?.purchase_price, lot?.rate, 0);
 
 const normalizeExpiryStatus = (status) => {
   const value = String(status || "")
@@ -245,13 +296,25 @@ export default function Inventory() {
     load();
   }, [load]);
 
-  const openDetails = (medicine) => {
+  const openDetails = async (medicine) => {
     setSelected(medicine);
     setThresholdValue(medicine?.low_stock_threshold ?? "");
     setThresholdUnlocked(false);
     setUnlockOpen(false);
     setPrivacyPassword("");
     setDetailsOpen(true);
+
+    try {
+      const { data } = await api.get(`/medicines/${medicine.id}`);
+      const detail = data?.medicine || data?.data || data;
+      if (detail && typeof detail === "object") {
+        setSelected((current) =>
+          current?.id === medicine.id ? { ...current, ...detail } : current,
+        );
+      }
+    } catch (e) {
+      console.warn("Could not load medicine inventory details", e);
+    }
   };
 
   const refreshSelectedMedicine = (updated) => {
@@ -461,7 +524,7 @@ export default function Inventory() {
               <th className="p-3 text-left">Medicine</th>
               <th className="p-3 text-left">Manufacturer</th>
               <th className="p-3 text-right">Total Stock</th>
-              <th className="p-3 text-center">Batches</th>
+              <th className="p-3 text-center">Stock Lots</th>
               <th className="p-3 text-center">Category</th>
               <th className="p-3 text-center">Status</th>
               <th className="p-3 text-center">Actions</th>
@@ -513,7 +576,7 @@ export default function Inventory() {
                     {getAvailableQty(medicine)}
                   </td>
                   <td className="p-3 text-center">
-                    {medicine.batches?.length || 0}
+                    {getInventoryLotCount(medicine)}
                   </td>
                   <td className="p-3 text-center">
                     <CategoryBadge category={medicine.category} />
@@ -569,7 +632,7 @@ export default function Inventory() {
                   Medicine Details
                 </h2>
                 <p className="mt-0.5 truncate text-xs text-slate-400">
-                  Review batches and stock controls
+                  Review stock lots and stock controls
                 </p>
               </div>
               <button
@@ -620,19 +683,19 @@ export default function Inventory() {
               </SectionCard>
 
               <SectionCard
-                eyebrow={`${selected.batches?.length || 0} recorded`}
-                title="Batch Details"
+                eyebrow={`${getInventoryLotCount(selected)} recorded`}
+                title="Stock Lot Details"
               >
                 <div className="space-y-3">
-                  {(selected.batches || []).length === 0 && (
+                  {getInventoryLots(selected).length === 0 && (
                     <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                      No batch details available.
+                      No stock lot details available.
                     </div>
                   )}
 
-                  {(selected.batches || []).map((batch, index) => {
+                  {getInventoryLots(selected).map((batch, index) => {
                     const status = getExpiryStatus(
-                      batch.expiry_date,
+                      getExpiryDate(batch),
                       batch.expiry_status,
                     );
                     const isExpired = status === "expired";
@@ -641,7 +704,13 @@ export default function Inventory() {
 
                     return (
                       <div
-                        key={batch.id || batch.batch_no || index}
+                        key={
+                          batch.id ||
+                          batch.lot_id ||
+                          `${getBatchNumber(batch)}-${
+                            batch.distributor_id || getDistributorName(batch)
+                          }-${index}`
+                        }
                         className={`rounded-lg border p-3 ${
                           isExpired
                             ? "border-red-200 bg-red-50/70"
@@ -653,12 +722,12 @@ export default function Inventory() {
                         <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-200/80 pb-2">
                           <div className="min-w-0">
                             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                              Batch
+                              Stock lot batch
                             </div>
                             <div
                               className={`truncate font-bold ${isEmptyBatch ? "text-red-700" : "text-slate-900"}`}
                             >
-                              {batch.batch_no || "—"}
+                              {getBatchNumber(batch)}
                             </div>
                           </div>
                           {isExpired || isNearExpiry || isEmptyBatch ? (
@@ -683,15 +752,19 @@ export default function Inventory() {
                         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                           <DetailItem
                             label="Expiry"
-                            value={batch.expiry_date || "—"}
+                            value={getExpiryDate(batch)}
                           />
                           <DetailItem
                             label="Pack size"
-                            value={batch.pack_size || "—"}
+                            value={firstDefined(
+                              batch.pack_size,
+                              batch.packSize,
+                              "—",
+                            )}
                           />
                           <DetailItem
                             label="Distributor"
-                            value={batch.distributor_name || "—"}
+                            value={getDistributorName(batch)}
                           />
                           <DetailItem
                             label="Available qty"
@@ -702,11 +775,11 @@ export default function Inventory() {
                           />
                           <DetailItem
                             label="Purchase rate"
-                            value={fmtINR(batch.purchase_price || 0)}
+                            value={fmtINR(getPurchaseRate(batch))}
                           />
                           <DetailItem
                             label="MRP"
-                            value={fmtINR(batch.mrp || 0)}
+                            value={fmtINR(firstDefined(batch.mrp, 0))}
                           />
                         </div>
                       </div>
