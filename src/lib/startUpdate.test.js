@@ -12,12 +12,12 @@ describe("startPharmacyOSUpdate", () => {
     api.post.mockReset();
   });
 
-  it("calls the backend start-update endpoint", async () => {
+  it("calls the backend API start-update endpoint", async () => {
     api.post.mockResolvedValue({ data: { started: true } });
 
     await startPharmacyOSUpdate();
 
-    expect(api.post).toHaveBeenCalledWith("/app/start-update");
+    expect(api.post).toHaveBeenCalledWith("/api/start-update");
   });
 
   it("returns the update started message on success", async () => {

@@ -26,7 +26,7 @@ export const friendlyUpdateInProgressMessage = (payload = {}) => (
 
 export async function startPharmacyOSUpdate({ downloadUrl = "" } = {}) {
   try {
-    const { data = {} } = await api.post("/app/start-update");
+    const { data = {} } = await api.post("/api/start-update");
     if (data.started === true) {
       return { status: "started", message: data.message || UPDATE_STARTED_MESSAGE, disableUpdateNow: true };
     }

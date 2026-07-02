@@ -1277,7 +1277,7 @@ export default function Settings() {
             : updateCenter?.updateAvailable
               ? "Update available"
               : updateCenter?.lastCheckedAt
-                ? "Up to date"
+                ? "You are up to date"
                 : "Not checked yet";
           return (
             <>
