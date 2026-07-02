@@ -40,7 +40,7 @@ const formatReleaseDate = (date) => {
 
 
 const fetchUpdateCenterMetadata = async () => {
-  const { data } = await api.get("/app/update-check", { headers: { "Cache-Control": "no-store", Pragma: "no-cache" } });
+  const { data } = await api.get("/api/update-check", { headers: { "Cache-Control": "no-store", Pragma: "no-cache" } });
   const metadata = normalizeVersionMetadata(data) || defaultMetadata;
   return { ...defaultMetadata, ...metadata, fetchedAt: new Date().toISOString(), unavailable: false };
 };
@@ -74,7 +74,7 @@ export default function UpdateCenter({ children }) {
     try {
       const next = await fetchUpdateCenterMetadata();
       setMetadata(next);
-      setCheckStatus(next.updateAvailable ? "Update available" : "Up to date");
+      setCheckStatus(next.updateAvailable ? "Update available" : "You are up to date");
       if (automatic && next.updateAvailable && !popupShownRef.current && !dismissedRef.current) {
         popupShownRef.current = true;
         setUpdateOpen(true);
@@ -216,7 +216,7 @@ function ReleaseNotes({ releaseNotes }) {
 export function UpdatePill() {
   const update = useContext(UpdateContext);
   if (!update) return null;
-  const status = update.unavailable ? "Check unavailable" : update.updateAvailable ? "Update available" : "Up to date";
+  const status = update.unavailable ? "Check unavailable" : update.updateAvailable ? "Update available" : "You are up to date";
   const currentIdentity = getVersionIdentity(update.currentVersion);
   return <div className={`update-pill mx-3 mb-3 rounded-xl p-3 text-white ${update.updateAvailable ? "update-pill-available" : ""}`}><button type="button" onClick={update.updateAvailable ? update.openUpdate : update.openWhatsNew} className="w-full text-left"><div className="flex items-center justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-[.18em] text-amber-200">Update Center</span><span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-200">v{currentIdentity.version}</span></div><div className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-300"><span className={`update-status-dot ${update.updateAvailable ? "bg-amber-300" : "bg-emerald-300"}`} />{status}</div></button><div className="mt-2 grid grid-cols-2 gap-1.5"><button type="button" disabled={update.checking} onClick={() => update.checkForUpdates()} className="update-pill-action"><RefreshCw className={`h-3 w-3 ${update.checking ? "animate-spin" : ""}`} />{update.checking ? "Checking…" : "Check"}</button><button type="button" onClick={update.openWhatsNew} className="update-pill-action"><Sparkles className="h-3 w-3" />What’s New</button></div></div>;
 }
