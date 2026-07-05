@@ -166,7 +166,8 @@ export const normalizeVersionMetadata = (payload = {}) => {
     data.current_version ||
     data.full_version;
   const explicitBuild = data.build || data.build_id || data.buildId || data.frontend_build;
-  const version = rawVersion || (explicitBuild ? `${FRONTEND_IDENTITY.version}+${explicitBuild}` : null);
+  const updateAvailable = data.update_available ?? data.updateAvailable;
+  const version = rawVersion || (explicitBuild ? `${FRONTEND_IDENTITY.version}+${explicitBuild}` : null) || (typeof updateAvailable === "boolean" ? FRONTEND_VERSION : null);
   if (!version) return null;
 
   const rawNotes =
@@ -177,7 +178,6 @@ export const normalizeVersionMetadata = (payload = {}) => {
     data.changelog;
   const releaseNotes = normalizeReleaseNotes(rawNotes);
   const whatsNew = normalizeNoteList(data.whats_new || data.whatsNew);
-  const updateAvailable = data.update_available ?? data.updateAvailable;
   const currentVersion = data.current_version || data.installed_version || FRONTEND_VERSION;
   const currentBuild = data.current_build || data.installed_build || FRONTEND_BUILD;
 
