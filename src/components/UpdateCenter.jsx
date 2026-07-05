@@ -39,8 +39,20 @@ const formatReleaseDate = (date) => {
 };
 
 
-const fetchUpdateCenterMetadata = async () => {
-  const { data } = await api.get("/api/update-check", { headers: { "Cache-Control": "no-store", Pragma: "no-cache" } });
+export const fetchUpdateCenterMetadata = async () => {
+  const response = await api.get("/api/update-check", { headers: { "Cache-Control": "no-store", Pragma: "no-cache" } });
+  if (response.status && response.status !== 200) {
+    throw new Error(`Update check failed with status ${response.status}`);
+  }
+
+  const { data } = response;
+  if (data?.status === "unavailable") {
+    return { ...defaultMetadata, fetchedAt: new Date().toISOString(), unavailable: true };
+  }
+  if (data?.status && data.status !== "ok") {
+    throw new Error(`Update check failed with backend status ${data.status}`);
+  }
+
   const metadata = normalizeVersionMetadata(data) || defaultMetadata;
   return { ...defaultMetadata, ...metadata, fetchedAt: new Date().toISOString(), unavailable: false };
 };
@@ -74,7 +86,8 @@ export default function UpdateCenter({ children }) {
     try {
       const next = await fetchUpdateCenterMetadata();
       setMetadata(next);
-      setCheckStatus(next.updateAvailable ? "Update available" : "You are up to date");
+      setCheckStatus(next.unavailable ? "Update check unavailable" : next.updateAvailable ? "Update available" : "You are up to date");
+      if (next.unavailable) return false;
       if (automatic && next.updateAvailable && !popupShownRef.current && !dismissedRef.current) {
         popupShownRef.current = true;
         setUpdateOpen(true);

@@ -54,9 +54,39 @@ export const getInventoryLots = (medicine) => {
     [],
   );
 
-  return Array.isArray(lots)
-    ? lots.filter((lot) => lot && typeof lot === "object")
-    : [];
+  if (!Array.isArray(lots)) return [];
+
+  const activeLots = lots.filter((lot) => lot && typeof lot === "object");
+  const normalizedLots = [];
+  activeLots.forEach((lot) => {
+    const nestedBatches = firstDefined(lot.batches, lot.stock_lots, lot.lots);
+    if (Array.isArray(nestedBatches) && nestedBatches.length > 0) {
+      nestedBatches.forEach((batch) => {
+        if (!batch || typeof batch !== "object") return;
+        normalizedLots.push({
+          ...lot,
+          ...batch,
+          distributor_id: firstDefined(
+            batch.distributor_id,
+            lot.distributor_id,
+          ),
+          distributor_name: firstDefined(
+            batch.distributor_name,
+            batch.distributor,
+            lot.distributor_name,
+            lot.distributor,
+            lot.supplier_name,
+            lot.supplier,
+          ),
+        });
+      });
+      return;
+    }
+
+    normalizedLots.push(lot);
+  });
+
+  return normalizedLots;
 };
 
 export const getInventoryLotCount = (medicine) => {
