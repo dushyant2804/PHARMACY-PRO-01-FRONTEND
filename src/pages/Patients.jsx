@@ -35,7 +35,9 @@ const trimPatientForm = (patient) =>
   );
 
 const collection = (data) =>
-  Array.isArray(data) ? data : data?.items || data?.medicines || data?.results || [];
+  Array.isArray(data)
+    ? data
+    : data?.items || data?.medicines || data?.results || [];
 
 const stockOf = (item) =>
   Number(
@@ -73,7 +75,7 @@ export default function Patients() {
   const [showMedicineResults, setShowMedicineResults] = useState(false);
   const [editingPatient, setEditingPatient] = useState(null);
 
-  // ✅ REFILL STATE
+  // REFILL STATE
   const [showRefillModal, setShowRefillModal] = useState(false);
   const [refillPatient, setRefillPatient] = useState(null);
   const [refillDate, setRefillDate] = useState("");
@@ -119,6 +121,7 @@ export default function Patients() {
 
   const savePatient = async () => {
     const trimmedForm = trimPatientForm(form);
+
     if (!trimmedForm.name || !trimmedForm.phone)
       return toast.error("Patient name and phone are required");
 
@@ -131,8 +134,6 @@ export default function Patients() {
     try {
       if (editingPatient) {
         const phone = String(editingPatient.phone || "").trim();
-        if (!phone)
-          return toast.error("Cannot update a patient without an original phone.");
         await api.put(`/patients/${encodeURIComponent(phone)}`, payload);
       } else {
         await api.post("/patients", payload);
@@ -140,7 +141,6 @@ export default function Patients() {
 
       toast.success(editingPatient ? "Patient updated" : "Patient saved");
       setForm(emptyForm);
-      setMedicineSearch("");
       setEditingPatient(null);
       loadPatients();
       loadAlerts();
@@ -151,19 +151,12 @@ export default function Patients() {
 
   const deletePatient = async (phone) => {
     const value = String(phone || "").trim();
-    if (!window.confirm(value ? "Delete patient?" : "Delete blank patient rows?"))
-      return;
+    if (!window.confirm("Delete patient?")) return;
 
     try {
-      await api.delete(
-        value ? `/patients/${encodeURIComponent(value)}` : "/patients"
-      );
-      setPatients((rows) =>
-        rows.filter((p) => String(p.phone || "").trim() !== value)
-      );
-      setAlerts((rows) =>
-        rows.filter((p) => String(p.phone || "").trim() !== value)
-      );
+      await api.delete(`/patients/${encodeURIComponent(value)}`);
+      loadPatients();
+      loadAlerts();
       toast.success("Patient deleted");
     } catch (err) {
       toast.error(formatApiError(err));
@@ -191,70 +184,27 @@ export default function Patients() {
       .slice(0, 8);
   }, [medicines, medicineSearch]);
 
-  const linkedLowStock = useMemo(() => {
-    return medicines
-      .filter(isLowStock)
-      .map((medicine) => ({
-        medicine,
-        patients: patients.filter(
-          (p) =>
-            String(p.medicine_name || "")
-              .trim()
-              .toLowerCase() === medicineName(medicine).trim().toLowerCase()
-        )
-      }))
-      .filter((row) => row.patients.length);
-  }, [medicines, patients]);
-
   return (
     <div className="space-y-6">
 
-      {/* HEADER */}
       <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-950">Patients</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Simple refill and continuity tracking for your pharmacy.
-          </p>
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
-          <CheckCircle2 className="h-4 w-4" /> Stock-safe patient records
+          <h1 className="text-2xl font-bold">Patients</h1>
         </div>
       </header>
 
-      {/* ALERTS */}
-      {(alerts.length > 0 || linkedLowStock.length > 0) && (
-        <section className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
-          <div className="mb-3 flex items-center gap-2 text-sm font-bold text-amber-900">
-            <AlertTriangle className="h-4 w-4" /> Refill attention
-          </div>
-        </section>
-      )}
-
       {/* PATIENT LIST */}
       <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-bold text-slate-900">Patient refill list</h2>
-        </div>
-
         <div className="grid gap-3 lg:grid-cols-2">
           {patients.map((p, i) => (
-            <article
-              key={p.phone || i}
-              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3">
+            <article key={p.phone || i} className="rounded-xl border p-4">
 
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <UserRound className="h-4 w-4 text-slate-400" />
-                    <h3 className="truncate font-bold text-slate-900">
-                      {p.name || "Unnamed patient"}
-                    </h3>
-                  </div>
+              <div className="flex justify-between">
+
+                <div>
+                  <h3 className="font-bold">{p.name}</h3>
                 </div>
 
-                {/* ACTIONS */}
                 <div className="flex gap-1">
 
                   {/* REFILL BUTTON */}
@@ -265,28 +215,21 @@ export default function Patients() {
                       setRefillMeds([]);
                       setShowRefillModal(true);
                     }}
-                    className="rounded-lg p-2 text-green-700 hover:bg-green-50"
                   >
-                    <CalendarClock className="h-4 w-4" />
+                    <CalendarClock />
                   </button>
 
-                  <button onClick={() => selectForEdit(p)} className="rounded-lg p-2 text-blue-700 hover:bg-blue-50">
-                    <Edit3 className="h-4 w-4" />
+                  <button onClick={() => selectForEdit(p)}>
+                    <Edit3 />
                   </button>
 
-                  <button onClick={() => deletePatient(p.phone)} className="rounded-lg p-2 text-red-600 hover:bg-red-50">
-                    <Trash2 className="h-4 w-4" />
+                  <button onClick={() => deletePatient(p.phone)}>
+                    <Trash2 />
                   </button>
 
                 </div>
               </div>
 
-              {/* MEDICINE INFO */}
-              <div className="mt-4 rounded-lg bg-slate-50 p-3">
-                <div className="font-semibold text-slate-800">
-                  {p.medicine_name || "No refill medicine linked"}
-                </div>
-              </div>
             </article>
           ))}
         </div>
@@ -294,10 +237,10 @@ export default function Patients() {
 
       {/* REFILL MODAL */}
       {showRefillModal && refillPatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md rounded-xl bg-white p-5">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-4 rounded-xl w-[400px]">
 
-            <h2 className="mb-3 text-lg font-bold">
+            <h2 className="font-bold mb-2">
               Refill - {refillPatient.name}
             </h2>
 
@@ -305,14 +248,15 @@ export default function Patients() {
               type="date"
               value={refillDate}
               onChange={(e) => setRefillDate(e.target.value)}
-              className="mb-3 w-full rounded border p-2"
+              className="border p-2 w-full mb-2"
             />
 
-            <div className="max-h-40 overflow-auto space-y-2 border p-2">
+            <div className="max-h-40 overflow-auto">
               {medicines.map((m) => {
                 const name = medicineName(m);
+
                 return (
-                  <label key={name} className="flex items-center gap-2 text-sm">
+                  <label key={name} className="flex gap-2">
                     <input
                       type="checkbox"
                       checked={refillMeds.includes(name)}
@@ -330,26 +274,29 @@ export default function Patients() {
               })}
             </div>
 
-            <div className="mt-3 flex justify-end gap-2">
-              <button onClick={() => setShowRefillModal(false)} className="border px-3 py-1 rounded">
+            <div className="flex justify-end gap-2 mt-3">
+
+              <button onClick={() => setShowRefillModal(false)}>
                 Cancel
               </button>
 
               <button
-                onClick={() => {
-                  await api.post(`/patients/${refillPatient.phone}/refill`, {
-                    date: refillDate,
-                    medicines: refillMeds
-                  });
+                onClick={async () => {
+                  await api.post(
+                    `/patients/${refillPatient.phone}/refill`,
+                    {
+                      date: refillDate,
+                      medicines: refillMeds
+                    }
+                  );
 
                   toast.success("Refill saved");
-
                   setShowRefillModal(false);
                 }}
-                className="bg-green-600 text-white px-3 py-1 rounded"
               >
                 Save
               </button>
+
             </div>
 
           </div>
