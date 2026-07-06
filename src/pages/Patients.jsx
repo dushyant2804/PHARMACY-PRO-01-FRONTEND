@@ -337,8 +337,7 @@ export default function Patients() {
 
               <button
                 onClick={() => {
-                  console.log("REFILL:", {
-                    patient: refillPatient.phone,
+                  await api.post(`/patients/${refillPatient.phone}/refill`, {
                     date: refillDate,
                     medicines: refillMeds
                   });
