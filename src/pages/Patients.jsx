@@ -44,13 +44,53 @@ const medicineName = (item) =>
   "Unnamed medicine";
 
 
-const stockOf = (item) =>
-  Number(
-    item?.available_stock ??
-    item?.available_units ??
-    item?.stock ??
-    0
-  );
+const stockOf = (item) => {
+  if (!item) return 0;
+
+  // Direct inventory fields
+  const directStock =
+    item.available_stock ??
+    item.available_units ??
+    item.available_quantity ??
+    item.quantity_units ??
+    item.total_stock ??
+    item.stock ??
+    item.current_stock;
+
+  if (directStock !== undefined && directStock !== null) {
+    return Number(directStock) || 0;
+  }
+
+  // Medicine batches stock calculation
+  if (Array.isArray(item.batches) && item.batches.length) {
+    return item.batches.reduce((sum, batch) => {
+      return (
+        sum +
+        Number(
+          batch.available_stock ??
+          batch.available_units ??
+          batch.quantity ??
+          batch.stock ??
+          batch.current_stock ??
+          0
+        )
+      );
+    }, 0);
+  }
+
+  // Purchase based inventory fallback
+  if (
+    item.purchased_units !== undefined ||
+    item.sold_units !== undefined
+  ) {
+    return (
+      Number(item.purchased_units || 0) -
+      Number(item.sold_units || 0)
+    );
+  }
+
+  return 0;
+};
 
 
 export default function Patients() {
