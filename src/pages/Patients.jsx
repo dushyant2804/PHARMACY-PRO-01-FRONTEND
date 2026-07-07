@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import api, { fmtINR, formatApiError } from "@/lib/api";
+import api, { formatApiError } from "@/lib/api";
 import {
   AlertTriangle,
   CalendarClock,
@@ -8,84 +8,72 @@ import {
   MessageCircle,
   PackageSearch,
   Phone,
+  Plus,
   Search,
   Trash2,
-  UserRound
+  UserRound,
+  X,
+  Save,
+  RefreshCcw
 } from "lucide-react";
 import { toast } from "sonner";
 import { patientShareMessage, whatsappUrl } from "@/lib/sharing";
 
-/* ----------------------------- FORM ----------------------------- */
 
 const emptyForm = {
   name: "",
   age: "",
   phone: "",
   address: "",
-  medicine_name: "",
+  condition: "",
   duration_days: "",
-  last_refill_date: "",
-  condition: ""
+  last_refill_date: ""
 };
 
-const trimPatientForm = (patient) =>
-  Object.fromEntries(
-    Object.keys(emptyForm).map((key) => [
-      key,
-      String(patient[key] || "").trim()
-    ])
-  );
-
-/* ----------------------------- HELPERS ----------------------------- */
 
 const collection = (data) =>
-  Array.isArray(data) ? data : data?.items || data?.medicines || data?.results || [];
+  Array.isArray(data)
+    ? data
+    : data?.items || data?.results || [];
+
+
+const medicineName = (item) =>
+  item?.name ||
+  item?.medicine_name ||
+  item?.brand_name ||
+  "Unnamed medicine";
+
 
 const stockOf = (item) =>
   Number(
     item?.available_stock ??
-      item?.available_units ??
-      item?.available_quantity ??
-      item?.quantity_units ??
-      item?.total_stock ??
-      item?.stock ??
-      0
+    item?.available_units ??
+    item?.stock ??
+    0
   );
 
-const medicineName = (item) =>
-  item?.name || item?.medicine_name || item?.brand_name || "Unnamed medicine";
-
-const medicineBatches = (item) =>
-  Array.isArray(item?.batches) && item.batches.length ? item.batches : [item];
-
-const isLowStock = (item) =>
-  item?.is_low_stock === true ||
-  ["low", "low_stock", "critical", "sold_out", "out_of_stock"].includes(
-    String(item?.stock_status || item?.inventory_status || item?.status || "")
-      .toLowerCase()
-      .replace(/ /g, "_")
-  ) ||
-  stockOf(item) <= Number(item?.low_stock_threshold ?? 0);
-
-/* ----------------------------- COMPONENT ----------------------------- */
 
 export default function Patients() {
-  const [form, setForm] = useState(emptyForm);
+
   const [patients, setPatients] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [medicines, setMedicines] = useState([]);
-  const [medicineSearch, setMedicineSearch] = useState("");
-  const [showMedicineResults, setShowMedicineResults] = useState(false);
+
+  const [form, setForm] = useState(emptyForm);
   const [editingPatient, setEditingPatient] = useState(null);
 
-  /* ---------------- REFILL STATES ---------------- */
+  const [medicineSearch, setMedicineSearch] = useState("");
+  const [selectedMedicines, setSelectedMedicines] = useState([]);
 
-  const [showRefillModal, setShowRefillModal] = useState(false);
+  const [showMedicineBox, setShowMedicineBox] = useState(false);
+
+
+  const [showRefillPanel, setShowRefillPanel] = useState(false);
   const [refillPatient, setRefillPatient] = useState(null);
   const [refillDate, setRefillDate] = useState("");
-  const [refillMeds, setRefillMeds] = useState([]);
+  const [refillMedicines, setRefillMedicines] = useState([]);
 
-  /* ---------------- LOAD DATA ---------------- */
+
 
   const loadPatients = async () => {
     try {
@@ -96,6 +84,7 @@ export default function Patients() {
     }
   };
 
+
   const loadAlerts = async () => {
     try {
       const { data } = await api.get("/patients/alerts");
@@ -105,307 +94,1576 @@ export default function Patients() {
     }
   };
 
+
   useEffect(() => {
+
     loadPatients();
     loadAlerts();
-    api
-      .get("/medicines")
+
+    api.get("/medicines")
       .then(({ data }) => setMedicines(collection(data)))
       .catch(console.warn);
+
   }, []);
 
-  /* ---------------- PATIENT ACTIONS ---------------- */
 
-  const selectForEdit = (p) => {
-    setEditingPatient(p);
-    setForm(trimPatientForm(p));
-    setMedicineSearch(p.medicine_name || "");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
 
-  const savePatient = async () => {
-    const trimmed = trimPatientForm(form);
+  const medicineResults = useMemo(() => {
 
-    if (!trimmed.name || !trimmed.phone)
-      return toast.error("Patient name and phone are required");
+    const q = medicineSearch.toLowerCase().trim();
 
-    const payload = {
-      ...trimmed,
-      age: Number(trimmed.age),
-      duration_days: Number(trimmed.duration_days)
-    };
+    if (!q)
+      return medicines.slice(0,10);
 
-    try {
-      if (editingPatient) {
-        await api.put(
-          `/patients/${encodeURIComponent(editingPatient.phone)}`,
-          payload
-        );
-      } else {
-        await api.post("/patients", payload);
-      }
-
-      toast.success(editingPatient ? "Patient updated" : "Patient saved");
-
-      setForm(emptyForm);
-      setEditingPatient(null);
-      setMedicineSearch("");
-
-      loadPatients();
-      loadAlerts();
-    } catch (err) {
-      toast.error(formatApiError(err));
-    }
-  };
-
-  const deletePatient = async (phone) => {
-    if (!window.confirm("Delete patient?")) return;
-
-    try {
-      await api.delete(`/patients/${encodeURIComponent(phone)}`);
-      loadPatients();
-      loadAlerts();
-      toast.success("Deleted");
-    } catch (err) {
-      toast.error(formatApiError(err));
-    }
-  };
-
-  const markContacted = async (phone) => {
-    try {
-      await api.post(`/patients/contacted/${phone}`);
-      setAlerts((rows) => rows.filter((p) => p.phone !== phone));
-    } catch (err) {
-      toast.error(formatApiError(err));
-    }
-  };
-
-  /* ---------------- MEDICINE SEARCH ---------------- */
-
-  const matches = useMemo(() => {
-    const q = medicineSearch.trim().toLowerCase();
-    if (!q) return medicines.slice(0, 8);
 
     return medicines
-      .filter((m) =>
-        [medicineName(m), m.manufacturer]
-          .some((v) => String(v || "").toLowerCase().includes(q))
+      .filter(m =>
+        medicineName(m)
+          .toLowerCase()
+          .includes(q)
       )
-      .slice(0, 8);
-  }, [medicines, medicineSearch]);
+      .slice(0,10);
 
-  /* ---------------- UI ---------------- */
 
-  return (
-    <div className="space-y-6">
+  }, [medicineSearch, medicines]);
 
-      {/* HEADER (RESTORED PROPER MODULE FEEL) */}
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Patients Module</h1>
-          <p className="text-sm text-slate-500">
-            Manage refill cycles, patient history, and medicine continuity.
-          </p>
-        </div>
 
-        <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
-          <CheckCircle2 className="h-4 w-4" />
-          Active pharmacy tracking system
-        </div>
-      </header>
 
-      {/* ALERT SECTION (RESTORED FULL BLOCK) */}
-      {(alerts.length > 0) && (
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <div className="mb-3 flex items-center gap-2 font-bold text-amber-900">
-            <AlertTriangle className="h-4 w-4" />
-            Refill Alerts
-          </div>
+  const addMedicine = (medicine) => {
 
-          <div className="grid gap-2 md:grid-cols-2">
-            {alerts.map((p) => (
-              <div
-                key={p.phone}
-                className="flex items-center justify-between rounded-lg border bg-white px-3 py-2"
-              >
-                <div className="text-sm">
-                  <div className="font-semibold">{p.name}</div>
-                  <div className="text-xs text-slate-500">
-                    {p.medicine_name} — Refill due
-                  </div>
-                </div>
+    const name = medicineName(medicine);
 
-                <button
-                  onClick={() => markContacted(p.phone)}
-                  className="text-xs font-semibold text-blue-600"
-                >
-                  Mark contacted
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+    if (
+      selectedMedicines.some(
+        m => m.medicine_name === name
+      )
+    ) {
+      toast.info("Medicine already added");
+      return;
+    }
 
-      {/* ================= ADD / EDIT PATIENT (RESTORED FULL FORM UI) ================= */}
-      <section className="rounded-xl border bg-white p-4 shadow-sm">
-        <h2 className="mb-4 font-bold text-slate-900">
-          {editingPatient ? "Edit Patient Details" : "Add New Patient"}
-        </h2>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            ["name", "Patient Name *"],
-            ["phone", "Phone *"],
-            ["age", "Age"],
-            ["address", "Address"],
-            ["condition", "Condition"],
-            ["duration_days", "Refill Cycle (Days)"],
-            ["last_refill_date", "Last Refill Date"]
-          ].map(([key, label]) => (
-            <label key={key}>
-              <span className="mb-1 block text-xs font-semibold text-slate-600">
-                {label}
-              </span>
-              <input
-                value={form[key]}
-                onChange={(e) =>
-                  setForm({ ...form, [key]: e.target.value })
-                }
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
-            </label>
-          ))}
-        </div>
+    setSelectedMedicines([
+      ...selectedMedicines,
+      {
+        medicine_name:name,
+        medicine_id:medicine.id || "",
+        batch:"",
+        dosage:"",
+        frequency:"",
+        duration:""
+      }
+    ]);
 
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={savePatient}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-white"
-          >
-            {editingPatient ? "Update" : "Save"}
-          </button>
-        </div>
-      </section>
+    setMedicineSearch("");
+    setShowMedicineBox(false);
 
-      {/* ================= PATIENT LIST (RESTORED STRUCTURE) ================= */}
-      <section>
-        <h2 className="mb-3 font-bold text-slate-900">
-          Patient Records
-        </h2>
+  };
 
-        <div className="grid gap-3 lg:grid-cols-2">
-          {patients.map((p) => (
-            <div
-              key={p.phone}
-              className="rounded-xl border bg-white p-4 shadow-sm"
-            >
-              {/* HEADER */}
-              <div className="flex justify-between">
-                <div>
-                  <div className="font-bold">{p.name}</div>
-                  <div className="text-xs text-slate-500 flex items-center gap-1">
-                    <Phone className="h-3 w-3" />
-                    {p.phone}
-                  </div>
-                </div>
 
-                {/* ACTIONS */}
-                <div className="flex gap-2">
-                  <button onClick={() => setRefillPatient(p) || setShowRefillModal(true)}>
-                    <CalendarClock className="h-4 w-4 text-green-600" />
-                  </button>
 
-                  <a
-                    href={whatsappUrl(p.phone, patientShareMessage(p))}
-                    target="_blank"
-                  >
-                    <MessageCircle className="h-4 w-4 text-emerald-600" />
-                  </a>
+  const removeMedicine = (index)=>{
 
-                  <button onClick={() => selectForEdit(p)}>
-                    <Edit3 className="h-4 w-4 text-blue-600" />
-                  </button>
+    setSelectedMedicines(
+      selectedMedicines.filter(
+        (_,i)=>i!==index
+      )
+    );
 
-                  <button onClick={() => deletePatient(p.phone)}>
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </button>
-                </div>
-              </div>
+  };
 
-              {/* MEDICINE INFO */}
-              <div className="mt-3 rounded-lg bg-slate-50 p-3">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <PackageSearch className="h-4 w-4 text-blue-600" />
-                  {p.medicine_name || "No medicine linked"}
-                </div>
 
-                <div className="mt-1 text-xs text-slate-500">
-                  {p.duration_days} day cycle · {p.condition}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
 
-      {/* ================= REFILL MODAL ================= */}
-      {showRefillModal && refillPatient && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40">
-          <div className="w-[400px] rounded-xl bg-white p-4">
+  const updateMedicineField = (
+    index,
+    key,
+    value
+  )=>{
 
-            <h3 className="mb-3 font-bold">
-              Refill - {refillPatient.name}
-            </h3>
+    const copy=[...selectedMedicines];
 
-            <input
-              type="date"
-              className="w-full border p-2"
-              value={refillDate}
-              onChange={(e) => setRefillDate(e.target.value)}
-            />
+    copy[index][key]=value;
 
-            <div className="mt-3 max-h-40 overflow-auto border p-2">
-              {medicines.map((m) => (
-                <label key={m.id} className="block text-sm">
-                  <input
-                    type="checkbox"
-                    checked={refillMeds.includes(medicineName(m))}
-                    onChange={(e) => {
-                      if (e.target.checked)
-                        setRefillMeds([...refillMeds, medicineName(m)]);
-                      else
-                        setRefillMeds(
-                          refillMeds.filter((x) => x !== medicineName(m))
-                        );
-                    }}
-                  />
-                  <span className="ml-2">{medicineName(m)}</span>
-                </label>
-              ))}
-            </div>
+    setSelectedMedicines(copy);
 
-            <button
-              className="mt-3 w-full bg-green-600 py-2 text-white"
-              onClick={async () => {
-                await api.post(
-                  `/patients/${refillPatient.phone}/refill`,
-                  {
-                    date: refillDate,
-                    medicines: refillMeds
-                  }
-                );
-                toast.success("Refill saved");
-                setShowRefillModal(false);
-              }}
-            >
-              Save Refill
-            </button>
+  };
 
-          </div>
-        </div>
-      )}
 
-    </div>
-  );
+
+  const savePatient = async()=>{
+
+    if(
+      !form.name ||
+      !form.phone
+    ){
+      toast.error(
+        "Patient name and phone required"
+      );
+      return;
+    }
+
+
+    if(
+      selectedMedicines.length===0
+    ){
+      toast.error(
+        "Add at least one medicine"
+      );
+      return;
+    }
+
+
+    const payload={
+
+      ...form,
+
+      age:Number(form.age || 0),
+
+      duration_days:Number(
+        form.duration_days || 0
+      ),
+
+      medicine_name:
+        selectedMedicines
+          .map(m=>m.medicine_name)
+          .join(", "),
+
+      medicines:selectedMedicines
+
+    };
+
+
+    try{
+
+      if(editingPatient){
+
+        await api.put(
+          `/patients/${editingPatient.phone}`,
+          payload
+        );
+
+      }
+      else{
+
+        await api.post(
+          "/patients",
+          payload
+        );
+
+      }
+
+
+      toast.success(
+        editingPatient
+        ? "Patient updated"
+        : "Patient added"
+      );
+
+
+      setForm(emptyForm);
+      setSelectedMedicines([]);
+      setEditingPatient(null);
+
+      loadPatients();
+
+    }
+    catch(err){
+
+      toast.error(
+        formatApiError(err)
+      );
+
+    }
+
+  };
+    const editPatient = (patient)=>{
+
+    setEditingPatient(patient);
+
+    setForm({
+      name: patient.name || "",
+      age: patient.age || "",
+      phone: patient.phone || "",
+      address: patient.address || "",
+      condition: patient.condition || "",
+      duration_days: patient.duration_days || "",
+      last_refill_date: patient.last_refill_date || ""
+    });
+
+
+    if(patient.medicines){
+
+      setSelectedMedicines(
+        patient.medicines
+      );
+
+    }
+    else if(patient.medicine_name){
+
+      setSelectedMedicines([
+        {
+          medicine_name:
+            patient.medicine_name,
+          dosage:"",
+          frequency:"",
+          duration:""
+        }
+      ]);
+
+    }
+
+    window.scrollTo({
+      top:0,
+      behavior:"smooth"
+    });
+
+  };
+
+
+
+  const deletePatient = async(phone)=>{
+
+    if(!window.confirm("Delete patient?"))
+      return;
+
+
+    try{
+
+      await api.delete(
+        `/patients/${phone}`
+      );
+
+      toast.success(
+        "Patient deleted"
+      );
+
+      loadPatients();
+
+    }
+    catch(err){
+
+      toast.error(
+        formatApiError(err)
+      );
+
+    }
+
+  };
+
+
+
+  const openRefill = (patient)=>{
+
+    setRefillPatient(patient);
+
+    setRefillDate(
+      new Date()
+      .toISOString()
+      .split("T")[0]
+    );
+
+
+    if(patient.medicines){
+
+      setRefillMedicines(
+        patient.medicines
+      );
+
+    }
+    else{
+
+      setRefillMedicines([]);
+
+    }
+
+
+    setShowRefillPanel(true);
+
+  };
+
+
+
+  const saveRefill = async()=>{
+
+    try{
+
+      await api.post(
+        `/patients/${refillPatient.phone}/refill`,
+        {
+          date:refillDate,
+          medicines:
+            refillMedicines.map(
+              m=>m.medicine_name
+            )
+        }
+      );
+
+
+      toast.success(
+        "Refill updated"
+      );
+
+
+      setShowRefillPanel(false);
+
+      loadPatients();
+      loadAlerts();
+
+    }
+    catch(err){
+
+      toast.error(
+        formatApiError(err)
+      );
+
+    }
+
+  };
+
+
+
+return (
+
+<div className="space-y-6">
+
+
+{/* HEADER */}
+
+<header className="
+flex flex-col sm:flex-row
+sm:items-center sm:justify-between
+gap-3
+">
+
+<div>
+
+<h1 className="
+text-2xl font-bold
+text-slate-900
+">
+Patient Management
+</h1>
+
+
+<p className="
+text-sm text-slate-500
+">
+Refill tracking, patient history and medicine continuity
+</p>
+
+</div>
+
+
+<div className="
+flex items-center gap-2
+rounded-full
+bg-blue-50
+px-4 py-2
+text-xs font-semibold
+text-blue-700
+">
+
+<CheckCircle2 className="h-4 w-4"/>
+
+Active Patient Records
+
+</div>
+
+
+</header>
+
+
+
+
+{/* REFILL ALERTS */}
+
+{
+alerts.length>0 &&
+
+<section className="
+rounded-xl
+border border-amber-200
+bg-amber-50
+p-4
+">
+
+
+<div className="
+flex items-center gap-2
+font-bold text-amber-900
+mb-3
+">
+
+<AlertTriangle className="h-5 w-5"/>
+
+Refill Alerts
+
+</div>
+
+
+
+<div className="
+grid md:grid-cols-2
+gap-3
+">
+
+{
+alerts.map((p)=>(
+
+<div
+key={p.phone}
+className="
+bg-white
+border
+rounded-lg
+p-3
+flex
+justify-between
+items-center
+"
+>
+
+
+<div>
+
+<div className="
+font-semibold
+text-slate-900
+">
+
+{p.name}
+
+</div>
+
+
+<div className="
+text-xs text-slate-500
+">
+
+{p.medicine_name}
+
+</div>
+
+
+</div>
+
+
+<button
+onClick={()=>openRefill(p)}
+className="
+text-xs
+font-semibold
+text-blue-600
+"
+>
+
+Update Refill
+
+</button>
+
+
+</div>
+
+
+))
+
+}
+
+
+</div>
+
+
+</section>
+
+}
+
+
+
+
+
+
+{/* ADD PATIENT CARD */}
+
+<section className="
+rounded-2xl
+border
+bg-white
+shadow-sm
+p-5
+">
+
+
+<div className="
+flex items-center justify-between
+mb-5
+">
+
+
+<div>
+
+<h2 className="
+font-bold
+text-lg
+text-slate-900
+">
+
+{
+editingPatient
+?
+"Edit Patient"
+:
+"Add New Patient"
+
+}
+
+</h2>
+
+
+<p className="
+text-xs
+text-slate-500
+">
+
+Maintain patient profile and medicines
+
+</p>
+
+
+</div>
+
+
+<UserRound
+className="
+h-7 w-7
+text-blue-600
+"/>
+
+
+</div>
+
+
+
+
+
+<div className="
+grid
+sm:grid-cols-2
+lg:grid-cols-4
+gap-4
+">
+
+
+{
+[
+["name","Patient Name"],
+["phone","Phone"],
+["age","Age"],
+["address","Address"],
+["condition","Condition"],
+["duration_days","Refill Cycle Days"],
+["last_refill_date","Last Refill Date"]
+
+].map(([key,label])=>(
+
+
+<label key={key}>
+
+<span className="
+block
+text-xs
+font-semibold
+text-slate-600
+mb-1
+">
+
+{label}
+
+</span>
+
+
+<input
+
+value={form[key]}
+
+onChange={
+e=>
+setForm({
+...form,
+[key]:e.target.value
+})
+}
+
+type={
+key==="last_refill_date"
+?
+"date"
+:
+key==="age" ||
+key==="duration_days"
+?
+"number"
+:
+"text"
+}
+
+className="
+w-full
+rounded-lg
+border
+px-3
+py-2
+text-sm
+focus:ring-2
+focus:ring-blue-100
+"
+/>
+
+
+</label>
+
+
+))
+
+}
+
+
+</div>
+  {/* MULTI MEDICINE SECTION */}
+
+<div className="
+mt-6
+rounded-xl
+border
+border-blue-100
+bg-blue-50/40
+p-4
+">
+
+
+<div className="
+flex items-center justify-between
+mb-3
+">
+
+
+<div>
+
+<h3 className="
+font-bold
+text-slate-900
+flex items-center gap-2
+">
+
+<PackageSearch className="h-5 w-5 text-blue-600"/>
+
+Patient Medicines
+
+</h3>
+
+
+<p className="
+text-xs
+text-slate-500
+">
+
+Add multiple medicines for refill tracking
+
+</p>
+
+
+</div>
+
+
+</div>
+
+
+
+
+<div className="
+relative
+">
+
+
+<div className="
+flex items-center
+rounded-lg
+border
+bg-white
+px-3
+">
+
+<Search className="
+h-4
+w-4
+text-slate-400
+"/>
+
+
+<input
+
+value={medicineSearch}
+
+onFocus={()=>setShowMedicineBox(true)}
+
+onChange={
+e=>{
+setMedicineSearch(e.target.value);
+setShowMedicineBox(true);
+}
+}
+
+placeholder="
+Search medicine name...
+"
+
+className="
+w-full
+px-3
+py-2
+outline-none
+text-sm
+"
+
+/>
+
+
+</div>
+
+
+
+{
+showMedicineBox &&
+
+<div className="
+absolute
+z-30
+mt-2
+w-full
+max-h-60
+overflow-auto
+rounded-xl
+border
+bg-white
+shadow-xl
+">
+
+
+{
+medicineResults.map((m)=>(
+
+
+<button
+
+type="button"
+
+key={
+m.id ||
+medicineName(m)
+}
+
+onClick={()=>
+addMedicine(m)
+}
+
+className="
+w-full
+flex
+justify-between
+items-center
+px-4
+py-3
+hover:bg-blue-50
+text-left
+"
+
+
+>
+
+
+<div>
+
+<div className="
+font-semibold
+text-sm
+">
+
+{medicineName(m)}
+
+</div>
+
+
+<div className="
+text-xs
+text-slate-500
+">
+
+Stock: {stockOf(m)}
+
+</div>
+
+
+</div>
+
+
+<Plus
+className="
+h-4
+w-4
+text-blue-600
+"/>
+
+
+</button>
+
+
+))
+
+
+}
+
+
+</div>
+
+
+}
+
+
+</div>
+
+
+
+
+
+<div className="
+mt-4
+space-y-3
+">
+
+
+{
+selectedMedicines.map((m,index)=>(
+
+
+<div
+
+key={index}
+
+className="
+rounded-xl
+border
+bg-white
+p-3
+"
+
+
+>
+
+
+<div className="
+flex
+items-center
+justify-between
+mb-3
+">
+
+
+<div className="
+font-semibold
+text-slate-800
+">
+
+{m.medicine_name}
+
+</div>
+
+
+<button
+onClick={()=>
+removeMedicine(index)
+}
+
+className="
+text-red-500
+"
+>
+
+<X className="h-4 w-4"/>
+
+</button>
+
+
+</div>
+
+
+
+<div className="
+grid
+sm:grid-cols-3
+gap-2
+">
+
+
+<input
+
+placeholder="Dosage"
+
+value={m.dosage}
+
+onChange={
+e=>
+updateMedicineField(
+index,
+"dosage",
+e.target.value
+)
+}
+
+className="
+border
+rounded-lg
+px-3
+py-2
+text-sm
+"
+
+/>
+
+
+<input
+
+placeholder="Frequency"
+
+value={m.frequency}
+
+onChange={
+e=>
+updateMedicineField(
+index,
+"frequency",
+e.target.value
+)
+}
+
+className="
+border
+rounded-lg
+px-3
+py-2
+text-sm
+"
+
+/>
+
+
+
+<input
+
+placeholder="Duration"
+
+value={m.duration}
+
+onChange={
+e=>
+updateMedicineField(
+index,
+"duration",
+e.target.value
+)
+}
+
+className="
+border
+rounded-lg
+px-3
+py-2
+text-sm
+"
+
+/>
+
+
+
+</div>
+
+
+</div>
+
+
+))
+
+
+}
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+<div className="
+mt-5
+flex
+gap-3
+">
+
+
+<button
+
+onClick={savePatient}
+
+className="
+flex
+items-center
+gap-2
+rounded-lg
+bg-blue-600
+px-5
+py-2
+text-white
+font-semibold
+hover:bg-blue-700
+"
+
+>
+
+
+<Save className="h-4 w-4"/>
+
+{
+editingPatient
+?
+"Update Patient"
+:
+"Save Patient"
+
+}
+
+</button>
+
+
+
+
+{
+editingPatient &&
+
+<button
+
+onClick={()=>{
+setEditingPatient(null);
+setForm(emptyForm);
+setSelectedMedicines([]);
+}}
+
+className="
+rounded-lg
+border
+px-5
+py-2
+font-semibold
+"
+
+>
+
+Cancel
+
+</button>
+
+
+}
+
+
+</div>
+
+
+
+</section>
+
+
+
+
+
+
+
+
+{/* PATIENT CARDS */}
+
+
+<section>
+
+
+<div className="
+flex
+justify-between
+items-center
+mb-4
+">
+
+
+<h2 className="
+font-bold
+text-lg
+">
+
+Patient Records
+
+</h2>
+
+
+<span className="
+text-xs
+text-slate-500
+">
+
+{patients.length} Patients
+
+</span>
+
+
+</div>
+
+
+
+
+
+<div className="
+grid
+lg:grid-cols-2
+gap-4
+">
+
+
+{
+patients.map((p)=>(
+
+
+<article
+
+key={p.phone}
+
+className="
+rounded-2xl
+border
+bg-white
+shadow-sm
+p-5
+"
+
+
+>
+
+
+<div className="
+flex
+justify-between
+items-start
+">
+
+
+<div>
+
+
+<div className="
+flex
+items-center
+gap-2
+">
+
+<UserRound
+className="
+h-5
+w-5
+text-blue-600
+"/>
+
+
+<h3 className="
+font-bold
+text-lg
+">
+
+{p.name}
+
+</h3>
+
+
+</div>
+
+
+
+<div className="
+flex
+items-center
+gap-2
+text-sm
+text-slate-500
+mt-1
+">
+
+<Phone className="h-4 w-4"/>
+
+{p.phone}
+
+</div>
+
+
+</div>
+
+
+
+
+
+<div className="
+flex
+items-center
+gap-2
+">
+
+
+<button
+title="Refill"
+
+onClick={()=>
+openRefill(p)
+}
+
+className="
+p-2
+rounded-lg
+bg-green-50
+text-green-600
+"
+>
+
+<CalendarClock className="h-4 w-4"/>
+
+</button>
+
+
+
+<a
+
+href={
+whatsappUrl(
+p.phone,
+patientShareMessage(p)
+)
+}
+
+target="_blank"
+
+className="
+p-2
+rounded-lg
+bg-emerald-50
+text-emerald-600
+"
+
+>
+
+<MessageCircle className="h-4 w-4"/>
+
+</a>
+
+
+
+<button
+onClick={()=>
+editPatient(p)
+}
+
+className="
+p-2
+rounded-lg
+bg-blue-50
+text-blue-600
+"
+
+>
+
+<Edit3 className="h-4 w-4"/>
+
+</button>
+
+
+
+<button
+
+onClick={()=>
+deletePatient(p.phone)
+}
+
+className="
+p-2
+rounded-lg
+bg-red-50
+text-red-600
+"
+
+>
+
+<Trash2 className="h-4 w-4"/>
+
+</button>
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+<div className="
+mt-4
+rounded-xl
+bg-slate-50
+p-4
+">
+
+
+<div className="
+flex
+gap-2
+items-center
+font-semibold
+">
+
+<PackageSearch className="h-4 w-4 text-blue-600"/>
+
+Medicines
+
+</div>
+
+
+<p className="
+mt-2
+text-sm
+text-slate-600
+">
+
+{p.medicine_name || "No medicine linked"}
+
+</p>
+
+
+<div className="
+text-xs
+text-slate-500
+mt-2
+">
+
+{p.duration_days}-day refill cycle
+
+</div>
+
+
+</div>
+
+
+</article>
+
+
+))
+
+}
+
+
+</div>
+
+
+</section>
+
+
+
+
+
+
+{/* REFILL PANEL */}
+
+
+{
+showRefillPanel &&
+refillPatient &&
+
+<div className="
+fixed
+right-0
+top-0
+h-full
+w-full
+sm:w-[420px]
+bg-white
+shadow-2xl
+z-50
+p-5
+overflow-auto
+">
+
+
+<div className="
+flex
+justify-between
+items-center
+mb-5
+">
+
+
+<h2 className="
+font-bold
+text-lg
+">
+
+Refill -
+{refillPatient.name}
+
+</h2>
+
+
+<button
+
+onClick={()=>
+setShowRefillPanel(false)
+}
+
+>
+
+<X/>
+
+</button>
+
+
+</div>
+
+
+
+
+<label className="
+block
+text-sm
+font-semibold
+mb-2
+">
+
+Refill Date
+
+</label>
+
+
+<input
+
+type="date"
+
+value={refillDate}
+
+onChange={
+e=>setRefillDate(e.target.value)
+}
+
+className="
+w-full
+border
+rounded-lg
+px-3
+py-2
+"
+
+/>
+
+
+
+
+<div className="
+mt-5
+">
+
+
+<h3 className="
+font-semibold
+mb-3
+">
+
+Medicines
+
+</h3>
+
+
+{
+
+(refillPatient.medicines || [])
+.map((m,i)=>(
+
+
+<div
+
+key={i}
+
+className="
+rounded-lg
+border
+p-3
+mb-2
+text-sm
+"
+
+>
+
+{m.medicine_name}
+
+</div>
+
+
+))
+
+
+}
+
+
+</div>
+
+
+
+
+<button
+
+onClick={saveRefill}
+
+className="
+mt-5
+w-full
+rounded-lg
+bg-green-600
+py-3
+text-white
+font-bold
+flex
+justify-center
+gap-2
+"
+
+>
+
+<RefreshCcw className="h-4 w-4"/>
+
+Save Refill
+
+</button>
+
+
+
+</div>
+
+}
+
+
+
+</div>
+
+);
+
 }
