@@ -569,14 +569,26 @@ export default function Inventory() {
                 medicine.low_stock_threshold !== null &&
                 medicine.low_stock_threshold !== undefined &&
                 getAvailableQty(medicine) <= medicine.low_stock_threshold;
-              const batchStatus = (medicine.batches || []).map((batch) =>
-                getExpiryStatus(batch.expiry_date, batch.expiry_status),
+              const batchStatus = getInventoryLots(medicine).map((batch) =>
+                getExpiryStatus(getExpiryDate(batch), batch.expiry_status),
               );
-              const expiryStatus = batchStatus.includes("expired")
-                ? "expired"
-                : batchStatus.includes("expiring_soon")
-                  ? "expiring_soon"
-                  : "normal";
+
+              let expiryStatus = "normal";
+
+              if (
+                batchStatus.length > 0 &&
+                batchStatus.every((status) => status === "expired")
+              ) {
+                expiryStatus = "expired";
+              } else if (
+                batchStatus.length > 0 &&
+                batchStatus.every(
+                 (status) =>
+                  status === "expired" || status === "expiring_soon"
+                )
+              ) {
+                expiryStatus = "expiring_soon";
+              }
               const isSelected = detailsOpen && selected?.id === medicine.id;
 
               return (
