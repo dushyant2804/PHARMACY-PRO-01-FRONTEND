@@ -116,6 +116,8 @@ const getExpiryDate = (lot) =>
   firstDefined(lot?.expiry_date, lot?.expiry, lot?.expiryDate, "—");
 const getPurchaseRate = (lot) =>
   firstDefined(lot?.purchase_rate, lot?.purchase_price, lot?.rate, 0);
+const getActualCost = (lot) =>
+  firstDefined(lot?.actual_cost, 0);
 
 const normalizeExpiryStatus = (status) => {
   const value = String(status || "")
@@ -804,9 +806,15 @@ export default function Inventory() {
                             }
                           />
                           <DetailItem
-                            label="Purchase rate"
+                            label="Base Cost"
                             value={fmtINR(getPurchaseRate(batch))}
                           />
+
+                          <DetailItem
+                            label="Actual Cost"
+                            value={fmtINR(getActualCost(batch))}
+                          />
+
                           <DetailItem
                             label="MRP"
                             value={fmtINR(firstDefined(batch.mrp, 0))}
