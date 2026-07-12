@@ -1,0 +1,247 @@
+PharmacyOS Register Module Redesign (Design Phase Only)
+
+You are working on an existing pharmacy management system called PharmacyOS.
+
+This is a major feature redesign.
+
+Do NOT modify any code yet.
+
+First understand the requirement completely and create a complete implementation plan.
+
+---
+
+Goal
+
+Replace the existing Daily Sales page with a new module called Register.
+
+The Register should behave like a traditional handwritten pharmacy register while preserving all existing business logic.
+
+Existing Billing, Inventory, Purchase Orders, Daily Closing, Reports and Authentication must continue working.
+
+---
+
+Register Hierarchy
+
+The Register should be based on the Financial Year, not the calendar year.
+
+Example:
+
+FY 2026–27
+
+Inside every financial year there should be twelve monthly registers.
+
+Example:
+
+April 2026
+
+May 2026
+
+June 2026
+
+July 2026
+
+...
+
+March 2027
+
+---
+
+Monthly Register
+
+Each month acts like an individual handwritten register.
+
+When the user opens July 2026 they should see every day of that month.
+
+Example:
+
+01 July
+
+02 July
+
+03 July
+
+...
+
+31 July
+
+Each day represents one register entry.
+
+---
+
+Daily Register Entry
+
+Every day should contain:
+
+Sales
+
+- Cash Sales
+- UPI Sales
+- Card Sales
+- Credit/Pending Sales
+
+Automatically calculate:
+
+- Total Sales
+
+Expenses
+
+- Expense entries
+- Category
+- Amount
+
+Automatically calculate:
+
+- Total Expenses
+
+Automatically calculate:
+
+- Net Collection
+
+Notes
+
+Allow multiple notes for each day.
+
+Example:
+
+• Paid electricity bill
+
+• Refrigerator repaired
+
+• Distributor meeting
+
+• Customer pending amount
+
+The page should feel like writing inside a real register.
+
+---
+
+Monthly Summary
+
+Each monthly register should contain a summary for the ENTIRE MONTH.
+
+The summary should include:
+
+- Cash Sales
+- UPI Sales
+- Card Sales
+- Credit Sales
+- Gross Sales
+- Total Expenses
+- Net Collection
+- Total Transactions
+- Average Daily Sales
+- Highest Sales Day
+- Highest Expense Day
+
+Do NOT limit the summary to one day.
+
+---
+
+Financial Year Summary
+
+Each financial year should also contain a complete summary.
+
+Include totals for:
+
+- Cash
+- UPI
+- Card
+- Credit
+- Gross Sales
+- Expenses
+- Net Collection
+- Total Transactions
+
+---
+
+Automatic Register Behaviour
+
+The system should automatically:
+
+- Create a new monthly register on the first day of every month.
+- Automatically close the previous month after the last day of that month.
+- Automatically create a new financial year when a new financial year begins.
+
+The user should never manually create registers.
+
+---
+
+Closed Registers
+
+Previous months become read-only automatically.
+
+Example:
+
+Current month = July
+
+April 🔒
+
+May 🔒
+
+June 🔒
+
+July 🟢 Editable
+
+August ⚪ Future
+
+To edit a closed month:
+
+- Ask for the existing Privacy Password.
+- After successful verification allow editing.
+- Backend must enforce this lock, not only the frontend.
+
+---
+
+Preserve Existing Features
+
+Do NOT remove or break:
+
+- Billing
+- Inventory
+- Purchase Orders
+- Purchase Returns
+- Patient Module
+- Reports
+- Daily Closing calculations
+- Existing Authentication
+- Existing Privacy Password system
+
+Reuse existing functionality wherever possible.
+
+---
+
+Important
+
+Avoid rewriting existing working modules.
+
+Reuse existing APIs and calculations wherever possible.
+
+Introduce new APIs only when necessary.
+
+Keep the implementation modular and maintainable.
+
+---
+
+Your Task
+
+Do NOT write code.
+
+Instead provide:
+
+1. Complete implementation strategy.
+
+2. Backend changes required.
+
+3. Frontend changes required.
+
+4. Database changes required.
+
+5. API changes required.
+
+6. Migration strategy for existing data.
+
+7. Risks.
+
+8. Recommended implementation phases from safest to highest risk.
+
+Wait for approval before making any code changes.
