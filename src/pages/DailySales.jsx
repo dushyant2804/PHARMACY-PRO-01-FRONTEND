@@ -63,7 +63,7 @@ export default function DailySales() {
       await api.post("/daily-sales", { date, cash_amount: cash, upi_amount: upi, pending_amount: pending, notes: totalsForm.notes });
       toast.success("Daily totals saved");
       setTotalsForm(emptyTotals);
-      load(date);
+      await load(date);
     } catch (e) { toast.error(formatApiError(e)); }
     finally { setTotalsSaving(false); }
   };
