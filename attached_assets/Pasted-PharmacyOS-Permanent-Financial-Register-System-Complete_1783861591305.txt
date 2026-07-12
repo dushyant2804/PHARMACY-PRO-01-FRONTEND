@@ -1,0 +1,571 @@
+PharmacyOS – Permanent Financial Register System (Complete Architecture Rewrite)
+
+This is a major architectural change, not a feature addition.
+
+The Daily Sales module must be permanently replaced with a new Financial Register system that is designed to remain the core financial module of PharmacyOS for many years.
+
+Do not make temporary solutions, shortcuts, compatibility layers, duplicate pages, or quick fixes.
+
+---
+
+General Rules
+
+1. Think like a senior software architect.
+
+Before changing any code, understand how the entire backend and frontend currently work.
+
+Preserve every existing feature unless this prompt explicitly replaces it.
+
+Do not remove unrelated functionality.
+
+---
+
+2. This is a permanent replacement.
+
+The Register module completely replaces the existing Daily Sales module.
+
+After implementation:
+
+- Remove Daily Sales page.
+- Remove Daily Sales route.
+- Remove Daily Sales navigation entry.
+- Remove unused code related only to Daily Sales.
+- Register becomes the only financial entry module.
+
+Do not leave legacy code behind.
+
+---
+
+3. Financial integrity is the highest priority.
+
+Never sacrifice correctness for convenience.
+
+If an implementation decision could affect financial data integrity, stop and explain the trade-offs before making assumptions.
+
+---
+
+4. Single source of truth.
+
+Every financial calculation must have one authoritative source.
+
+Backend performs calculations.
+
+Frontend displays backend results.
+
+Never duplicate financial calculations between frontend and backend.
+
+Avoid any situation where frontend totals and backend totals can become different.
+
+---
+
+Register Architecture
+
+Create one complete Financial Register system.
+
+Hierarchy:
+
+Financial Year
+
+↓
+
+Monthly Register
+
+↓
+
+Daily Entries
+
+↓
+
+Sales
+
+Expenses
+
+Notes
+
+Summary
+
+---
+
+Financial Year
+
+Use Indian Financial Year.
+
+Example:
+
+FY 2026–27
+
+starts
+
+1 April 2026
+
+ends
+
+31 March 2027
+
+Users never create financial years manually.
+
+The system creates and manages them automatically.
+
+---
+
+Monthly Registers
+
+Each Financial Year contains twelve monthly registers.
+
+Example:
+
+April 2026
+
+May 2026
+
+June 2026
+
+July 2026
+
+...
+
+March 2027
+
+These registers are automatic.
+
+Users never create them.
+
+---
+
+Automatic Opening and Closing
+
+Only the current month remains editable.
+
+When a new month starts:
+
+Automatically close the previous month.
+
+Automatically open the new month.
+
+No manual closing required.
+
+No manual opening required.
+
+---
+
+Register Locking
+
+Every previous month becomes read-only automatically.
+
+Current month remains editable.
+
+Future months remain unavailable until they begin.
+
+Locking must be enforced on the backend.
+
+Frontend locking alone is not acceptable.
+
+---
+
+Unlocking Closed Months
+
+Closed months can only be edited after entering the existing Privacy Password.
+
+Reuse the current Privacy Password system.
+
+Do not create another password system.
+
+Unlock should:
+
+only unlock one month
+
+be temporary
+
+expire automatically
+
+be audited
+
+---
+
+Audit Trail
+
+Every edit made inside a closed register must record:
+
+User
+
+Date
+
+Time
+
+Previous value
+
+New value
+
+Reason if available
+
+Nothing should silently change financial history.
+
+---
+
+Day Entries
+
+Every day should behave like writing inside a physical register.
+
+Each day stores:
+
+Cash Sales
+
+UPI Sales
+
+Card Sales
+
+Credit Sales
+
+Expenses
+
+Multiple Notes
+
+Totals
+
+Date
+
+User
+
+Everything belongs to that day.
+
+---
+
+Sales
+
+Keep payment methods separated.
+
+Separate fields:
+
+Cash
+
+UPI
+
+Card
+
+Credit
+
+Do not merge them.
+
+The backend calculates total sales.
+
+---
+
+Expenses
+
+Expenses remain independent records.
+
+Each expense includes:
+
+Category
+
+Amount
+
+Notes
+
+Time
+
+User
+
+They automatically appear inside the day's register.
+
+---
+
+Notes
+
+Replace the single notes field.
+
+Support multiple notes for every day.
+
+Example:
+
+Medicine stock received late
+
+Doctor meeting
+
+Staff salary paid
+
+Bank visit
+
+Festival discount started
+
+Each note should have:
+
+Timestamp
+
+User
+
+Text
+
+---
+
+Register Summary
+
+Every monthly register should contain a complete summary.
+
+Not just one day.
+
+Include totals for the entire month.
+
+Include:
+
+Cash Sales
+
+UPI Sales
+
+Card Sales
+
+Credit Sales
+
+Gross Sales
+
+Total Expenses
+
+Net Sales
+
+Transaction Count
+
+Highest Sales Day
+
+Highest Expense Day
+
+Average Daily Sales
+
+Average Daily Expenses
+
+Number of Working Days
+
+Remaining Days (for current month)
+
+Month Status
+
+---
+
+Financial Year Summary
+
+Every Financial Year must have a complete summary.
+
+Include:
+
+Total Cash
+
+Total UPI
+
+Total Card
+
+Total Credit
+
+Gross Sales
+
+Total Expenses
+
+Net Profit Estimate
+
+Monthly Comparison
+
+Highest Sales Month
+
+Highest Expense Month
+
+Average Monthly Sales
+
+Average Monthly Expenses
+
+---
+
+Database
+
+Create clean permanent database structures.
+
+Use meaningful names.
+
+Avoid technical names.
+
+Example:
+
+financial_years
+
+monthly_registers
+
+register_notes
+
+register_audit
+
+or similarly clear names.
+
+Do not use confusing names.
+
+---
+
+API
+
+Create a clean Register API.
+
+Avoid scattered endpoint logic.
+
+Group register operations together.
+
+Use proper REST structure.
+
+---
+
+Frontend
+
+Create a completely new Register page.
+
+Do not reuse Daily Sales layout.
+
+The Register page should feel like a real accounting register.
+
+Structure:
+
+Financial Year
+
+↓
+
+Month
+
+↓
+
+Day
+
+↓
+
+Entries
+
+Navigation should be simple and natural.
+
+---
+
+Code Quality
+
+Split large logic into reusable modules.
+
+Avoid giant files.
+
+Avoid duplicated logic.
+
+Avoid duplicated field normalization.
+
+Avoid duplicated calculations.
+
+Use meaningful names.
+
+Write maintainable code.
+
+---
+
+Performance
+
+Do not fetch an entire year's data unnecessarily.
+
+Aggregate on the backend.
+
+Return only the required data.
+
+Use indexes where appropriate.
+
+---
+
+Compatibility
+
+Do not break:
+
+Billing
+
+Inventory
+
+Purchase Orders
+
+Purchase Returns
+
+Patients
+
+Invoices
+
+Ledger
+
+Reports
+
+Authentication
+
+User Management
+
+Settings
+
+Update System
+
+Existing APIs unless intentionally replaced.
+
+Preserve existing business logic.
+
+---
+
+Migration
+
+Migrate existing Daily Sales data into the Register automatically.
+
+No data should be lost.
+
+Historical records should appear in the correct Financial Year and Month.
+
+Old notes should migrate correctly.
+
+Historical card sales should default to zero if unavailable.
+
+---
+
+Implementation Strategy
+
+Implement carefully.
+
+Update backend first.
+
+Then frontend.
+
+Then verify every dependent module.
+
+Fix any broken references.
+
+Remove obsolete code.
+
+Perform a complete cleanup.
+
+---
+
+Final Verification
+
+Before finishing:
+
+Check every route.
+
+Check every API.
+
+Check every calculation.
+
+Check every financial summary.
+
+Check locking.
+
+Check unlock flow.
+
+Check audit logging.
+
+Check migration.
+
+Check reports.
+
+Check navigation.
+
+Check compilation.
+
+Check runtime.
+
+Check for unused code.
+
+Check for duplicated code.
+
+Resolve all errors before considering the implementation complete.
+
+This Register module becomes the permanent financial heart of PharmacyOS.
+
+Build it with long-term maintainability, correctness, and reliability as the primary goals.
