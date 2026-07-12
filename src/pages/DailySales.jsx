@@ -60,7 +60,7 @@ export default function DailySales() {
     if (cash + upi + pending <= 0) return toast.error("Enter at least one sales total");
     setTotalsSaving(true);
     try {
-      await api.post("/historical-sales", { date, cash_amount: cash, upi_amount: upi, pending_amount: pending, notes: totalsForm.notes });
+      await api.post("/daily-sales", { date, cash_amount: cash, upi_amount: upi, pending_amount: pending, notes: totalsForm.notes });
       toast.success("Daily totals saved");
       setTotalsForm(emptyTotals);
       load(date);
