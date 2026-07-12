@@ -1,0 +1,266 @@
+PharmacyOS Frontend Refactor – Replace Daily Sales with Register (Frontend Only)
+IMPORTANT
+This project is frontend only.
+Do NOT create any backend code. Do NOT create FastAPI files. Do NOT invent APIs. Do NOT simulate a backend. Do NOT create mock data.
+If any backend endpoint is missing, leave a clearly marked placeholder and keep the UI ready for integration.
+Goal
+Completely replace the Daily Sales page with a brand new Register module.
+This is not an addition.
+This is a permanent replacement.
+After this refactor there must be no Daily Sales page remaining.
+The Register page should become one of the core modules of PharmacyOS and should be designed to last for years without another redesign.
+Existing modules
+Do NOT modify the functionality of:
+Billing
+Inventory
+Purchase Orders
+Purchase Returns
+Customers
+Patients
+Reports
+Ledger
+Dashboard logic (except Register link)
+Authentication
+Settings
+Only integrate Register into the existing navigation.
+Navigation
+Remove
+Daily Sales
+Replace with
+Register
+Nothing else in navigation should change.
+Register Structure
+The Register should behave like a real physical accounting register.
+Hierarchy:
+Financial Year
+↓
+Months
+↓
+Days
+Example
+FY 2026–27
+↓
+April
+May
+June
+July
+...
+↓
+Day entries
+Financial Year
+Use Indian Financial Year.
+April → March.
+Examples
+FY 2026–27
+contains
+April 2026
+...
+March 2027
+Month View
+Each financial year contains 12 months.
+Every month should appear as its own register.
+Example
+April 2026
+May 2026
+June 2026
+July 2026
+...
+March 2027
+Automatic Status
+The UI must support these states.
+Future
+Open
+Closed
+Current month
+↓
+Open
+Previous months
+↓
+Closed
+Future months
+↓
+Future
+The frontend should simply display whatever status the backend eventually returns.
+Do not hardcode business rules.
+Day View
+Opening a month displays every day.
+Example
+1 July
+2 July
+3 July
+...
+31 July
+Selecting a day opens the entry screen.
+Day Entry
+Each day must support
+Cash Sales
+UPI Sales
+Card Sales
+Credit Sales
+Expenses
+Notes
+Everything should be editable only if the month is open.
+Expense Section
+Allow
+Expense Category
+Amount
+Remarks
+Multiple expenses for the same day.
+Notes
+Allow multiple notes.
+Example
+Medicine shortage today
+Distributor visit
+Power outage
+Doctor meeting
+Do not limit to a single note.
+Summary
+Every month should display summary cards.
+Examples
+Total Cash
+Total UPI
+Total Card
+Total Credit
+Gross Sales
+Total Expenses
+Net Collection
+Transaction Count
+Highest Sales Day
+Highest Expense Day
+Average Daily Sales
+Working Days
+These values come from backend later.
+Frontend only displays them.
+Do not calculate financial values manually.
+Financial Year Summary
+Financial Year page should display
+Annual Gross Sales
+Annual Expenses
+Annual Net
+Cash Total
+UPI Total
+Card Total
+Credit Total
+Monthly comparison
+Top month
+Lowest month
+Average monthly sales
+Again
+Display backend values only.
+Closed Months
+When a month is closed
+Entire UI becomes read only.
+Show a banner
+"This register is closed."
+Display Unlock button.
+The button should exist even if backend is unavailable.
+Its action can remain TODO until backend integration.
+Unlock Dialog
+Reuse existing UI style.
+Ask
+Privacy Password
+Cancel
+Unlock
+No backend implementation.
+Just prepare the component.
+Register Layout
+Create reusable components instead of one huge page.
+Suggested structure
+
+pages/register/
+
+RegisterPage.jsx
+
+YearOverview.jsx
+
+MonthOverview.jsx
+
+DayView.jsx
+
+UnlockDialog.jsx
+
+components/
+
+SummaryCards.jsx
+
+RegisterHeader.jsx
+
+MonthCard.jsx
+
+DayCard.jsx
+
+ExpenseTable.jsx
+
+NotesPanel.jsx
+
+StatusBadge.jsx
+New Library
+Create
+
+lib/register.js
+This file should contain
+All Register API calls
+All Register response normalization
+No financial calculations
+No duplicated helpers
+Design Rules
+Use the existing PharmacyOS UI.
+Reuse
+Cards
+Tables
+Buttons
+Dialogs
+Inputs
+Tabs
+Typography
+Spacing
+Do not redesign the entire application.
+The Register should look like it always belonged in PharmacyOS.
+Dashboard
+Replace
+Today's Sales
+↓
+Register
+Clicking it opens Register instead of Daily Sales.
+Daily Sales
+Delete
+DailySales.jsx
+Remove its route.
+Remove its navigation entry.
+Remove unused imports.
+No legacy code should remain.
+Code Quality
+Do not create a 2000-line Register component.
+Split logic into reusable components.
+Keep components focused.
+Avoid duplicated helpers.
+Reuse existing utility functions whenever possible.
+Important Rules
+Never modify
+Billing logic
+Inventory logic
+Purchase Order logic
+Purchase Return logic
+Patient logic
+Ledger logic
+Reports logic
+Authentication
+Settings
+Only remove Daily Sales and replace it with Register.
+Backend
+Assume backend will be implemented later.
+If an endpoint is missing
+Do not invent data.
+Do not create fake APIs.
+Leave clear TODO comments indicating backend integration points.
+Final Deliverable
+After completion:
+Daily Sales no longer exists.
+Register is the permanent replacement.
+Navigation points to Register.
+Register supports Financial Year → Month → Day hierarchy.
+Cash, UPI, Card, Credit, Expenses, and multiple Notes are supported in the UI.
+Closed/Open/Future states are supported in the UI.
+Unlock dialog is prepared.
+Code is modular, clean, and maintainable.
+Existing PharmacyOS modules continue to work unchanged.

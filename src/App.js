@@ -28,7 +28,7 @@ import Ledger from "@/pages/Ledger";
 import PurchaseOrders from "@/pages/PurchaseOrders";
 import PurchaseOrderDetail from "@/pages/PurchaseOrderDetail";
 import PurchaseReturns from "@/pages/PurchaseReturns";
-import DailySales from "@/pages/DailySales";
+import RegisterPage from "@/pages/register/RegisterPage";
 import DailyClosing from "@/pages/DailyClosing";
 import Patients from "@/pages/Patients";
 import Onboarding from "@/pages/Onboarding";
@@ -227,10 +227,10 @@ function App() {
             />
 
             <Route
-              path="/daily-sales"
+              path="/register"
               element={
                 <Protected>
-                  <DailySales />
+                  <RegisterPage />
                 </Protected>
               }
             />

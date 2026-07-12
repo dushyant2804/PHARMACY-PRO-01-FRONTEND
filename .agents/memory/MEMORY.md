@@ -1,0 +1,1 @@
+- [PharmacyOS frontend/backend split](pharmacyos-repo-split.md) — this repo is frontend-only; backend is a separate Repl, never edit it from here.

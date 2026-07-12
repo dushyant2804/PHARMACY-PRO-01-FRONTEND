@@ -531,7 +531,9 @@ export default function Dashboard() {
   const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
 
   const kpis = [
-    { label: "Today Sales", value: fmtINR(todaySales), sub: "Open today's sales", tone: "emerald", icon: IndianRupee, path: "/daily-sales" },
+    // TODO(backend-integration): repoint this KPI at the Register FY/month/day summary once
+    // the backend exposes it — `daily_sales_total` is the legacy Daily Sales field.
+    { label: "Today Sales", value: fmtINR(todaySales), sub: "Open the register", tone: "emerald", icon: IndianRupee, path: "/register" },
     { label: "Today Profit", value: fmtINR(todayProfit), sub: "Review profit reports", tone: "blue", icon: TrendingUp, path: "/reports" },
     { label: "Today Customers", value: todayCustomers, sub: "View customer activity", tone: "violet", icon: Users, path: "/customers" },
     { label: "Low Stock Count", value: lowStockCount, sub: "Needs replenishment", tone: "orange", icon: PackageSearch, path: "/inventory" },
