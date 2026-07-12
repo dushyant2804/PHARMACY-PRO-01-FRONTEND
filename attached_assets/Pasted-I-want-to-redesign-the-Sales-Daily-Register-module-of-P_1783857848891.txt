@@ -1,0 +1,110 @@
+I want to redesign the Sales/Daily Register module of PharmacyOS.
+
+Do not modify any files yet.
+
+Understand this as a product requirement and analyze the existing code to tell me:
+- which existing modules can support this
+- what backend changes may be needed
+- what frontend pages/components will be affected
+- possible risks
+
+New concept:
+
+Create a Digital Register system.
+
+The register structure:
+
+1. Yearly Register
+Example:
+"2026 Register"
+
+This represents the complete calendar year (January to December).
+This is NOT a financial year.
+
+2. Monthly Registers inside the yearly register:
+
+Example:
+January 2026 Register
+February 2026 Register
+March 2026 Register
+...
+December 2026 Register
+
+Each month acts as a separate register section.
+
+3. Register opening and closing rules:
+
+- On the 1st day of every month, a new monthly register automatically opens.
+- On the last day of the month (28/29/30/31 depending on month), that monthly register automatically closes.
+- Closed months become read-only.
+
+Example:
+If current month is July 2026:
+- January-June 2026 = closed/read-only
+- July 2026 = active/editable
+- August-December 2026 = future registers (handle appropriately)
+
+4. Editing closed registers:
+
+Closed months should not be editable normally.
+
+To edit a closed register:
+- Require the existing privacy password system.
+- After successful verification, allow editing.
+
+5. Register data:
+
+Each monthly register should contain:
+
+Sales:
+- daily sales entries
+- cash sales
+- UPI/digital sales
+- credit/pending sales
+- notes
+
+Expenses:
+- expense entries
+- category
+- amount
+- notes
+
+The register should behave like a physical handwritten register.
+
+6. Notes:
+
+Every entry should support notes.
+
+Examples:
+- "Supplier payment made"
+- "Customer pending"
+- "Special adjustment"
+- "Other remarks"
+
+7. Summary:
+
+The summary block should NOT only show today's data.
+
+It should show complete selected register data.
+
+Example:
+July 2026 summary:
+- Total sales for July
+- Total expenses for July
+- Net amount
+- Cash total
+- UPI total
+- Pending total
+- Number of transactions
+- Any other useful totals
+
+8. Preserve existing:
+- billing calculations
+- inventory
+- purchase orders
+- daily closing logic
+- authentication
+
+First analyze the current architecture and suggest the safest implementation approach.
+
+Do not write code yet.
