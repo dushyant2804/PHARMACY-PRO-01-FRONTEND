@@ -1,0 +1,155 @@
+PharmacyOS Frontend Analysis (Read Only)
+
+You are working ONLY inside the PharmacyOS Frontend repository.
+
+This repository contains the React frontend only.
+
+Do NOT assume backend files exist.
+
+Do NOT design database tables.
+
+Do NOT modify APIs.
+
+Do NOT invent backend endpoints.
+
+If a feature requires backend support, simply list what backend support will be required at the end of your report.
+
+---
+
+Objective
+
+I want to permanently replace the existing Daily Sales page with a brand-new Register module.
+
+Do NOT write any code yet.
+
+This is an architecture and planning task only.
+
+---
+
+Your task
+
+Study the entire frontend carefully.
+
+Understand every module before making recommendations.
+
+Specifically inspect:
+
+- App routing
+- Navigation
+- Layout
+- Contexts
+- Shared components
+- API wrapper
+- Daily Sales page
+- Daily Closing page
+- Reports
+- Settings
+- Authentication
+- Billing
+- Inventory
+- Purchase Orders
+- Purchase Returns
+- Patients
+- Ledger
+- Shared utilities
+
+---
+
+After analysis answer the following:
+
+1.
+
+Which frontend files must change to completely replace Daily Sales with Register?
+
+---
+
+2.
+
+Which files should NOT be touched under any circumstance?
+
+Explain why.
+
+---
+
+3.
+
+Which components can be reused?
+
+List reusable components.
+
+---
+
+4.
+
+Which components should be completely rewritten?
+
+Explain why.
+
+---
+
+5.
+
+How should Register fit into the current navigation?
+
+---
+
+6.
+
+How should Register interact with Daily Closing?
+
+Frontend only.
+
+Ignore backend implementation.
+
+---
+
+7.
+
+Will removing Daily Sales break anything?
+
+List every dependency.
+
+---
+
+8.
+
+What frontend technical debt should be cleaned while building Register?
+
+Examples:
+
+- duplicated code
+- repeated helpers
+- oversized components
+- unnecessary state
+- repeated API calls
+- poor component separation
+
+---
+
+9.
+
+Suggest the cleanest folder structure for the new Register module.
+
+---
+
+10.
+
+List every backend API the frontend will require.
+
+Only document them.
+
+Do NOT implement them.
+
+---
+
+Rules
+
+- Read-only analysis.
+- Modify nothing.
+- Do not generate code.
+- Do not create placeholder implementations.
+- Do not guess backend behavior.
+- Base every conclusion on files that actually exist.
+- Mention file names whenever possible.
+
+At the end provide a complete implementation roadmap for the frontend only.
