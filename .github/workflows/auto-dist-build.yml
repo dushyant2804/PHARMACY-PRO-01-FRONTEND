@@ -26,12 +26,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-         node -v
-         npm -v
-         rm -rf node_modules
-         npm cache clean --force
-         npm install --legacy-peer-deps --include=dev --no-audit
-       --no-fund
+          node -v
+          npm -v
+          rm -rf node_modules
+          npm cache clean --force
+          npm install --legacy-peer-deps --include=dev --no-audit --no-fund
 
       - name: Verify craco installed
         run: |
