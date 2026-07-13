@@ -1,0 +1,615 @@
+# PharmacyOS Register Module — FINAL FRONTEND IMPLEMENTATION & POLISH
+
+## IMPORTANT
+
+This repository is FRONTEND ONLY.
+
+Do NOT create backend code.
+Do NOT create FastAPI files.
+Do NOT invent APIs.
+Do NOT create mock financial data.
+Do NOT fake backend responses.
+
+If any backend endpoint is unavailable, leave a clear TODO and gracefully handle the missing response in the UI.
+
+This is NOT another redesign.
+
+This is the FINAL implementation and polishing phase.
+
+The Register module will permanently replace Daily Sales and should be designed to remain stable for many years without requiring another redesign.
+
+--------------------------------------------------
+
+## PROJECT GOAL
+
+Completely replace the existing Daily Sales module with a professional Register module.
+
+There must be NO Daily Sales page remaining after this work.
+
+The Register becomes the official financial register of PharmacyOS.
+
+--------------------------------------------------
+
+## DO NOT MODIFY
+
+Do NOT change functionality of:
+
+- Billing
+- Inventory
+- Purchase Orders
+- Purchase Returns
+- Customers
+- Patients
+- Ledger
+- Reports
+- Authentication
+- Settings
+
+Only integrate Register into the existing application.
+
+--------------------------------------------------
+
+## REMOVE
+
+Completely remove:
+
+- DailySales.jsx
+- /daily-sales route
+- Daily Sales navigation item
+- Unused imports
+- Unused references
+
+Search the entire project for:
+
+DailySales
+Daily Sales
+/daily-sales
+
+Remove every obsolete reference.
+
+--------------------------------------------------
+
+## NAVIGATION
+
+Replace
+
+Daily Sales
+
+with
+
+Register
+
+Keep Register in the same navigation position.
+
+Do not add duplicate navigation entries.
+
+--------------------------------------------------
+
+## REGISTER STRUCTURE
+
+The Register should behave exactly like a physical accounting register.
+
+Hierarchy:
+
+Financial Year
+
+↓
+
+Months
+
+↓
+
+Days
+
+Example
+
+FY 2026–27
+
+↓
+
+April
+May
+June
+July
+...
+March
+
+↓
+
+Daily entries
+
+--------------------------------------------------
+
+## FINANCIAL YEAR
+
+Use Indian Financial Year.
+
+April → March
+
+Examples:
+
+FY 2026–27
+
+contains
+
+April 2026
+
+...
+
+March 2027
+
+--------------------------------------------------
+
+## MONTH VIEW
+
+Every Financial Year contains 12 month registers.
+
+Each month behaves like its own register.
+
+Example
+
+April 2026
+
+May 2026
+
+June 2026
+
+...
+
+--------------------------------------------------
+
+## MONTH STATUS
+
+Support three states.
+
+Future
+
+Open
+
+Closed
+
+Frontend should display whatever status backend eventually returns.
+
+Do NOT hardcode business rules.
+
+--------------------------------------------------
+
+## DAY VIEW
+
+Selecting a month displays every day.
+
+Example
+
+1 July
+
+2 July
+
+3 July
+
+...
+
+31 July
+
+Selecting a day opens the entry page.
+
+--------------------------------------------------
+
+## DAY ENTRY
+
+Support:
+
+Cash Sales
+
+UPI Sales
+
+Card Sales
+
+Credit Sales
+
+Expenses
+
+Multiple Notes
+
+Everything becomes read-only when the month is closed.
+
+--------------------------------------------------
+
+## EXPENSES
+
+Allow multiple expenses.
+
+Each expense contains:
+
+Category
+
+Amount
+
+Remarks
+
+Display them in a clean table.
+
+--------------------------------------------------
+
+## NOTES
+
+Allow multiple notes.
+
+Display a clean empty state if none exist.
+
+Do not limit to one note.
+
+--------------------------------------------------
+
+## MONTH SUMMARY
+
+Display backend values only.
+
+Never calculate financial totals on the frontend.
+
+Reserve space for:
+
+Cash Total
+
+UPI Total
+
+Card Total
+
+Credit Total
+
+Gross Sales
+
+Total Expenses
+
+Net Collection
+
+Transaction Count
+
+Highest Sales Day
+
+Highest Expense Day
+
+Average Daily Sales
+
+Working Days
+
+If backend data is unavailable display:
+
+—
+
+--------------------------------------------------
+
+## FINANCIAL YEAR SUMMARY
+
+Display:
+
+Annual Gross Sales
+
+Annual Expenses
+
+Annual Net
+
+Cash Total
+
+UPI Total
+
+Card Total
+
+Credit Total
+
+Monthly comparison
+
+Top Month
+
+Lowest Month
+
+Average Monthly Sales
+
+Display backend values only.
+
+--------------------------------------------------
+
+## CLOSED MONTHS
+
+When backend reports a month as closed:
+
+Entire Register becomes read-only.
+
+Display a banner:
+
+"This register is closed."
+
+Show an Unlock button.
+
+Do NOT fake unlocking.
+
+--------------------------------------------------
+
+## UNLOCK DIALOG
+
+Create a clean Unlock dialog.
+
+Ask for:
+
+Privacy Password
+
+Cancel
+
+Unlock
+
+If backend is unavailable display:
+
+"Backend integration pending."
+
+Leave a TODO comment for future backend integration.
+
+Do not fake successful unlocks.
+
+--------------------------------------------------
+
+## COMPONENT STRUCTURE
+
+Keep Register modular.
+
+Suggested structure:
+
+src/pages/register/
+
+RegisterPage.jsx
+
+YearOverview.jsx
+
+MonthOverview.jsx
+
+DayView.jsx
+
+UnlockDialog.jsx
+
+components/
+
+RegisterHeader.jsx
+
+SummaryCards.jsx
+
+MonthCard.jsx
+
+DayCard.jsx
+
+ExpenseTable.jsx
+
+NotesPanel.jsx
+
+StatusBadge.jsx
+
+--------------------------------------------------
+
+## LIBRARIES
+
+Create:
+
+src/lib/register.js
+
+Only API wrappers belong here.
+
+Example:
+
+getFinancialYears()
+
+getFinancialYearSummary()
+
+getMonthSummary()
+
+getDay()
+
+saveDay()
+
+saveExpense()
+
+saveNotes()
+
+verifyUnlock()
+
+No financial calculations.
+
+No calendar logic.
+
+Create:
+
+src/lib/registerCalendar.js
+
+Move all helper logic here:
+
+Financial Year calculations
+
+Month generation
+
+Day generation
+
+Labels
+
+Calendar helpers
+
+Keep responsibilities separated.
+
+--------------------------------------------------
+
+## UI POLISH
+
+Use the existing PharmacyOS design.
+
+Improve:
+
+Spacing
+
+Typography
+
+Alignment
+
+Responsive layout
+
+Empty states
+
+Loading states
+
+Error states
+
+Consistent card heights
+
+Better section spacing
+
+Smooth scrolling
+
+Do NOT redesign the application.
+
+The Register should look like it has always been part of PharmacyOS.
+
+--------------------------------------------------
+
+## DAY VIEW LAYOUT
+
+Separate sections clearly.
+
+Sales
+
+Expenses
+
+Notes
+
+Summary
+
+Everything should feel like a real accounting register.
+
+--------------------------------------------------
+
+## EXPENSE TABLE
+
+Improve alignment.
+
+Handle multiple expenses neatly.
+
+Provide an empty state.
+
+--------------------------------------------------
+
+## DASHBOARD
+
+Replace the existing Daily Sales dashboard shortcut.
+
+Dashboard should now open Register.
+
+Do not leave broken links.
+
+--------------------------------------------------
+
+## PERFORMANCE
+
+Remove:
+
+Unused imports
+
+Dead code
+
+Duplicate helpers
+
+Duplicate state
+
+Duplicate calculations
+
+Avoid unnecessary re-renders.
+
+Memoize only where useful.
+
+--------------------------------------------------
+
+## ACCESSIBILITY
+
+Ensure:
+
+Keyboard navigation
+
+Proper dialog focus
+
+Button labels
+
+Readable tables
+
+Clear empty states
+
+--------------------------------------------------
+
+## RESPONSIVENESS
+
+Verify layouts for:
+
+Desktop
+
+Tablet
+
+Laptop
+
+Avoid overflow.
+
+--------------------------------------------------
+
+## BACKEND RULES
+
+This repository has NO backend.
+
+Do NOT invent endpoints.
+
+Do NOT create mock APIs.
+
+Do NOT fake responses.
+
+Gracefully handle missing backend data.
+
+Leave TODO comments where integration is pending.
+
+--------------------------------------------------
+
+## FINAL VERIFICATION
+
+Confirm:
+
+✓ Daily Sales completely removed
+
+✓ Register fully replaces it
+
+✓ Navigation updated
+
+✓ Dashboard updated
+
+✓ Register builds successfully
+
+✓ No broken imports
+
+✓ No console errors
+
+✓ No lint errors
+
+✓ No duplicate helpers
+
+✓ No orphan routes
+
+✓ Existing PharmacyOS modules continue working unchanged
+
+--------------------------------------------------
+
+## FINAL DELIVERABLE
+
+Provide a concise report containing:
+
+1. Files modified
+
+2. Files removed
+
+3. New files created
+
+4. UI improvements completed
+
+5. Cleanup completed
+
+6. Remaining backend integration points
+
+Do NOT redesign anything.
+
+Treat this as the FINAL frontend refinement before backend implementation.

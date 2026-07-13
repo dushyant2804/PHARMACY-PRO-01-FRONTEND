@@ -171,7 +171,7 @@ export default function DayView({ financialYear, monthKey, date, monthStatus, on
 
       <section className="rounded-sm border border-slate-200 bg-white p-4 sm:p-5">
         <h2 className="mb-4 font-heading font-semibold text-slate-800">Notes</h2>
-        <NotesPanel notes={day?.notes || []} editable onAdd={handleAddNote} saving={noteSaving} />
+        <NotesPanel notes={day?.notes || []} editable={editable} onAdd={handleAddNote} saving={noteSaving} />
       </section>
 
       {loading && <p className="text-center text-sm text-slate-400">Loading day entry…</p>}

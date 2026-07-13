@@ -15,7 +15,10 @@ export default function RegisterPage() {
   const goToDashboard = () => navigate("/");
   const goToYear = () => setView({ level: "year" });
   const goToMonth = (monthKey) => setView({ level: "month", monthKey });
-  const goToDay = (monthKey, date) => setView({ level: "day", monthKey, date });
+  // monthStatus is threaded through from MonthOverview (which already fetched
+  // the backend's real status) so DayView never has to re-derive it from the
+  // structural estimate alone.
+  const goToDay = (monthKey, date, monthStatus) => setView({ level: "day", monthKey, date, monthStatus });
 
   if (view.level === "day") {
     return (
@@ -23,6 +26,7 @@ export default function RegisterPage() {
         financialYear={financialYear}
         monthKey={view.monthKey}
         date={view.date}
+        monthStatus={view.monthStatus}
         onBack={() => goToMonth(view.monthKey)}
         onBackToMonths={goToYear}
         onBackToDashboard={goToDashboard}
@@ -35,7 +39,7 @@ export default function RegisterPage() {
       <MonthOverview
         financialYear={financialYear}
         monthKey={view.monthKey}
-        onOpenDay={(date) => goToDay(view.monthKey, date)}
+        onOpenDay={(date, monthStatus) => goToDay(view.monthKey, date, monthStatus)}
         onBack={goToYear}
         onBackToDashboard={goToDashboard}
       />

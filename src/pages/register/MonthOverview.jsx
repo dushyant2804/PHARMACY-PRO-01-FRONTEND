@@ -111,7 +111,7 @@ export default function MonthOverview({ financialYear, monthKey, onOpenDay, onBa
               key={date}
               dayNumber={formatDayLabel(date)}
               day={daysByDate.get(date)}
-              onClick={() => onOpenDay(date)}
+              onClick={() => onOpenDay(date, status)}
             />
           ))}
         </div>
@@ -119,7 +119,7 @@ export default function MonthOverview({ financialYear, monthKey, onOpenDay, onBa
 
       <section aria-label="Month notes" className="rounded-sm border border-slate-200 bg-white p-4 sm:p-5">
         <h2 className="mb-3 font-heading font-semibold text-slate-800">Month notes</h2>
-        <NotesPanel notes={monthRegister?.notes || []} editable onAdd={handleAddNote} saving={noteSaving} />
+        <NotesPanel notes={monthRegister?.notes || []} editable={editable} onAdd={handleAddNote} saving={noteSaving} />
       </section>
 
       {loading && <p className="text-center text-sm text-slate-400">Loading month register…</p>}
