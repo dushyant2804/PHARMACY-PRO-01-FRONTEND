@@ -397,7 +397,7 @@ export default function Inventory() {
 
     setUnlocking(true);
     try {
-      await api.post(`/medicines/${selected.id}/low-stock-threshold/unlock`, {
+      await api.post(`/inventory/${selected.id}/low-stock-threshold/unlock`, {
         privacy_password: privacyPassword,
       });
       setThresholdUnlocked(true);
