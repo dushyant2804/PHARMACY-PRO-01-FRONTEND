@@ -86,6 +86,7 @@ export default function Settings() {
   const [users, setUsers] = useState([]);
   const [deletingUserId, setDeletingUserId] = useState(null);
   const [privacyPasswordForm, setPrivacyPasswordForm] = useState({
+    current: "",
     password: "",
     confirm: "",
   });
@@ -537,8 +538,16 @@ export default function Settings() {
 
     setSavingPrivacyPassword(true);
     try {
-      await savePrivacyPasswordRequest(api, privacyPasswordForm.password);
-      setPrivacyPasswordForm({ password: "", confirm: "" });
+      await savePrivacyPasswordRequest(
+        api,
+        privacyPasswordForm.current,
+        privacyPasswordForm.password
+      );
+      setPrivacyPasswordForm({
+        current: "",
+        password: "",
+        confirm: "",
+      });
       toast.success("Privacy Password updated.");
     } catch (e) {
       toast.error(
@@ -630,6 +639,28 @@ export default function Settings() {
             data-api-path="/settings/privacy-password"
             className="grid max-w-2xl gap-3 md:grid-cols-[1fr_1fr_auto]"
           >
+            <div>
+  <Label
+    className="text-xs uppercase font-semibold text-slate-600"
+    htmlFor="privacy-password-current"
+  >
+    Current Privacy Password
+  </Label>
+
+  <Input
+    id="privacy-password-current"
+    type="password"
+    value={privacyPasswordForm.current}
+    onChange={(e) =>
+      setPrivacyPasswordForm({
+        ...privacyPasswordForm,
+        current: e.target.value,
+      })
+    }
+    className="rounded-sm mt-1"
+    placeholder="Enter current password"
+  />
+</div>
             <div>
               <Label
                 className="text-xs uppercase font-semibold text-slate-600"
