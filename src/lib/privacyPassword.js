@@ -3,12 +3,26 @@ import { formatApiError } from "./api";
 export const PRIVACY_PASSWORD_PATH = "/settings/privacy-password";
 export const PRIVACY_PASSWORD_PAYLOAD_FIELD = "privacy_password";
 
-export const buildPrivacyPasswordPayload = (value) => ({
-  [PRIVACY_PASSWORD_PAYLOAD_FIELD]: value,
+export const buildPrivacyPasswordPayload = (
+  currentPassword,
+  newPassword
+) => ({
+  current_privacy_password: currentPassword,
+  privacy_password: newPassword,
 });
 
-export const savePrivacyPasswordRequest = (apiClient, value) =>
-  apiClient.patch(PRIVACY_PASSWORD_PATH, buildPrivacyPasswordPayload(value));
+export const savePrivacyPasswordRequest = (
+  apiClient,
+  currentPassword,
+  newPassword
+) =>
+  apiClient.patch(
+    PRIVACY_PASSWORD_PATH,
+    buildPrivacyPasswordPayload(
+      currentPassword,
+      newPassword
+    )
+  );
 
 export function formatPrivacyPasswordSaveError(error) {
   const status = error?.response?.status;
