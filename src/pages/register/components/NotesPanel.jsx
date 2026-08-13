@@ -21,6 +21,8 @@ export default function NotesPanel({
   notes = [],
   editable,
   onAdd,
+  onEdit,
+  onDelete,
   saving,
   financialYear,
   monthKey,
