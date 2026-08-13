@@ -15,6 +15,8 @@ import {
   getMonthLabel,
   resolveMonthStatus,
   addNote,
+  updateNote,
+  deleteNote,
   formatRegisterError,
 } from "@/lib/register";
 
@@ -56,6 +58,45 @@ export default function MonthOverview({ financialYear, monthKey, onOpenDay, onBa
       setNoteSaving(false);
     }
   };
+
+  const handleEditNote = async (noteId, text) => {
+  setNoteSaving(true);
+
+  try {
+    await updateNote(
+      financialYear,
+      monthKey,
+      noteId,
+      text
+    );
+
+    toast.success("Note updated");
+    load();
+  } catch (err) {
+    toast.error(formatRegisterError(err));
+  } finally {
+    setNoteSaving(false);
+  }
+};
+
+const handleDeleteNote = async (noteId) => {
+  setNoteSaving(true);
+
+  try {
+    await deleteNote(
+      financialYear,
+      monthKey,
+      noteId
+    );
+
+    toast.success("Note deleted");
+    load();
+  } catch (err) {
+    toast.error(formatRegisterError(err));
+  } finally {
+    setNoteSaving(false);
+  }
+};
 
   return (
     <div className="mx-auto max-w-6xl space-y-5" data-testid="register-month-page">
