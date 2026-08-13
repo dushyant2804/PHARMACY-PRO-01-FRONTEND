@@ -247,6 +247,65 @@ export async function saveDayEntry(financialYear, monthKey, date, payload) {
   return normalizeDayDetail(data);
 }
 
+export async function deleteDayEntry(financialYear, monthKey, date) {
+  const { data } = await api.delete(
+    `/register/${financialYear}/${monthKey}/days/${date}`
+  );
+  return data;
+}
+
+export async function updateExpense(
+  financialYear,
+  monthKey,
+  date,
+  expenseId,
+  payload
+) {
+  const { data } = await api.put(
+    `/register/${financialYear}/${monthKey}/days/${date}/expenses/${expenseId}`,
+    payload
+  );
+  return data;
+}
+
+export async function deleteExpense(
+  financialYear,
+  monthKey,
+  date,
+  expenseId
+) {
+  const { data } = await api.delete(
+    `/register/${financialYear}/${monthKey}/days/${date}/expenses/${expenseId}`
+  );
+  return data;
+}
+
+export async function updateNote(
+  financialYear,
+  monthKey,
+  noteId,
+  text
+) {
+  const { data } = await api.put(
+    `/register/${financialYear}/${monthKey}/notes/${noteId}`,
+    {
+      text,
+    }
+  );
+  return normalizeNote(data);
+}
+
+export async function deleteNote(
+  financialYear,
+  monthKey,
+  noteId
+) {
+  const { data } = await api.delete(
+    `/register/${financialYear}/${monthKey}/notes/${noteId}`
+  );
+  return data;
+}
+
 export async function saveExpense(financialYear, monthKey, date, payload) {
   const { data } = await api.post(`/register/${financialYear}/${monthKey}/days/${date}/expenses`, payload);
   return data;
