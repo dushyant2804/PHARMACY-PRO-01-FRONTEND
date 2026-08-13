@@ -6,7 +6,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, MessageCircle, Pencil, Plus, Search } from "lucide-react";
+import {
+  Download,
+  MessageCircle,
+  Pencil,
+  Plus,
+  Search,
+  ShoppingCart,
+  CreditCard,
+  Receipt,
+  Wallet,
+  CheckCircle2,
+  CalendarDays,
+  IndianRupee,
+  FileText,
+} from "lucide-react";
 import { toast } from "sonner";
 import { getDistributorBalanceLabel, ledgerShareMessage, whatsappUrl } from "@/lib/sharing";
 import {
@@ -155,6 +169,56 @@ const getCustomerMonthlySummarySource = (payload) =>
   [];
 
 const toLedgerNumber = (value) => Number(value || 0);
+
+const getTransactionChoices = (type) => {
+  if (type === "distributor") {
+    return [
+      {
+        value: "purchase",
+        title: "Purchase",
+        description: "Record goods purchased from this distributor",
+        icon: ShoppingCart,
+        iconWrapper: "bg-red-100 text-red-600",
+        selectedBorder: "border-red-500",
+        selectedBackground: "bg-red-50",
+        accent: "text-red-700",
+      },
+      {
+        value: "payment",
+        title: "Payment",
+        description: "Record payment made to this distributor",
+        icon: CreditCard,
+        iconWrapper: "bg-emerald-100 text-emerald-600",
+        selectedBorder: "border-emerald-500",
+        selectedBackground: "bg-emerald-50",
+        accent: "text-emerald-700",
+      },
+    ];
+  }
+
+  return [
+    {
+      value: "sale",
+      title: "Sale / Due",
+      description: "Record a credit sale made to this customer",
+      icon: Receipt,
+      iconWrapper: "bg-blue-100 text-blue-600",
+      selectedBorder: "border-blue-500",
+      selectedBackground: "bg-blue-50",
+      accent: "text-blue-700",
+    },
+    {
+      value: "payment",
+      title: "Payment Received",
+      description: "Record money received from this customer",
+      icon: Wallet,
+      iconWrapper: "bg-emerald-100 text-emerald-600",
+      selectedBorder: "border-emerald-500",
+      selectedBackground: "bg-emerald-50",
+      accent: "text-emerald-700",
+    },
+  ];
+};
 
 export const normalizeCustomerMonthlySummary = (payload) => {
   const source = getCustomerMonthlySummarySource(payload);
@@ -1170,139 +1234,416 @@ const downloadLedger = async () => {
       </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="rounded-sm">
-          <DialogHeader><DialogTitle className="font-heading">New Transaction</DialogTitle></DialogHeader>
-          <form onSubmit={submit} className="space-y-3">
-            {(type === "distributor" || type === "customer") && (
-              <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">
-                  Transaction Type
-                </Label>
+  <DialogContent
+    className="
+      w-[calc(100vw-2rem)]
+      max-w-4xl
+      max-h-[90vh]
+      overflow-y-auto
+      rounded-2xl
+      border-0
+      bg-slate-50
+      p-0
+      shadow-2xl
+    "
+  >
+    {/* HEADER */}
+    <div className="relative overflow-hidden rounded-t-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-6 py-6 text-white">
+      <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10" />
+      <div className="absolute -bottom-12 right-24 h-28 w-28 rounded-full bg-white/5" />
 
-                <Select value={txnType} onValueChange={handleTransactionTypeChange}>
-                  <SelectTrigger className="rounded-sm mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
+      <DialogHeader className="relative">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 shadow-inner">
+            <Plus className="h-6 w-6" />
+          </div>
 
-                  <SelectContent>
-                    {type === "distributor" ? (
-                      <>
-                        <SelectItem value="purchase">Purchase (+)</SelectItem>
-                        <SelectItem value="payment">
-                          Payment to supplier (−)
-                        </SelectItem>
-                      </>
-                    ) : (
-                      <>
-                        <SelectItem value="sale">Sale / Due (+)</SelectItem>
-                        <SelectItem value="payment">
-                          Payment Received (−)
-                        </SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
+          <div>
+            <DialogTitle className="font-heading text-2xl font-bold text-white">
+              New Transaction
+            </DialogTitle>
+
+            <p className="mt-1 text-sm text-blue-100">
+              Add a new entry to {entity.name}'s ledger
+            </p>
+          </div>
+        </div>
+      </DialogHeader>
+    </div>
+
+    <form onSubmit={submit} className="space-y-6 p-6">
+
+      {/* TRANSACTION TYPE */}
+      {(type === "distributor" || type === "customer") && (
+        <section>
+          <div className="mb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                <CheckCircle2 className="h-4 w-4" />
               </div>
-            )}
 
-            <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">
-                Date
-              </Label>
+              <div>
+                <div className="text-sm font-bold uppercase tracking-wider text-slate-800">
+                  Transaction Type
+                </div>
 
-              <Input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="rounded-sm mt-1"
-              />
+                <div className="text-xs text-slate-500">
+                  Choose what you want to record
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {getTransactionChoices(type).map((choice) => {
+              const Icon = choice.icon;
+              const selected = txnType === choice.value;
+
+              return (
+                <button
+                  key={choice.value}
+                  type="button"
+                  onClick={() => handleTransactionTypeChange(choice.value)}
+                  className={`
+                    relative
+                    flex
+                    min-h-[150px]
+                    flex-col
+                    items-start
+                    rounded-2xl
+                    border-2
+                    p-5
+                    text-left
+                    transition-all
+                    duration-200
+                    hover:-translate-y-0.5
+                    hover:shadow-md
+                    ${
+                      selected
+                        ? `${choice.selectedBorder} ${choice.selectedBackground} shadow-md`
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    }
+                  `}
+                >
+                  {selected && (
+                    <div className="absolute right-4 top-4">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-sm">
+                        <CheckCircle2
+                          className={`h-5 w-5 ${choice.accent}`}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    className={`
+                      flex
+                      h-12
+                      w-12
+                      items-center
+                      justify-center
+                      rounded-xl
+                      ${choice.iconWrapper}
+                    `}
+                  >
+                    <Icon className="h-6 w-6" />
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="text-lg font-bold text-slate-900">
+                      {choice.title}
+                    </div>
+
+                    <div className="mt-1 max-w-sm text-sm leading-5 text-slate-500">
+                      {choice.description}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* TRANSACTION DETAILS */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+            <FileText className="h-5 w-5" />
+          </div>
+
+          <div>
+            <div className="text-sm font-bold uppercase tracking-wider text-slate-800">
+              Transaction Details
             </div>
 
-            {type === "distributor" && txnType === "payment" && (
-              <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">
-                  Receipt Number
-                </Label>
+            <div className="text-xs text-slate-500">
+              Enter the details for this ledger entry
+            </div>
+          </div>
+        </div>
 
-                <Input
-                  value={form.receipt_number}
-                  onChange={(e) => setForm({ ...form, receipt_number: e.target.value })}
-                  className="rounded-sm mt-1"
-                />
-              </div>
-            )}
+        <div className="grid gap-5 md:grid-cols-2">
 
-            {type === "distributor" && txnType === "purchase" && (
-              <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">
-                  Invoice / Bill Number
-                </Label>
+          {/* DATE */}
+          <div>
+            <Label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
+              <CalendarDays className="h-3.5 w-3.5" />
+              Date
+            </Label>
 
-                <Input
-                  value={form.invoice_number}
-                  onChange={(e) => setForm({ ...form, invoice_number: e.target.value, reference_number: e.target.value })}
-                  className="rounded-sm mt-1"
-                />
-              </div>
-            )}
+            <Input
+              type="date"
+              value={form.date}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  date: e.target.value
+                })
+              }
+              className="
+                mt-2
+                h-12
+                rounded-xl
+                border-slate-200
+                bg-slate-50
+                text-base
+                focus:bg-white
+              "
+            />
+          </div>
 
-            <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">
-                Amount
-              </Label>
+          {/* AMOUNT */}
+          <div>
+            <Label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
+              <IndianRupee className="h-3.5 w-3.5" />
+              Amount
+            </Label>
+
+            <div className="relative mt-2">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
+                ₹
+              </span>
 
               <Input
                 type="number"
                 step="0.01"
+                min="0"
                 required
                 value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                className="rounded-sm mt-1"
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    amount: e.target.value
+                  })
+                }
+                placeholder="0.00"
+                className="
+                  h-12
+                  rounded-xl
+                  border-slate-200
+                  bg-slate-50
+                  pl-9
+                  text-lg
+                  font-semibold
+                  focus:bg-white
+                "
               />
             </div>
+          </div>
 
+          {/* RECEIPT NUMBER */}
+          {type === "distributor" && txnType === "payment" && (
             <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">
-                Mode
-              </Label>
-
-              <Select value={form.mode} onValueChange={(v) => setForm({ ...form, mode: v })}>
-                <SelectTrigger className="rounded-sm mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  {newTransactionModeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">
-                Notes / Reference
+              <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                Receipt Number
               </Label>
 
               <Input
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                className="rounded-sm mt-1"
+                value={form.receipt_number}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    receipt_number: e.target.value
+                  })
+                }
+                placeholder="e.g. REC-1024"
+                className="
+                  mt-2
+                  h-12
+                  rounded-xl
+                  border-slate-200
+                  bg-slate-50
+                  focus:bg-white
+                "
               />
             </div>
+          )}
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
+          {/* INVOICE NUMBER */}
+          {type === "distributor" && txnType === "purchase" && (
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                Invoice / Bill Number
+              </Label>
 
-              <Button type="submit" className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="save-txn">
-                Save
-              </Button>
+              <Input
+                value={form.invoice_number}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    invoice_number: e.target.value,
+                    reference_number: e.target.value
+                  })
+                }
+                placeholder="e.g. INV-4587"
+                className="
+                  mt-2
+                  h-12
+                  rounded-xl
+                  border-slate-200
+                  bg-slate-50
+                  focus:bg-white
+                "
+              />
             </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+          )}
+
+          {/* PAYMENT MODE */}
+          <div>
+            <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              Payment Mode
+            </Label>
+
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {newTransactionModeOptions.map((option) => {
+                const selected = form.mode === option.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        mode: option.value
+                      })
+                    }
+                    className={`
+                      rounded-xl
+                      border
+                      px-3
+                      py-3
+                      text-sm
+                      font-semibold
+                      transition-all
+                      ${
+                        selected
+                          ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
+                          : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
+                      }
+                    `}
+                  >
+                    {selected ? "✓ " : ""}
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* NOTES */}
+          <div className="md:col-span-2">
+            <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              Notes / Reference
+            </Label>
+
+            <Input
+              value={form.notes}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  notes: e.target.value
+                })
+              }
+              placeholder="Add a note, reference, cheque number, or any useful detail..."
+              className="
+                mt-2
+                h-12
+                rounded-xl
+                border-slate-200
+                bg-slate-50
+                focus:bg-white
+              "
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* SUMMARY */}
+      {form.amount && (
+        <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-blue-700">
+                Transaction Summary
+              </div>
+
+              <div className="mt-1 text-sm text-slate-600">
+                {type === "distributor"
+                  ? txnType === "purchase"
+                    ? "Purchase will increase the distributor balance."
+                    : "Payment will reduce the distributor balance."
+                  : txnType === "sale"
+                    ? "Sale will increase the customer's outstanding balance."
+                    : "Payment received will reduce the customer's outstanding balance."}
+              </div>
+            </div>
+
+            <div className="text-left sm:text-right">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Amount
+              </div>
+
+              <div className="text-2xl font-bold font-mono-nums text-slate-900">
+                {fmtINR(Number(form.amount || 0))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ACTIONS */}
+      <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setOpen(false)}
+          className="h-11 rounded-xl px-6"
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="submit"
+          className="
+            h-11
+            rounded-xl
+            bg-blue-600
+            px-7
+            font-semibold
+            shadow-sm
+            hover:bg-blue-700
+          "
+          data-testid="save-txn"
+        >
+          <CheckCircle2 className="mr-2 h-4 w-4" />
+          Save Transaction
+        </Button>
+      </div>
+    </form>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
