@@ -1469,181 +1469,310 @@ const downloadLedger = async () => {
                 }
                 placeholder="e.g. REC-1024"
                 className="
-                  mt-2
-                  h-12
-                  rounded-xl
-                  border-slate-200
-                  bg-slate-50
-                  focus:bg-white
-                "
-              />
-            </div>
-          )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          className="
+            w-[calc(100vw-2rem)]
+            max-w-2xl
+            max-h-[90vh]
+            overflow-y-auto
+            rounded-xl
+            border
+            border-slate-200
+            bg-white
+            p-0
+            shadow-2xl
+          "
+        >
+          {/* HEADER */}
+          <div className="border-b border-slate-200 px-5 py-4 sm:px-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-slate-900">
+                New Transaction
+              </DialogTitle>
 
-          {/* INVOICE NUMBER */}
-          {type === "distributor" && txnType === "purchase" && (
-            <div>
+              <p className="mt-1 text-sm text-slate-500">
+                {type === "customer" ? "Customer" : "Distributor"}:{" "}
+                <span className="font-semibold text-slate-700">
+                  {entity.name}
+                </span>
+              </p>
+            </DialogHeader>
+          </div>
+
+          <form onSubmit={submit} className="px-5 py-5 sm:px-6 sm:py-6">
+
+            {/* TRANSACTION TYPE */}
+            {(type === "distributor" || type === "customer") && (
+              <section>
+                <Label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Transaction Type
+                </Label>
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {getTransactionChoices(type).map((choice) => {
+                    const selected = txnType === choice.value;
+
+                    return (
+                      <button
+                        key={choice.value}
+                        type="button"
+                        onClick={() =>
+                          handleTransactionTypeChange(choice.value)
+                        }
+                        className={`
+                          h-11 rounded-lg border px-3
+                          text-sm font-bold uppercase tracking-wide
+                          transition-all
+                          ${
+                            selected
+                              ? `${choice.selectedBorder} ${choice.selectedBackground} ${choice.accent} shadow-sm`
+                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                          }
+                        `}
+                      >
+                        {choice.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* DATE + REFERENCE */}
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+
+              {/* DATE */}
+              <div>
+                <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Date
+                </Label>
+
+                <Input
+                  type="date"
+                  required
+                  value={form.date}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      date: e.target.value
+                    })
+                  }
+                  className="
+                    mt-2
+                    h-11
+                    rounded-lg
+                    border-slate-200
+                    bg-slate-50
+                    focus:bg-white
+                  "
+                />
+              </div>
+
+              {/* REFERENCE */}
+              <div>
+                <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Reference No.
+                </Label>
+
+                <Input
+                  value={
+                    type === "distributor" && txnType === "purchase"
+                      ? form.invoice_number
+                      : type === "distributor" && txnType === "payment"
+                        ? form.receipt_number
+                        : form.reference_number
+                  }
+                  onChange={(e) => {
+                    const value = e.target.value;
+
+                    if (
+                      type === "distributor" &&
+                      txnType === "purchase"
+                    ) {
+                      setForm({
+                        ...form,
+                        invoice_number: value,
+                        reference_number: value
+                      });
+                    } else if (
+                      type === "distributor" &&
+                      txnType === "payment"
+                    ) {
+                      setForm({
+                        ...form,
+                        receipt_number: value,
+                        reference_number: value
+                      });
+                    } else {
+                      setForm({
+                        ...form,
+                        reference_number: value
+                      });
+                    }
+                  }}
+                  placeholder={
+                    type === "distributor" && txnType === "purchase"
+                      ? "Invoice / Bill No."
+                      : type === "distributor" && txnType === "payment"
+                        ? "Receipt No."
+                        : "Reference No."
+                  }
+                  className="
+                    mt-2
+                    h-11
+                    rounded-lg
+                    border-slate-200
+                    bg-slate-50
+                    focus:bg-white
+                  "
+                />
+              </div>
+            </div>
+
+            {/* AMOUNT */}
+            <div className="mt-5">
               <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                Invoice / Bill Number
+                Amount
               </Label>
 
-              <Input
-                value={form.invoice_number}
+              <div className="relative mt-2">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base font-bold text-slate-400">
+                  ₹
+                </span>
+
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  value={form.amount}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      amount: e.target.value
+                    })
+                  }
+                  placeholder="0.00"
+                  className="
+                    h-14
+                    rounded-lg
+                    border-slate-200
+                    bg-slate-50
+                    pl-10
+                    text-xl
+                    font-semibold
+                    focus:bg-white
+                  "
+                />
+              </div>
+            </div>
+
+            {/* PAYMENT MODE */}
+            <div className="mt-5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                Payment Mode
+              </Label>
+
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {newTransactionModeOptions.map((option) => {
+                  const selected = form.mode === option.value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          mode: option.value
+                        })
+                      }
+                      className={`
+                        h-10 rounded-lg border px-3
+                        text-sm font-semibold
+                        transition-all
+                        ${
+                          selected
+                            ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                        }
+                      `}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* NOTE */}
+            <div className="mt-5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                Note
+              </Label>
+
+              <textarea
+                value={form.notes}
                 onChange={(e) =>
                   setForm({
                     ...form,
-                    invoice_number: e.target.value,
-                    reference_number: e.target.value
+                    notes: e.target.value
                   })
                 }
-                placeholder="e.g. INV-4587"
+                placeholder="Add a note, cheque number, or any useful detail..."
+                rows={3}
                 className="
                   mt-2
-                  h-12
-                  rounded-xl
+                  w-full
+                  resize-none
+                  rounded-lg
+                  border
                   border-slate-200
                   bg-slate-50
+                  px-3
+                  py-2.5
+                  text-sm
+                  outline-none
+                  transition
+                  placeholder:text-slate-400
+                  focus:border-blue-500
                   focus:bg-white
+                  focus:ring-1
+                  focus:ring-blue-500
                 "
               />
             </div>
-          )}
 
-          {/* PAYMENT MODE */}
-          <div>
-            <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-              Payment Mode
-            </Label>
+            {/* FOOTER */}
+            <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                className="h-10 rounded-lg px-5"
+              >
+                Cancel
+              </Button>
 
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {newTransactionModeOptions.map((option) => {
-                const selected = form.mode === option.value;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        mode: option.value
-                      })
-                    }
-                    className={`
-                      rounded-xl
-                      border
-                      px-3
-                      py-3
-                      text-sm
-                      font-semibold
-                      transition-all
-                      ${
-                        selected
-                          ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
-                          : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
-                      }
-                    `}
-                  >
-                    {selected ? "✓ " : ""}
-                    {option.label}
-                  </button>
-                );
-              })}
+              <Button
+                type="submit"
+                className="
+                  h-10
+                  rounded-lg
+                  bg-blue-600
+                  px-6
+                  font-semibold
+                  hover:bg-blue-700
+                "
+                data-testid="save-txn"
+              >
+                Save Entry
+              </Button>
             </div>
-          </div>
-
-          {/* NOTES */}
-          <div className="md:col-span-2">
-            <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-              Notes / Reference
-            </Label>
-
-            <Input
-              value={form.notes}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  notes: e.target.value
-                })
-              }
-              placeholder="Add a note, reference, cheque number, or any useful detail..."
-              className="
-                mt-2
-                h-12
-                rounded-xl
-                border-slate-200
-                bg-slate-50
-                focus:bg-white
-              "
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* SUMMARY */}
-      {form.amount && (
-        <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-blue-700">
-                Transaction Summary
-              </div>
-
-              <div className="mt-1 text-sm text-slate-600">
-                {type === "distributor"
-                  ? txnType === "purchase"
-                    ? "Purchase will increase the distributor balance."
-                    : "Payment will reduce the distributor balance."
-                  : txnType === "sale"
-                    ? "Sale will increase the customer's outstanding balance."
-                    : "Payment received will reduce the customer's outstanding balance."}
-              </div>
-            </div>
-
-            <div className="text-left sm:text-right">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Amount
-              </div>
-
-              <div className="text-2xl font-bold font-mono-nums text-slate-900">
-                {fmtINR(Number(form.amount || 0))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ACTIONS */}
-      <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setOpen(false)}
-          className="h-11 rounded-xl px-6"
-        >
-          Cancel
-        </Button>
-
-        <Button
-          type="submit"
-          className="
-            h-11
-            rounded-xl
-            bg-blue-600
-            px-7
-            font-semibold
-            shadow-sm
-            hover:bg-blue-700
-          "
-          data-testid="save-txn"
-        >
-          <CheckCircle2 className="mr-2 h-4 w-4" />
-          Save Transaction
-        </Button>
-      </div>
-    </form>
-  </DialogContent>
-</Dialog>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
