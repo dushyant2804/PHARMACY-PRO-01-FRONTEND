@@ -22,6 +22,8 @@ import {
   saveDayEntry,
   deleteDayEntry,
   saveExpense,
+  updateExpense,
+  deleteExpense,
   addNote,
   updateNote,
   deleteNote,
@@ -190,6 +192,47 @@ export default function DayView({
       setExpenseSaving(false);
     }
   };
+
+  const handleEditExpense = async (expenseId, payload) => {
+  setExpenseSaving(true);
+
+  try {
+    await updateExpense(
+      financialYear,
+      monthKey,
+      date,
+      expenseId,
+      payload
+    );
+
+    toast.success("Expense updated");
+    load();
+  } catch (err) {
+    toast.error(formatRegisterError(err));
+  } finally {
+    setExpenseSaving(false);
+  }
+};
+
+const handleDeleteExpense = async (expenseId) => {
+  setExpenseSaving(true);
+
+  try {
+    await deleteExpense(
+      financialYear,
+      monthKey,
+      date,
+      expenseId
+    );
+
+    toast.success("Expense deleted");
+    load();
+  } catch (err) {
+    toast.error(formatRegisterError(err));
+  } finally {
+    setExpenseSaving(false);
+  }
+};
 
   const handleAddNote = async (text) => {
     setNoteSaving(true);
