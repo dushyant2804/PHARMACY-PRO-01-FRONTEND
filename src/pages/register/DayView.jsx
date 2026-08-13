@@ -307,6 +307,49 @@ const handleDeleteNote = async (noteId) => {
             Sales
           </h2>
 
+          {day && (
+  <section className="rounded-sm border border-slate-200 bg-white p-4 sm:p-5">
+    <h2 className="mb-4 font-heading font-semibold text-slate-800">
+      Day Details
+    </h2>
+
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase text-slate-500">
+          Gross Sales
+        </p>
+        <p className="mt-1 font-mono-nums text-xl font-bold text-emerald-700">
+          {day.grossSales != null
+            ? `₹${Number(day.grossSales).toFixed(2)}`
+            : "—"}
+        </p>
+      </div>
+
+      <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase text-slate-500">
+          Total Expenses
+        </p>
+        <p className="mt-1 font-mono-nums text-xl font-bold text-red-600">
+          {day.totalExpenses != null
+            ? `₹${Number(day.totalExpenses).toFixed(2)}`
+            : "—"}
+        </p>
+      </div>
+
+      <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase text-slate-500">
+          Net Collection
+        </p>
+        <p className="mt-1 font-mono-nums text-xl font-bold text-blue-700">
+          {day.netCollection != null
+            ? `₹${Number(day.netCollection).toFixed(2)}`
+            : "—"}
+        </p>
+      </div>
+    </div>
+  </section>
+)}
+
           {hasSalesEntry && editable && !editingSales && (
             <div className="flex gap-2">
               <Button
