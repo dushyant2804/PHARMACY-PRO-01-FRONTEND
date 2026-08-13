@@ -307,7 +307,41 @@ export async function deleteNote(
 }
 
 export async function saveExpense(financialYear, monthKey, date, payload) {
-  const { data } = await api.post(`/register/${financialYear}/${monthKey}/days/${date}/expenses`, payload);
+  const { data } = await api.post("/expenses", {
+    date,
+    category: payload.category,
+    amount: Number(payload.amount),
+    notes: payload.remarks || payload.notes || "",
+  });
+
+  return data;
+}
+
+export async function updateExpense(
+  financialYear,
+  monthKey,
+  date,
+  expenseId,
+  payload
+) {
+  const { data } = await api.put(`/expenses/${expenseId}`, {
+    date,
+    category: payload.category,
+    amount: Number(payload.amount),
+    notes: payload.remarks || payload.notes || "",
+  });
+
+  return data;
+}
+
+export async function deleteExpense(
+  financialYear,
+  monthKey,
+  date,
+  expenseId
+) {
+  const { data } = await api.delete(`/expenses/${expenseId}`);
+
   return data;
 }
 
