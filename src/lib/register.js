@@ -202,13 +202,32 @@ function normalizeNote(row = {}) {
 export function normalizeDayDetail(payload = {}) {
   return {
     date: payload.date,
+
     cashSales: firstDefined(payload.cash_sales, null),
     upiSales: firstDefined(payload.upi_sales, null),
     cardSales: firstDefined(payload.card_sales, null),
     creditSales: firstDefined(payload.credit_sales, null),
+
     grossSales: firstDefined(payload.gross_sales, null),
-    expenses: Array.isArray(payload.expenses) ? payload.expenses : [],
-    notes: Array.isArray(payload.notes) ? payload.notes.map(normalizeNote) : [],
+
+    totalExpenses: firstDefined(
+      payload.total_expenses,
+      null
+    ),
+
+    netCollection: firstDefined(
+      payload.net_collection,
+      null
+    ),
+
+    expenses: Array.isArray(payload.expenses)
+      ? payload.expenses
+      : [],
+
+    notes: Array.isArray(payload.notes)
+      ? payload.notes.map(normalizeNote)
+      : [],
+
     closing: payload.closing || null,
   };
 }
