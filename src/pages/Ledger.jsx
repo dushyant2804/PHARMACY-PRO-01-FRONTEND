@@ -1237,127 +1237,67 @@ const downloadLedger = async () => {
   <DialogContent
     className="
       w-[calc(100vw-2rem)]
-      max-w-4xl
+      max-w-2xl
       max-h-[90vh]
       overflow-y-auto
-      rounded-2xl
-      border-0
-      bg-slate-50
+      rounded-xl
+      border
+      border-slate-200
+      bg-white
       p-0
       shadow-2xl
     "
   >
     {/* HEADER */}
-    <div className="relative overflow-hidden rounded-t-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-6 py-6 text-white">
-      <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10" />
-      <div className="absolute -bottom-12 right-24 h-28 w-28 rounded-full bg-white/5" />
+    <div className="border-b border-slate-200 px-5 py-4 sm:px-6">
+      <DialogHeader>
+        <DialogTitle className="text-xl font-bold text-slate-900">
+          New Transaction
+        </DialogTitle>
 
-      <DialogHeader className="relative">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 shadow-inner">
-            <Plus className="h-6 w-6" />
-          </div>
-
-          <div>
-            <DialogTitle className="font-heading text-2xl font-bold text-white">
-              New Transaction
-            </DialogTitle>
-
-            <p className="mt-1 text-sm text-blue-100">
-              Add a new entry to {entity.name}'s ledger
-            </p>
-          </div>
-        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          {type === "customer" ? "Customer" : "Distributor"}:{" "}
+          <span className="font-semibold text-slate-700">
+            {entity.name}
+          </span>
+        </p>
       </DialogHeader>
     </div>
 
-    <form onSubmit={submit} className="space-y-6 p-6">
+    <form onSubmit={submit} className="px-5 py-5 sm:px-6 sm:py-6">
 
-      {/* TRANSACTION TYPE */}
+      {/* =========================================================
+          TRANSACTION TYPE
+          ========================================================= */}
       {(type === "distributor" || type === "customer") && (
         <section>
-          <div className="mb-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
-                <CheckCircle2 className="h-4 w-4" />
-              </div>
+          <Label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-600">
+            Transaction Type
+          </Label>
 
-              <div>
-                <div className="text-sm font-bold uppercase tracking-wider text-slate-800">
-                  Transaction Type
-                </div>
-
-                <div className="text-xs text-slate-500">
-                  Choose what you want to record
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {getTransactionChoices(type).map((choice) => {
-              const Icon = choice.icon;
               const selected = txnType === choice.value;
 
               return (
                 <button
                   key={choice.value}
                   type="button"
-                  onClick={() => handleTransactionTypeChange(choice.value)}
+                  onClick={() =>
+                    handleTransactionTypeChange(choice.value)
+                  }
                   className={`
-                    relative
-                    flex
-                    min-h-[150px]
-                    flex-col
-                    items-start
-                    rounded-2xl
-                    border-2
-                    p-5
-                    text-left
+                    h-11 rounded-lg border px-3
+                    text-sm font-bold uppercase tracking-wide
                     transition-all
-                    duration-200
-                    hover:-translate-y-0.5
-                    hover:shadow-md
                     ${
                       selected
-                        ? `${choice.selectedBorder} ${choice.selectedBackground} shadow-md`
-                        : "border-slate-200 bg-white hover:border-slate-300"
+                        ? `${choice.selectedBorder} ${choice.selectedBackground} ${choice.accent} shadow-sm`
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                     }
                   `}
                 >
-                  {selected && (
-                    <div className="absolute right-4 top-4">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-sm">
-                        <CheckCircle2
-                          className={`h-5 w-5 ${choice.accent}`}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div
-                    className={`
-                      flex
-                      h-12
-                      w-12
-                      items-center
-                      justify-center
-                      rounded-xl
-                      ${choice.iconWrapper}
-                    `}
-                  >
-                    <Icon className="h-6 w-6" />
-                  </div>
-
-                  <div className="mt-4">
-                    <div className="text-lg font-bold text-slate-900">
-                      {choice.title}
-                    </div>
-
-                    <div className="mt-1 max-w-sm text-sm leading-5 text-slate-500">
-                      {choice.description}
-                    </div>
-                  </div>
+                  {choice.title}
                 </button>
               );
             })}
@@ -1365,414 +1305,284 @@ const downloadLedger = async () => {
         </section>
       )}
 
-      {/* TRANSACTION DETAILS */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-            <FileText className="h-5 w-5" />
-          </div>
+      {/* =========================================================
+          DATE + REFERENCE
+          ========================================================= */}
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
 
-          <div>
-            <div className="text-sm font-bold uppercase tracking-wider text-slate-800">
-              Transaction Details
-            </div>
+        {/* DATE */}
+        <div>
+          <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+            Date
+          </Label>
 
-            <div className="text-xs text-slate-500">
-              Enter the details for this ledger entry
-            </div>
-          </div>
+          <Input
+            type="date"
+            required
+            value={form.date}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                date: e.target.value,
+              })
+            }
+            className="
+              mt-2
+              h-11
+              rounded-lg
+              border-slate-200
+              bg-slate-50
+              focus:bg-white
+            "
+          />
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        {/* REFERENCE / INVOICE / RECEIPT */}
+        <div>
+          <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+            {type === "distributor" && txnType === "purchase"
+              ? "Invoice No."
+              : type === "distributor" && txnType === "payment"
+                ? "Receipt No."
+                : "Reference No."}
+          </Label>
 
-          {/* DATE */}
-          <div>
-            <Label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
-              <CalendarDays className="h-3.5 w-3.5" />
-              Date
-            </Label>
+          <Input
+            value={
+              type === "distributor" && txnType === "purchase"
+                ? form.invoice_number || ""
+                : type === "distributor" && txnType === "payment"
+                  ? form.receipt_number || ""
+                  : form.reference_number || ""
+            }
+            onChange={(e) => {
+              const value = e.target.value;
 
-            <Input
-              type="date"
-              value={form.date}
-              onChange={(e) =>
+              if (
+                type === "distributor" &&
+                txnType === "purchase"
+              ) {
                 setForm({
                   ...form,
-                  date: e.target.value
-                })
+                  invoice_number: value,
+                  reference_number: value,
+                });
+              } else if (
+                type === "distributor" &&
+                txnType === "payment"
+              ) {
+                setForm({
+                  ...form,
+                  receipt_number: value,
+                  reference_number: value,
+                });
+              } else {
+                setForm({
+                  ...form,
+                  reference_number: value,
+                });
               }
-              className="
-                mt-2
-                h-12
-                rounded-xl
-                border-slate-200
-                bg-slate-50
-                text-base
-                focus:bg-white
-              "
-            />
-          </div>
+            }}
+            placeholder={
+              type === "distributor" && txnType === "purchase"
+                ? "Invoice / Bill No."
+                : type === "distributor" && txnType === "payment"
+                  ? "Receipt No."
+                  : "Reference No."
+            }
+            className="
+              mt-2
+              h-11
+              rounded-lg
+              border-slate-200
+              bg-slate-50
+              focus:bg-white
+            "
+          />
+        </div>
+      </div>
 
-          {/* AMOUNT */}
-          <div>
-            <Label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
-              <IndianRupee className="h-3.5 w-3.5" />
-              Amount
-            </Label>
+      {/* =========================================================
+          AMOUNT
+          ========================================================= */}
+      <div className="mt-5">
+        <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+          Amount
+        </Label>
 
-            <div className="relative mt-2">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
-                ₹
-              </span>
+        <div className="relative mt-2">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base font-bold text-slate-400">
+            ₹
+          </span>
 
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                value={form.amount}
-                onChange={(e) =>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            required
+            value={form.amount}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                amount: e.target.value,
+              })
+            }
+            placeholder="0.00"
+            className="
+              h-14
+              rounded-lg
+              border-slate-200
+              bg-slate-50
+              pl-10
+              text-xl
+              font-semibold
+              focus:bg-white
+            "
+          />
+        </div>
+      </div>
+
+      {/* =========================================================
+          PAYMENT MODE
+          ========================================================= */}
+      <div className="mt-5">
+        <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+          Payment Mode
+        </Label>
+
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+
+          {(
+            type === "distributor" && txnType === "purchase"
+              ? [
+                  ...newTransactionModeOptions,
+                  {
+                    value: "credit",
+                    label: "Credit",
+                  },
+                ]
+              : type === "customer" && txnType === "sale"
+                ? [
+                    ...newTransactionModeOptions,
+                    {
+                      value: "credit",
+                      label: "Credit",
+                    },
+                  ]
+                : newTransactionModeOptions
+          ).map((option) => {
+            const selected = form.mode === option.value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() =>
                   setForm({
                     ...form,
-                    amount: e.target.value
+                    mode: option.value,
                   })
                 }
-                placeholder="0.00"
-                className="
-                  h-12
-                  rounded-xl
-                  border-slate-200
-                  bg-slate-50
-                  pl-9
-                  text-lg
-                  font-semibold
-                  focus:bg-white
-                "
-              />
-            </div>
+                className={`
+                  h-10 rounded-lg border px-3
+                  text-sm font-semibold
+                  transition-all
+                  ${
+                    selected
+                      ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                  }
+                `}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* CREDIT EXPLANATION */}
+        {form.mode === "credit" && (
+          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            {type === "distributor" && txnType === "purchase"
+              ? "This purchase will be recorded as payable to the distributor."
+              : "This sale will be recorded as due from the customer."}
           </div>
+        )}
+      </div>
 
-          {/* RECEIPT NUMBER */}
-          {type === "distributor" && txnType === "payment" && (
-            <div>
-              <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                Receipt Number
-              </Label>
+      {/* =========================================================
+          NOTE
+          ========================================================= */}
+      <div className="mt-5">
+        <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+          Note
+        </Label>
 
-              <Input
-                value={form.receipt_number}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    receipt_number: e.target.value
-                  })
-                }
-                placeholder="e.g. REC-1024"
-                className="
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
+        <textarea
+          value={form.notes || ""}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              notes: e.target.value,
+            })
+          }
+          placeholder="Add a note, cheque number, or any useful detail..."
+          rows={3}
           className="
-            w-[calc(100vw-2rem)]
-            max-w-2xl
-            max-h-[90vh]
-            overflow-y-auto
-            rounded-xl
+            mt-2
+            w-full
+            resize-none
+            rounded-lg
             border
             border-slate-200
-            bg-white
-            p-0
-            shadow-2xl
+            bg-slate-50
+            px-3
+            py-2.5
+            text-sm
+            outline-none
+            transition
+            placeholder:text-slate-400
+            focus:border-blue-500
+            focus:bg-white
+            focus:ring-1
+            focus:ring-blue-500
           "
+        />
+      </div>
+
+      {/* =========================================================
+          FOOTER
+          ========================================================= */}
+      <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setOpen(false)}
+          className="h-10 rounded-lg px-5"
         >
-          {/* HEADER */}
-          <div className="border-b border-slate-200 px-5 py-4 sm:px-6">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-slate-900">
-                New Transaction
-              </DialogTitle>
+          Cancel
+        </Button>
 
-              <p className="mt-1 text-sm text-slate-500">
-                {type === "customer" ? "Customer" : "Distributor"}:{" "}
-                <span className="font-semibold text-slate-700">
-                  {entity.name}
-                </span>
-              </p>
-            </DialogHeader>
-          </div>
+        <Button
+          type="submit"
+          className="
+            h-10
+            rounded-lg
+            bg-blue-600
+            px-6
+            font-semibold
+            text-white
+            hover:bg-blue-700
+          "
+          data-testid="save-txn"
+        >
+          Save Entry
+        </Button>
+      </div>
 
-          <form onSubmit={submit} className="px-5 py-5 sm:px-6 sm:py-6">
-
-            {/* TRANSACTION TYPE */}
-            {(type === "distributor" || type === "customer") && (
-              <section>
-                <Label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Transaction Type
-                </Label>
-
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {getTransactionChoices(type).map((choice) => {
-                    const selected = txnType === choice.value;
-
-                    return (
-                      <button
-                        key={choice.value}
-                        type="button"
-                        onClick={() =>
-                          handleTransactionTypeChange(choice.value)
-                        }
-                        className={`
-                          h-11 rounded-lg border px-3
-                          text-sm font-bold uppercase tracking-wide
-                          transition-all
-                          ${
-                            selected
-                              ? `${choice.selectedBorder} ${choice.selectedBackground} ${choice.accent} shadow-sm`
-                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                          }
-                        `}
-                      >
-                        {choice.title}
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* DATE + REFERENCE */}
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-
-              {/* DATE */}
-              <div>
-                <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Date
-                </Label>
-
-                <Input
-                  type="date"
-                  required
-                  value={form.date}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      date: e.target.value
-                    })
-                  }
-                  className="
-                    mt-2
-                    h-11
-                    rounded-lg
-                    border-slate-200
-                    bg-slate-50
-                    focus:bg-white
-                  "
-                />
-              </div>
-
-              {/* REFERENCE */}
-              <div>
-                <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Reference No.
-                </Label>
-
-                <Input
-                  value={
-                    type === "distributor" && txnType === "purchase"
-                      ? form.invoice_number
-                      : type === "distributor" && txnType === "payment"
-                        ? form.receipt_number
-                        : form.reference_number
-                  }
-                  onChange={(e) => {
-                    const value = e.target.value;
-
-                    if (
-                      type === "distributor" &&
-                      txnType === "purchase"
-                    ) {
-                      setForm({
-                        ...form,
-                        invoice_number: value,
-                        reference_number: value
-                      });
-                    } else if (
-                      type === "distributor" &&
-                      txnType === "payment"
-                    ) {
-                      setForm({
-                        ...form,
-                        receipt_number: value,
-                        reference_number: value
-                      });
-                    } else {
-                      setForm({
-                        ...form,
-                        reference_number: value
-                      });
-                    }
-                  }}
-                  placeholder={
-                    type === "distributor" && txnType === "purchase"
-                      ? "Invoice / Bill No."
-                      : type === "distributor" && txnType === "payment"
-                        ? "Receipt No."
-                        : "Reference No."
-                  }
-                  className="
-                    mt-2
-                    h-11
-                    rounded-lg
-                    border-slate-200
-                    bg-slate-50
-                    focus:bg-white
-                  "
-                />
-              </div>
-            </div>
-
-            {/* AMOUNT */}
-            <div className="mt-5">
-              <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                Amount
-              </Label>
-
-              <div className="relative mt-2">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base font-bold text-slate-400">
-                  ₹
-                </span>
-
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  value={form.amount}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      amount: e.target.value
-                    })
-                  }
-                  placeholder="0.00"
-                  className="
-                    h-14
-                    rounded-lg
-                    border-slate-200
-                    bg-slate-50
-                    pl-10
-                    text-xl
-                    font-semibold
-                    focus:bg-white
-                  "
-                />
-              </div>
-            </div>
-
-            {/* PAYMENT MODE */}
-            <div className="mt-5">
-              <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                Payment Mode
-              </Label>
-
-              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {newTransactionModeOptions.map((option) => {
-                  const selected = form.mode === option.value;
-
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          mode: option.value
-                        })
-                      }
-                      className={`
-                        h-10 rounded-lg border px-3
-                        text-sm font-semibold
-                        transition-all
-                        ${
-                          selected
-                            ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                        }
-                      `}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* NOTE */}
-            <div className="mt-5">
-              <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                Note
-              </Label>
-
-              <textarea
-                value={form.notes}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    notes: e.target.value
-                  })
-                }
-                placeholder="Add a note, cheque number, or any useful detail..."
-                rows={3}
-                className="
-                  mt-2
-                  w-full
-                  resize-none
-                  rounded-lg
-                  border
-                  border-slate-200
-                  bg-slate-50
-                  px-3
-                  py-2.5
-                  text-sm
-                  outline-none
-                  transition
-                  placeholder:text-slate-400
-                  focus:border-blue-500
-                  focus:bg-white
-                  focus:ring-1
-                  focus:ring-blue-500
-                "
-              />
-            </div>
-
-            {/* FOOTER */}
-            <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-                className="h-10 rounded-lg px-5"
-              >
-                Cancel
-              </Button>
-
-              <Button
-                type="submit"
-                className="
-                  h-10
-                  rounded-lg
-                  bg-blue-600
-                  px-6
-                  font-semibold
-                  hover:bg-blue-700
-                "
-                data-testid="save-txn"
-              >
-                Save Entry
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+    </form>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
