@@ -23,6 +23,8 @@ import {
   deleteDayEntry,
   saveExpense,
   addNote,
+  updateNote,
+  deleteNote,
   getMonthLabel,
   resolveMonthStatus,
   formatRegisterError,
@@ -207,6 +209,45 @@ export default function DayView({
       setNoteSaving(false);
     }
   };
+
+  const handleEditNote = async (noteId, text) => {
+  setNoteSaving(true);
+
+  try {
+    await updateNote(
+      financialYear,
+      monthKey,
+      noteId,
+      text
+    );
+
+    toast.success("Note updated");
+    load();
+  } catch (err) {
+    toast.error(formatRegisterError(err));
+  } finally {
+    setNoteSaving(false);
+  }
+};
+
+const handleDeleteNote = async (noteId) => {
+  setNoteSaving(true);
+
+  try {
+    await deleteNote(
+      financialYear,
+      monthKey,
+      noteId
+    );
+
+    toast.success("Note deleted");
+    load();
+  } catch (err) {
+    toast.error(formatRegisterError(err));
+  } finally {
+    setNoteSaving(false);
+  }
+};
 
   return (
     <div
