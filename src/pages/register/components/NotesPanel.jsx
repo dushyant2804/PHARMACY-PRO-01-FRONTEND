@@ -10,12 +10,6 @@ import {
   X,
 } from "lucide-react";
 import { fmtDate } from "@/lib/api";
-import {
-  updateNote,
-  deleteNote,
-  formatRegisterError,
-} from "@/lib/register";
-import { toast } from "sonner";
 
 export default function NotesPanel({
   notes = [],
@@ -24,16 +18,11 @@ export default function NotesPanel({
   onEdit,
   onDelete,
   saving,
-  financialYear,
-  monthKey,
-  onChanged,
 }) {
   const [text, setText] = useState("");
-
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState("");
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
+  const [actionId, setActionId] = useState(null);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -41,13 +30,10 @@ export default function NotesPanel({
     if (!text.trim()) return;
 
     await onAdd(text.trim());
-
     setText("");
   };
 
   const startEdit = (note) => {
-    if (!editable) return;
-
     setEditingId(note.id);
     setEditingText(note.text || "");
   };
@@ -58,163 +44,122 @@ export default function NotesPanel({
   };
 
   const saveEdit = async (noteId) => {
-    if (!editingText.trim()) {
-      toast.error("Note text is required");
-      return;
-    }
+    const value = editingText.trim();
 
-    setSavingEdit(true);
+    if (!value) return;
+
+    setActionId(noteId);
 
     try {
-      await updateNote(
-        financialYear,
-        monthKey,
-        noteId,
-        editingText.trim()
-      );
-
-      toast.success("Note updated");
-
-      cancelEdit();
-
-      if (onChanged) {
-        await onChanged();
-      }
-    } catch (err) {
-      toast.error(formatRegisterError(err));
+      await onEdit(noteId, value);
+      setEditingId(null);
+      setEditingText("");
     } finally {
-      setSavingEdit(false);
+      setActionId(null);
     }
   };
 
-  const handleDelete = async (note) => {
-    if (!editable || deletingId) return;
+  const removeNote = async (noteId) => {
+    if (!window.confirm("Delete this note?")) return;
 
-    const confirmed = window.confirm(
-      `Delete this note?\n\n"${note.text}"`
-    );
-
-    if (!confirmed) return;
-
-    setDeletingId(note.id);
+    setActionId(noteId);
 
     try {
-      await deleteNote(
-        financialYear,
-        monthKey,
-        note.id
-      );
-
-      toast.success("Note deleted");
-
-      if (onChanged) {
-        await onChanged();
-      }
-    } catch (err) {
-      toast.error(formatRegisterError(err));
+      await onDelete(noteId);
     } finally {
-      setDeletingId(null);
+      setActionId(null);
     }
   };
 
   return (
     <div className="space-y-3">
       {notes.length === 0 ? (
-        <p className="text-sm text-slate-400">
-          No notes yet.
-        </p>
+        <p className="text-sm text-slate-400">No notes yet.</p>
       ) : (
         <ul className="space-y-2">
           {notes.map((note) => (
             <li
               key={note.id}
-              className="flex items-start gap-2 rounded-sm bg-slate-50 px-3 py-2 text-sm"
+              className="rounded-sm bg-slate-50 px-3 py-2 text-sm"
             >
-              <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              {editingId === note.id ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editingText}
+                    onChange={(e) => setEditingText(e.target.value)}
+                    className="rounded-sm"
+                    autoFocus
+                  />
 
-              <div className="min-w-0 flex-1">
-                {editingId === note.id ? (
-                  <div className="space-y-2">
-                    <Input
-                      value={editingText}
-                      onChange={(e) =>
-                        setEditingText(e.target.value)
-                      }
-                      className="rounded-sm"
-                      autoFocus
-                    />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={actionId === note.id}
+                    onClick={() => saveEdit(note.id)}
+                    title="Save note"
+                  >
+                    <Check className="h-4 w-4" />
+                  </Button>
 
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          saveEdit(note.id)
-                        }
-                        disabled={savingEdit}
-                      >
-                        <Check className="mr-1 h-4 w-4" />
-                        Save
-                      </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={actionId === note.id}
+                    onClick={cancelEdit}
+                    title="Cancel"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2">
+                  <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
 
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={cancelEdit}
-                        disabled={savingEdit}
-                      >
-                        <X className="mr-1 h-4 w-4" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-slate-800">
-                      {note.text}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-slate-800">{note.text}</p>
 
                     <p className="mt-0.5 text-xs text-slate-400">
-  {note.entryDate
-    ? `Entry: ${fmtDate(note.entryDate)}`
-    : "Month note"}
-  {note.createdByName ? ` · ${note.createdByName}` : ""}
-  {note.createdAt ? ` · Added ${fmtDate(note.createdAt)}` : ""}
-</p>
-                  </>
-                )}
-              </div>
+                      {note.entryDate
+                        ? `Entry: ${fmtDate(note.entryDate)}`
+                        : "Month note"}
+                      {note.createdByName
+                        ? ` · ${note.createdByName}`
+                        : ""}
+                      {note.createdAt
+                        ? ` · Added ${fmtDate(note.createdAt)}`
+                        : ""}
+                    </p>
+                  </div>
 
-              {editable && editingId !== note.id && (
-                <div className="flex shrink-0 gap-1">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    onClick={() =>
-                      startEdit(note)
-                    }
-                    disabled={deletingId === note.id}
-                    title="Edit note"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                  {editable && (
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        disabled={actionId === note.id}
+                        onClick={() => startEdit(note)}
+                        title="Edit note"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
 
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    className="text-red-600 hover:text-red-700"
-                    onClick={() =>
-                      handleDelete(note)
-                    }
-                    disabled={deletingId === note.id}
-                    title="Delete note"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                        disabled={actionId === note.id}
+                        onClick={() => removeNote(note.id)}
+                        title="Delete note"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </li>
@@ -226,9 +171,7 @@ export default function NotesPanel({
         <form onSubmit={submit} className="flex gap-2">
           <Input
             value={text}
-            onChange={(e) =>
-              setText(e.target.value)
-            }
+            onChange={(e) => setText(e.target.value)}
             placeholder="e.g. Medicine shortage today, distributor visit…"
             className="rounded-sm"
           />
@@ -240,7 +183,7 @@ export default function NotesPanel({
             className="shrink-0 rounded-sm"
           >
             <Plus className="mr-1 h-4 w-4" />
-            {saving ? "Adding…" : "Add note"}
+            Add note
           </Button>
         </form>
       )}
