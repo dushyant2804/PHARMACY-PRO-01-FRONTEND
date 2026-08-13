@@ -5,7 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, BookOpen, Pencil, Search, Truck, WalletCards, ShoppingCart, BadgeIndianRupee, CircleDollarSign, Scale } from "lucide-react";
+import {
+  Plus,
+  BookOpen,
+  Pencil,
+  Search,
+  Truck,
+  WalletCards,
+  ShoppingCart,
+  BadgeIndianRupee,
+  CircleDollarSign,
+  Scale,
+  Building2,
+  Phone,
+  Mail,
+  MapPin,
+  ReceiptText,
+  IndianRupee,
+  CheckCircle2,
+  Save,
+  UserRound
+} from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import useDebouncedValue from "@/hooks/useDebouncedValue";
@@ -159,26 +179,372 @@ export default function Distributors() {
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="rounded-sm max-w-lg">
-          <DialogHeader><DialogTitle className="font-heading">{editing ? "Edit" : "Add"} Distributor</DialogTitle></DialogHeader>
-          <form onSubmit={save} className="space-y-3">
-            {["name", "phone", "email", "gstin", "address"].map((k) => (
-              <div key={k}>
-                <Label className="text-xs uppercase font-semibold text-slate-600">{k}</Label>
-                <Input value={form[k] || ""} onChange={(e) => setForm({ ...form, [k]: e.target.value })} className="rounded-sm mt-1" required={k === "name"} data-testid={`dist-${k}`} />
-              </div>
-            ))}
+  <DialogContent
+    className="
+      w-[calc(100vw-2rem)]
+      max-w-4xl
+      max-h-[90vh]
+      overflow-y-auto
+      rounded-2xl
+      border-0
+      bg-slate-50
+      p-0
+      shadow-2xl
+    "
+  >
+    {/* HEADER */}
+    <div className="relative overflow-hidden rounded-t-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-6 py-7 text-white">
+      <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/10" />
+      <div className="absolute -bottom-16 right-32 h-36 w-36 rounded-full bg-white/5" />
+
+      <DialogHeader className="relative">
+        <div className="flex items-start gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 shadow-inner">
+            {editing ? (
+              <Pencil className="h-7 w-7" />
+            ) : (
+              <Building2 className="h-7 w-7" />
+            )}
+          </div>
+
+          <div>
+            <DialogTitle className="font-heading text-2xl font-bold text-white sm:text-3xl">
+              {editing ? "Edit Distributor" : "Add Distributor"}
+            </DialogTitle>
+
+            <p className="mt-1 max-w-xl text-sm text-blue-100">
+              {editing
+                ? "Update the distributor's business and contact information."
+                : "Create a distributor profile for purchases, payments, and ledger tracking."}
+            </p>
+          </div>
+        </div>
+      </DialogHeader>
+    </div>
+
+    <form onSubmit={save} className="space-y-6 p-6">
+
+      {/* BUSINESS IDENTITY */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+            <Building2 className="h-5 w-5" />
+          </div>
+
+          <div>
+            <div className="text-sm font-bold uppercase tracking-wider text-slate-800">
+              Business Identity
+            </div>
+
+            <div className="text-xs text-slate-500">
+              Basic information about the distributor
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+
+          {/* NAME */}
+          <div className="md:col-span-2">
+            <Label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
+              <UserRound className="h-3.5 w-3.5" />
+              Distributor Name
+            </Label>
+
+            <Input
+              value={form.name || ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  name: e.target.value
+                })
+              }
+              placeholder="Enter distributor / company name"
+              required
+              className="
+                mt-2
+                h-12
+                rounded-xl
+                border-slate-200
+                bg-slate-50
+                text-base
+                font-medium
+                focus:bg-white
+              "
+              data-testid="dist-name"
+            />
+          </div>
+
+          {/* PHONE */}
+          <div>
+            <Label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
+              <Phone className="h-3.5 w-3.5" />
+              Phone
+            </Label>
+
+            <Input
+              value={form.phone || ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  phone: e.target.value
+                })
+              }
+              placeholder="Mobile / phone number"
+              className="
+                mt-2
+                h-12
+                rounded-xl
+                border-slate-200
+                bg-slate-50
+                focus:bg-white
+              "
+              data-testid="dist-phone"
+            />
+          </div>
+
+          {/* EMAIL */}
+          <div>
+            <Label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
+              <Mail className="h-3.5 w-3.5" />
+              Email
+            </Label>
+
+            <Input
+              type="email"
+              value={form.email || ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  email: e.target.value
+                })
+              }
+              placeholder="Email address"
+              className="
+                mt-2
+                h-12
+                rounded-xl
+                border-slate-200
+                bg-slate-50
+                focus:bg-white
+              "
+              data-testid="dist-email"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* BUSINESS DETAILS */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+            <ReceiptText className="h-5 w-5" />
+          </div>
+
+          <div>
+            <div className="text-sm font-bold uppercase tracking-wider text-slate-800">
+              Business Details
+            </div>
+
+            <div className="text-xs text-slate-500">
+              Tax and address information
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-5">
+
+          {/* GSTIN */}
+          <div>
+            <Label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
+              <ReceiptText className="h-3.5 w-3.5" />
+              GSTIN
+            </Label>
+
+            <Input
+              value={form.gstin || ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  gstin: e.target.value
+                })
+              }
+              placeholder="Enter GSTIN"
+              className="
+                mt-2
+                h-12
+                rounded-xl
+                border-slate-200
+                bg-slate-50
+                uppercase
+                focus:bg-white
+              "
+              data-testid="dist-gstin"
+            />
+          </div>
+
+          {/* ADDRESS */}
+          <div>
+            <Label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
+              <MapPin className="h-3.5 w-3.5" />
+              Address
+            </Label>
+
+            <Input
+              value={form.address || ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  address: e.target.value
+                })
+              }
+              placeholder="Distributor address"
+              className="
+                mt-2
+                h-12
+                rounded-xl
+                border-slate-200
+                bg-slate-50
+                focus:bg-white
+              "
+              data-testid="dist-address"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* OPENING BALANCE */}
+      <section className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-5 shadow-sm">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+
+          <div className="flex gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+              <WalletCards className="h-5 w-5" />
+            </div>
+
             <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">Opening balance</Label>
-              <Input type="number" value={form.opening_balance} onChange={(e) => setForm({ ...form, opening_balance: e.target.value })} className="rounded-sm mt-1" />
+              <div className="text-sm font-bold uppercase tracking-wider text-amber-900">
+                Opening Balance
+              </div>
+
+              <div className="mt-1 max-w-xl text-xs leading-5 text-amber-800/80">
+                Enter any existing amount already payable to this distributor.
+                Leave it at zero if there is no opening balance.
+              </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} className="rounded-sm">Cancel</Button>
-              <Button type="submit" className="rounded-sm bg-blue-600 hover:bg-blue-700">Save</Button>
+          </div>
+
+          <div className="w-full sm:w-[260px]">
+            <Label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800">
+              <IndianRupee className="h-3.5 w-3.5" />
+              Opening Amount
+            </Label>
+
+            <div className="relative mt-2">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-amber-600">
+                ₹
+              </span>
+
+              <Input
+                type="number"
+                step="0.01"
+                value={form.opening_balance ?? 0}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    opening_balance: e.target.value
+                  })
+                }
+                className="
+                  h-12
+                  rounded-xl
+                  border-amber-200
+                  bg-white
+                  pl-9
+                  text-lg
+                  font-bold
+                  text-slate-900
+                "
+              />
             </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      </section>
+
+      {/* QUICK SUMMARY */}
+      {(form.name || Number(form.opening_balance || 0) !== 0) && (
+        <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-blue-700">
+                Distributor Preview
+              </div>
+
+              <div className="mt-1 text-lg font-bold text-slate-900">
+                {form.name || "New Distributor"}
+              </div>
+
+              <div className="text-sm text-slate-500">
+                {form.phone || "No phone number added"}
+              </div>
+            </div>
+
+            <div className="text-left sm:text-right">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Opening Balance
+              </div>
+
+              <div className="mt-1 text-2xl font-bold font-mono-nums text-slate-900">
+                {fmtINR(Number(form.opening_balance || 0))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ACTIONS */}
+      <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setOpen(false)}
+          className="h-11 rounded-xl px-6"
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="submit"
+          className="
+            h-11
+            rounded-xl
+            bg-blue-600
+            px-7
+            font-semibold
+            shadow-sm
+            hover:bg-blue-700
+          "
+        >
+          {editing ? (
+            <>
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Save Changes
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Create Distributor
+            </>
+          )}
+        </Button>
+
+      </div>
+    </form>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
