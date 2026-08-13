@@ -175,11 +175,12 @@ export default function NotesPanel({
                     </p>
 
                     <p className="mt-0.5 text-xs text-slate-400">
-                      {note.createdByName
-                        ? `${note.createdByName} · `
-                        : ""}
-                      {fmtDate(note.createdAt)}
-                    </p>
+  {note.entryDate
+    ? `Entry: ${fmtDate(note.entryDate)}`
+    : "Month note"}
+  {note.createdByName ? ` · ${note.createdByName}` : ""}
+  {note.createdAt ? ` · Added ${fmtDate(note.createdAt)}` : ""}
+</p>
                   </>
                 )}
               </div>
