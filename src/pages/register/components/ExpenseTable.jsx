@@ -10,19 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Pencil, Trash2, Check, X } from "lucide-react";
 import { fmtINR } from "@/lib/api";
-import {
-  Pencil,
-  Trash2,
-  Check,
-  X,
-} from "lucide-react";
-import {
-  updateExpense,
-  deleteExpense,
-  formatRegisterError,
-} from "@/lib/register";
-import { toast } from "sonner";
 
 const emptyExpense = {
   category: "",
@@ -34,18 +23,14 @@ export default function ExpenseTable({
   expenses = [],
   editable,
   onAdd,
+  onEdit,
+  onDelete,
   saving,
-  financialYear,
-  monthKey,
-  date,
-  onChanged,
 }) {
   const [form, setForm] = useState(emptyExpense);
-
   const [editingId, setEditingId] = useState(null);
   const [editingForm, setEditingForm] = useState(emptyExpense);
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
+  const [actionId, setActionId] = useState(null);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -55,23 +40,20 @@ export default function ExpenseTable({
     }
 
     await onAdd({
-      category: form.category,
+      category: form.category.trim(),
       amount: Number(form.amount),
-      remarks: form.remarks,
+      remarks: form.remarks.trim(),
     });
 
     setForm(emptyExpense);
   };
 
   const startEdit = (expense) => {
-    if (!editable) return;
-
     setEditingId(expense.id);
-
     setEditingForm({
       category: expense.category || "",
       amount: expense.amount ?? "",
-      remarks: expense.remarks ?? expense.notes ?? "",
+      remarks: expense.remarks || expense.notes || "",
     });
   };
 
@@ -81,68 +63,40 @@ export default function ExpenseTable({
   };
 
   const saveEdit = async (expenseId) => {
-    if (!editingForm.category.trim() || !(Number(editingForm.amount) > 0)) {
-      toast.error("Enter a valid category and amount");
+    if (
+      !editingForm.category.trim() ||
+      !(Number(editingForm.amount) > 0)
+    ) {
       return;
     }
 
-    setSavingEdit(true);
+    setActionId(expenseId);
 
     try {
-      await updateExpense(
-        financialYear,
-        monthKey,
-        date,
-        expenseId,
-        {
-          category: editingForm.category.trim(),
-          amount: Number(editingForm.amount),
-          remarks: editingForm.remarks,
-        }
-      );
+      await onEdit(expenseId, {
+        category: editingForm.category.trim(),
+        amount: Number(editingForm.amount),
+        remarks: editingForm.remarks.trim(),
+      });
 
-      toast.success("Expense updated");
-
-      cancelEdit();
-
-      if (onChanged) {
-        await onChanged();
-      }
-    } catch (err) {
-      toast.error(formatRegisterError(err));
+      setEditingId(null);
+      setEditingForm(emptyExpense);
     } finally {
-      setSavingEdit(false);
+      setActionId(null);
     }
   };
 
-  const handleDelete = async (expense) => {
-    if (!editable || deletingId) return;
+  const removeExpense = async (expenseId) => {
+    if (!window.confirm("Delete this expense?")) {
+      return;
+    }
 
-    const confirmed = window.confirm(
-      `Delete this expense?\n\n${expense.category} — ${fmtINR(expense.amount)}`
-    );
-
-    if (!confirmed) return;
-
-    setDeletingId(expense.id);
+    setActionId(expenseId);
 
     try {
-      await deleteExpense(
-        financialYear,
-        monthKey,
-        date,
-        expense.id
-      );
-
-      toast.success("Expense deleted");
-
-      if (onChanged) {
-        await onChanged();
-      }
-    } catch (err) {
-      toast.error(formatRegisterError(err));
+      await onDelete(expenseId);
     } finally {
-      setDeletingId(null);
+      setActionId(null);
     }
   };
 
@@ -153,12 +107,9 @@ export default function ExpenseTable({
           <TableRow>
             <TableHead>Category</TableHead>
             <TableHead>Remarks</TableHead>
-            <TableHead className="text-right">
-              Amount
-            </TableHead>
-
+            <TableHead className="text-right">Amount</TableHead>
             {editable && (
-              <TableHead className="text-right">
+              <TableHead className="w-[90px] text-right">
                 Actions
               </TableHead>
             )}
@@ -176,132 +127,132 @@ export default function ExpenseTable({
               </TableCell>
             </TableRow>
           ) : (
-            expenses.map((expense, index) => (
-              <TableRow key={expense.id || index}>
-                {editingId === expense.id ? (
-                  <>
-                    <TableCell>
-                      <Input
-                        value={editingForm.category}
-                        onChange={(e) =>
-                          setEditingForm({
-                            ...editingForm,
-                            category: e.target.value,
-                          })
-                        }
-                        className="rounded-sm"
-                      />
-                    </TableCell>
+            expenses.map((expense, index) => {
+              const isEditing = editingId === expense.id;
+              const busy = actionId === expense.id;
 
-                    <TableCell>
-                      <Input
-                        value={editingForm.remarks}
-                        onChange={(e) =>
-                          setEditingForm({
-                            ...editingForm,
-                            remarks: e.target.value,
-                          })
-                        }
-                        className="rounded-sm"
-                      />
-                    </TableCell>
-
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={editingForm.amount}
-                        onChange={(e) =>
-                          setEditingForm({
-                            ...editingForm,
-                            amount: e.target.value,
-                          })
-                        }
-                        className="rounded-sm text-right"
-                      />
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="outline"
-                          onClick={() =>
-                            saveEdit(expense.id)
+              return (
+                <TableRow key={expense.id || index}>
+                  {isEditing ? (
+                    <>
+                      <TableCell>
+                        <Input
+                          value={editingForm.category}
+                          onChange={(e) =>
+                            setEditingForm({
+                              ...editingForm,
+                              category: e.target.value,
+                            })
                           }
-                          disabled={savingEdit}
-                          title="Save expense"
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
+                          className="rounded-sm"
+                        />
+                      </TableCell>
 
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="outline"
-                          onClick={cancelEdit}
-                          disabled={savingEdit}
-                          title="Cancel"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </>
-                ) : (
-                  <>
-                    <TableCell className="font-medium text-slate-700">
-                      {expense.category}
-                    </TableCell>
+                      <TableCell>
+                        <Input
+                          value={editingForm.remarks}
+                          onChange={(e) =>
+                            setEditingForm({
+                              ...editingForm,
+                              remarks: e.target.value,
+                            })
+                          }
+                          className="rounded-sm"
+                        />
+                      </TableCell>
 
-                    <TableCell className="text-slate-500">
-                      {expense.remarks ||
-                        expense.notes ||
-                        "—"}
-                    </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editingForm.amount}
+                          onChange={(e) =>
+                            setEditingForm({
+                              ...editingForm,
+                              amount: e.target.value,
+                            })
+                          }
+                          className="rounded-sm text-right"
+                        />
+                      </TableCell>
 
-                    <TableCell className="text-right font-mono-nums font-semibold text-red-600">
-                      {fmtINR(expense.amount)}
-                    </TableCell>
-
-                    {editable && (
                       <TableCell>
                         <div className="flex justify-end gap-1">
                           <Button
                             type="button"
-                            size="icon"
-                            variant="outline"
-                            onClick={() =>
-                              startEdit(expense)
-                            }
-                            title="Edit expense"
-                            disabled={deletingId === expense.id}
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy}
+                            onClick={() => saveEdit(expense.id)}
+                            title="Save expense"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Check className="h-4 w-4" />
                           </Button>
 
                           <Button
                             type="button"
-                            size="icon"
-                            variant="outline"
-                            className="text-red-600 hover:text-red-700"
-                            onClick={() =>
-                              handleDelete(expense)
-                            }
-                            title="Delete expense"
-                            disabled={deletingId === expense.id}
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy}
+                            onClick={cancelEdit}
+                            title="Cancel"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <X className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
-                    )}
-                  </>
-                )}
-              </TableRow>
-            ))
+                    </>
+                  ) : (
+                    <>
+                      <TableCell className="font-medium text-slate-700">
+                        {expense.category}
+                      </TableCell>
+
+                      <TableCell className="text-slate-500">
+                        {expense.remarks || expense.notes || "—"}
+                      </TableCell>
+
+                      <TableCell className="text-right font-mono-nums font-semibold text-red-600">
+                        {fmtINR(expense.amount)}
+                      </TableCell>
+
+                      {editable && (
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              disabled={busy}
+                              onClick={() => startEdit(expense)}
+                              title="Edit expense"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                              disabled={busy}
+                              onClick={() =>
+                                removeExpense(expense.id)
+                              }
+                              title="Delete expense"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
+                    </>
+                  )}
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
@@ -373,7 +324,7 @@ export default function ExpenseTable({
               disabled={saving}
               className="w-full rounded-sm bg-red-600 hover:bg-red-700"
             >
-              {saving ? "Adding…" : "Add expense"}
+              Add expense
             </Button>
           </div>
         </form>
