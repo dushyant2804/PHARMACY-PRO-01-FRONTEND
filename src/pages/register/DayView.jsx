@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import RegisterHeader from "./components/RegisterHeader";
 import StatusBadge from "./components/StatusBadge";
 import ExpenseTable from "./components/ExpenseTable";
@@ -68,30 +68,28 @@ export default function DayView({
   const editable = status === "open" || status === "unlocked";
   const monthLabel = getMonthLabel(monthKey);
 
-  const load = () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(() => {
+  setLoading(true);
+  setError(null);
 
-    return getDayDetail(financialYear, monthKey, date)
-      .then((data) => {
-        setDay(data);
+  return getDayDetail(financialYear, monthKey, date)
+    .then((data) => {
+      setDay(data);
 
-        setForm({
-          cash_sales: data.cashSales ?? "",
-          upi_sales: data.upiSales ?? "",
-          card_sales: data.cardSales ?? "",
-          credit_sales: data.creditSales ?? "",
-        });
-      })
-      .catch((err) => setError(formatRegisterError(err)))
-      .finally(() => setLoading(false));
-  };
+      setForm({
+        cash_sales: data.cashSales ?? "",
+        upi_sales: data.upiSales ?? "",
+        card_sales: data.cardSales ?? "",
+        credit_sales: data.creditSales ?? "",
+      });
+    })
+    .catch((err) => setError(formatRegisterError(err)))
+    .finally(() => setLoading(false));
+}, [financialYear, monthKey, date]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    load();
-  }, [financialYear, monthKey, date]);
-
+useEffect(() => {
+  load();
+}, [load]);
   const hasSalesEntry =
     day &&
     (
