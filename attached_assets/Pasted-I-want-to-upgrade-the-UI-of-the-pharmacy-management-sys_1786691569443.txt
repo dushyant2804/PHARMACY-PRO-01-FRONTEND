@@ -1,0 +1,248 @@
+I want to upgrade the UI of the pharmacy management system.
+
+IMPORTANT: Keep the scope STRICTLY LIMITED to these FIVE UI changes only.
+
+1. DISTRIBUTOR LIST → CARD LAYOUT
+2. CUSTOMER LIST → CARD LAYOUT
+3. ADD DISTRIBUTOR FORM → NEW CARD-STYLE FORM
+4. ADD CUSTOMER FORM → NEW CARD-STYLE FORM
+5. ADD TRANSACTION FORM → NEW CARD-STYLE FORM
+
+DESIGN DIRECTION FOR ALL FIVE:
+
+Create a modern, colourful, elegant and premium UI.
+
+The current interface feels like old-fashioned white boards/lists. Replace that visual language with modern cards, colour accents, better spacing, typography, icons, badges, sections and visual hierarchy.
+
+The design should feel like a polished modern pharmacy/business management application.
+
+Use colour intentionally:
+- Different accent colours for different entity/action types
+- Soft tinted card backgrounds
+- Colourful icons and badges
+- Subtle borders and shadows
+- Clear primary/secondary actions
+- Strong visual hierarchy
+- Avoid making everything plain white
+- Avoid excessive gradients or childish colours
+- Keep it professional and elegant
+
+RESPONSIVENESS:
+The new cards and forms must work properly on:
+- Desktop
+- Tablet
+- Mobile
+
+IMPORTANT FUNCTIONAL RULE:
+
+DO NOT change existing business logic unless absolutely necessary for the UI.
+
+DO NOT change:
+- Ledger transaction history
+- Ledger table
+- Existing transactions
+- Running balances
+- Brought Forward
+- Financial Year calculations
+- Closing balances
+- Monthly summaries
+- Existing API behavior
+- Delete/edit transaction functionality
+- Existing backend calculations
+
+OPENING BALANCE RULE:
+
+Opening Balance should ONLY be removed from the ADD DISTRIBUTOR and ADD CUSTOMER forms.
+
+Do NOT remove Opening Balance from:
+- Existing ledger transactions
+- Ledger table
+- Brought Forward logic
+- Financial Year calculations
+- Backend data
+- Existing historical records
+
+==================================================
+1. DISTRIBUTOR LIST → CARD LAYOUT
+==================================================
+
+Replace the current distributor list/table-style presentation with a modern card-based layout.
+
+Each distributor should appear as an attractive business card containing the most useful information, such as:
+
+- Distributor name
+- Phone/contact
+- Outstanding balance
+- Balance status
+- Total purchases if currently available
+- Total paid if currently available
+- Relevant secondary information already provided by the API
+- Clear View/Open Ledger action
+- Edit action if currently available
+- Any existing actions must remain functional
+
+Use colour to visually distinguish balance status.
+
+Cards should be easy to scan without looking like a spreadsheet.
+
+Do not remove any existing distributor functionality.
+
+==================================================
+2. CUSTOMER LIST → CARD LAYOUT
+==================================================
+
+Replace the current customer list/table-style presentation with a modern card-based layout.
+
+Each customer should appear as a polished customer card containing useful existing information, such as:
+
+- Customer name
+- Phone/contact
+- Outstanding/receivable balance
+- Balance status
+- Relevant existing information available from the API
+- Clear View/Open Ledger action
+- Edit action if currently available
+- Existing actions must remain functional
+
+Use colour accents to distinguish:
+- Healthy/cleared balance
+- Amount receivable
+- Other meaningful states already supported by the application
+
+Do not invent financial calculations.
+
+Use only existing backend/API data.
+
+==================================================
+3. ADD DISTRIBUTOR FORM
+==================================================
+
+Redesign the Add Distributor form as a modern colourful card/modal.
+
+Remove ONLY the Opening Balance field from this form.
+
+Keep all other existing fields and functionality.
+
+Organize the form into logical visual sections.
+
+Use:
+- Section cards or tinted sections
+- Clear labels
+- Helpful icons where appropriate
+- Modern inputs
+- Strong primary Save action
+- Clear Cancel action
+- Good mobile layout
+- Elegant colour accents
+
+Do not change the meaning of the existing fields.
+
+Do not change the API contract unless the Opening Balance field must be removed from the submitted payload.
+
+==================================================
+4. ADD CUSTOMER FORM
+==================================================
+
+Redesign the Add Customer form using the same modern visual language.
+
+Remove ONLY the Opening Balance field from the Add Customer form.
+
+Keep every other existing field and functionality.
+
+Use modern card sections, colourful accents, clear hierarchy, icons where useful, responsive layout and a polished Save/Cancel footer.
+
+Do not change unrelated customer functionality.
+
+==================================================
+5. ADD TRANSACTION FORM
+==================================================
+
+Redesign the existing Add Transaction form shown in Ledger.jsx.
+
+Keep all existing functionality.
+
+This includes:
+
+- Transaction Type
+- Date
+- Reference / Invoice / Receipt number
+- Amount
+- Payment Mode
+- Note
+- Save Entry
+- Cancel
+- Customer/Distributor-specific transaction choices
+- Credit handling
+- Existing API payload behavior
+
+Do not remove or change transaction functionality.
+
+The goal is purely to make this form visually modern.
+
+Use a colourful card-based structure.
+
+For example:
+
+HEADER:
+A visually strong header card showing:
+- New Transaction
+- Customer/Distributor name
+- Appropriate icon/accent
+
+TRANSACTION TYPE:
+Use attractive selectable cards rather than plain buttons.
+
+DATE / REFERENCE:
+Place related fields into clean cards/sections.
+
+AMOUNT:
+Make the amount field visually prominent.
+
+PAYMENT MODE:
+Use modern selectable payment cards with appropriate icons and colour states.
+
+NOTE:
+Use a clean modern notes section.
+
+FOOTER:
+Use a polished action area with:
+- Cancel
+- Save Entry
+
+The form should feel like a modern financial transaction interface rather than a traditional HTML form.
+
+==================================================
+IMPORTANT FINAL RULES
+==================================================
+
+Only make the FIVE requested UI upgrades.
+
+Do not make additional functional changes.
+
+Do not remove Opening Balance from ledger history.
+
+Do not remove Brought Forward.
+
+Do not alter Financial Year behavior.
+
+Do not alter ledger calculations.
+
+Do not alter existing transactions.
+
+Do not redesign unrelated pages.
+
+Do not introduce fake data.
+
+Do not invent API fields.
+
+Preserve all existing functionality and API integration.
+
+The final result should look like a cohesive modern design system across:
+
+Distributor Cards
+Customer Cards
+Add Distributor
+Add Customer
+Add Transaction
+
+All five should feel like they belong to the same premium, colourful, modern pharmacy management application.

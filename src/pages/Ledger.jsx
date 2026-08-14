@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, MessageCircle, Pencil, Plus, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Download, MessageCircle, Pencil, Plus, Search, ArrowDownLeft, ArrowUpRight, CalendarDays, FileText, WalletCards, Banknote, CreditCard, Landmark, StickyNote, UserRound, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { getDistributorBalanceLabel, ledgerShareMessage, whatsappUrl } from "@/lib/sharing";
 import {
@@ -103,6 +103,26 @@ const getNewTransactionModeOptions = (type, txnType) => {
     { value: "bank", label: "Bank Transfer" },
     { value: "cheque", label: "Cheque" }
   ];
+};
+
+const getTransactionTypeOptions = (type) =>
+  type === "distributor"
+    ? [
+        { value: "purchase", label: "Purchase", description: "Add a supplier bill", Icon: ArrowUpRight, tone: "red" },
+        { value: "payment", label: "Payment", description: "Record money paid", Icon: ArrowDownLeft, tone: "emerald" }
+      ]
+    : [
+        { value: "sale", label: "Sale / Due", description: "Record a customer sale", Icon: ArrowUpRight, tone: "violet" },
+        { value: "payment", label: "Payment received", description: "Record money received", Icon: ArrowDownLeft, tone: "emerald" }
+      ];
+
+const transactionModeIcons = {
+  cash: Banknote,
+  upi: WalletCards,
+  card: CreditCard,
+  bank: Landmark,
+  cheque: FileText,
+  credit: ArrowUpRight
 };
 
 const BILL_STATUS_DISPLAY = {
@@ -1170,134 +1190,103 @@ const downloadLedger = async () => {
       </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="rounded-sm">
-          <DialogHeader><DialogTitle className="font-heading">New Transaction</DialogTitle></DialogHeader>
-          <form onSubmit={submit} className="space-y-3">
+        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto rounded-2xl border-violet-100 p-0">
+          <div className={`p-6 text-white ${type === "distributor" ? "bg-gradient-to-r from-blue-600 to-cyan-600" : "bg-gradient-to-r from-violet-600 to-fuchsia-600"}`}>
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"><>{type === "distributor" ? <Truck className="h-5 w-5" /> : <UserRound className="h-5 w-5" />}</></div>
+                <div>
+                  <DialogTitle className="font-heading text-2xl text-white">New Transaction</DialogTitle>
+                  <DialogDescription className="mt-1 text-white/75">{entity.name} · {type === "distributor" ? "Supplier ledger" : "Customer ledger"}</DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+          <form onSubmit={submit} className="space-y-5 p-6">
             {(type === "distributor" || type === "customer") && (
-              <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">
-                  Transaction Type
-                </Label>
-
-                <Select value={txnType} onValueChange={handleTransactionTypeChange}>
-                  <SelectTrigger className="rounded-sm mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {type === "distributor" ? (
-                      <>
-                        <SelectItem value="purchase">Purchase (+)</SelectItem>
-                        <SelectItem value="payment">
-                          Payment to supplier (−)
-                        </SelectItem>
-                      </>
-                    ) : (
-                      <>
-                        <SelectItem value="sale">Sale / Due (+)</SelectItem>
-                        <SelectItem value="payment">
-                          Payment Received (−)
-                        </SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800"><ArrowUpRight className="h-4 w-4 text-violet-600" />Transaction type</div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {getTransactionTypeOptions(type).map(({ value, label, description, Icon, tone }) => {
+                    const selected = txnType === value;
+                    const toneClasses = tone === "red"
+                      ? "border-red-300 bg-red-50 text-red-700 ring-red-200"
+                      : tone === "violet"
+                        ? "border-violet-300 bg-violet-50 text-violet-700 ring-violet-200"
+                        : "border-emerald-300 bg-emerald-50 text-emerald-700 ring-emerald-200";
+                    return (
+                      <button
+                        type="button"
+                        key={value}
+                        onClick={() => handleTransactionTypeChange(value)}
+                        aria-pressed={selected}
+                        className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${selected ? `${toneClasses} ring-2 ring-offset-1` : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
+                      >
+                        <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${selected ? "bg-white/80" : "bg-slate-100"}`}><Icon className="h-4 w-4" /></span>
+                        <span><span className="block text-sm font-bold">{label}</span><span className="mt-0.5 block text-xs opacity-75">{description}</span></span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">
-                Date
-              </Label>
-
-              <Input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="rounded-sm mt-1"
-              />
-            </div>
-
-            {type === "distributor" && txnType === "payment" && (
-              <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">
-                  Receipt Number
-                </Label>
-
-                <Input
-                  value={form.receipt_number}
-                  onChange={(e) => setForm({ ...form, receipt_number: e.target.value })}
-                  className="rounded-sm mt-1"
-                />
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-blue-900"><CalendarDays className="h-4 w-4 text-blue-600" />Entry details</div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="ledger-transaction-date" className="text-xs font-semibold uppercase tracking-wide text-slate-600">Date</Label>
+                  <Input id="ledger-transaction-date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="mt-1 rounded-xl border-blue-100 bg-white" />
+                </div>
+                {type === "distributor" && txnType === "payment" && (
+                  <div>
+                    <Label htmlFor="ledger-receipt-number" className="text-xs font-semibold uppercase tracking-wide text-slate-600">Receipt number</Label>
+                    <Input id="ledger-receipt-number" value={form.receipt_number} onChange={(e) => setForm({ ...form, receipt_number: e.target.value })} className="mt-1 rounded-xl border-blue-100 bg-white" />
+                  </div>
+                )}
+                {type === "distributor" && txnType === "purchase" && (
+                  <div>
+                    <Label htmlFor="ledger-invoice-number" className="text-xs font-semibold uppercase tracking-wide text-slate-600">Invoice / bill number</Label>
+                    <Input id="ledger-invoice-number" value={form.invoice_number} onChange={(e) => setForm({ ...form, invoice_number: e.target.value, reference_number: e.target.value })} className="mt-1 rounded-xl border-blue-100 bg-white" />
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
-            {type === "distributor" && txnType === "purchase" && (
-              <div>
-                <Label className="text-xs uppercase font-semibold text-slate-600">
-                  Invoice / Bill Number
-                </Label>
-
-                <Input
-                  value={form.invoice_number}
-                  onChange={(e) => setForm({ ...form, invoice_number: e.target.value, reference_number: e.target.value })}
-                  className="rounded-sm mt-1"
-                />
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+              <Label htmlFor="ledger-transaction-amount" className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-900"><WalletCards className="h-4 w-4 text-amber-600" />Amount</Label>
+              <div className="relative mt-2">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-mono text-lg font-bold text-amber-700">₹</span>
+                <Input id="ledger-transaction-amount" type="number" step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="h-14 rounded-xl border-amber-200 bg-white pl-10 font-mono-nums text-2xl font-bold text-slate-900" placeholder="0.00" />
               </div>
-            )}
-
-            <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">
-                Amount
-              </Label>
-
-              <Input
-                type="number"
-                step="0.01"
-                required
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                className="rounded-sm mt-1"
-              />
             </div>
 
-            <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">
-                Mode
-              </Label>
-
-              <Select value={form.mode} onValueChange={(v) => setForm({ ...form, mode: v })}>
-                <SelectTrigger className="rounded-sm mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  {newTransactionModeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-emerald-900"><CreditCard className="h-4 w-4 text-emerald-600" />Payment mode</div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {newTransactionModeOptions.map((option) => {
+                  const Icon = transactionModeIcons[option.value] || CreditCard;
+                  const selected = form.mode === option.value;
+                  return (
+                    <button type="button" key={option.value} onClick={() => setForm({ ...form, mode: option.value })} aria-pressed={selected} className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-left text-sm font-semibold transition ${selected ? "border-emerald-400 bg-white text-emerald-700 shadow-sm ring-2 ring-emerald-100" : "border-emerald-100 bg-white/60 text-slate-600 hover:border-emerald-300"}`}>
+                      <Icon className="h-4 w-4 shrink-0" />{option.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div>
-              <Label className="text-xs uppercase font-semibold text-slate-600">
-                Notes / Reference
-              </Label>
-
-              <Input
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                className="rounded-sm mt-1"
-              />
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <Label htmlFor="ledger-transaction-notes" className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700"><StickyNote className="h-4 w-4 text-slate-500" />Notes / reference</Label>
+              <Input id="ledger-transaction-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Add an optional note or reference" className="mt-2 rounded-xl border-slate-200 bg-white" />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)} className="rounded-xl">
                 Cancel
               </Button>
-
-              <Button type="submit" className="rounded-sm bg-blue-600 hover:bg-blue-700" data-testid="save-txn">
-                Save
+              <Button type="submit" className="rounded-xl bg-violet-600 shadow-sm hover:bg-violet-700" data-testid="save-txn">
+                <Plus className="mr-2 h-4 w-4" />Save Entry
               </Button>
             </div>
           </form>
