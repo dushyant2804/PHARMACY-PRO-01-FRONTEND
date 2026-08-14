@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api, { fmtINR, fmtDate, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -422,56 +422,59 @@ export default function Ledger() {
     invoice_number: "",
   });
 
-  const load = async () => {
-    const requestId = ++loadRequestRef.current;
-    setData(null);
-    setLoadError("");
-    setLoading(true);
+  const load = useCallback(async () => {
+  const requestId = ++loadRequestRef.current;
+  setData(null);
+  setLoadError("");
+  setLoading(true);
 
-    const config =
-      type === "distributor"
-        ? { params: getDistributorLedgerParams(selectedFinancialYear) }
-        : undefined;
-    try {
-      const response = await api.get(`/ledger/${type}/${id}`, config);
-      if (requestId !== loadRequestRef.current) return;
+  const config =
+    type === "distributor"
+      ? { params: getDistributorLedgerParams(selectedFinancialYear) }
+      : undefined;
 
-      const nextData = response.data;
-      setData(nextData);
+  try {
+    const response = await api.get(`/ledger/${type}/${id}`, config);
+    if (requestId !== loadRequestRef.current) return;
 
-      if (type === "distributor" && !syncedBackendFinancialYearRef.current) {
-        syncedBackendFinancialYearRef.current = true;
-        if (
-          nextData.current_financial_year &&
-          nextData.current_financial_year !== selectedFinancialYear
-        ) {
-          setSelectedFinancialYear(nextData.current_financial_year);
-        }
-      }
-    } catch (error) {
-      if (requestId !== loadRequestRef.current) return;
-      setLoadError(formatApiError(error));
-    } finally {
-      if (requestId === loadRequestRef.current) {
-        setLoading(false);
+    const nextData = response.data;
+    setData(nextData);
+
+    if (type === "distributor" && !syncedBackendFinancialYearRef.current) {
+      syncedBackendFinancialYearRef.current = true;
+
+      if (
+        nextData.current_financial_year &&
+        nextData.current_financial_year !== selectedFinancialYear
+      ) {
+        setSelectedFinancialYear(nextData.current_financial_year);
       }
     }
-  };
-  useEffect(() => {
-    loadRequestRef.current += 1;
-    setData(null);
-    setLoadError("");
-    setLoading(true);
-    if (type === "distributor") {
-      syncedBackendFinancialYearRef.current = false;
-      setSelectedFinancialYear(getCurrentIndianFinancialYear());
+  } catch (error) {
+    if (requestId !== loadRequestRef.current) return;
+    setLoadError(formatApiError(error));
+  } finally {
+    if (requestId === loadRequestRef.current) {
+      setLoading(false);
     }
-  }, [type, id]);
-  // `load` intentionally follows the current route and selected FY values.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    load();
-  }, [type, id, selectedFinancialYear]);
+  }
+}, [type, id, selectedFinancialYear]);
+
+useEffect(() => {
+  loadRequestRef.current += 1;
+  setData(null);
+  setLoadError("");
+  setLoading(true);
+
+  if (type === "distributor") {
+    syncedBackendFinancialYearRef.current = false;
+    setSelectedFinancialYear(getCurrentIndianFinancialYear());
+  }
+}, [type, id]);
+
+useEffect(() => {
+  load();
+}, [load]);
 
   const submit = async (e) => {
     e.preventDefault();
