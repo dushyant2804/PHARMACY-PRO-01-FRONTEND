@@ -21,15 +21,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
+          cache: npm
 
       - name: Install dependencies
         run: |
-          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
-            npm ci --legacy-peer-deps --include=dev
-          else
-            npm install --legacy-peer-deps --include=dev
-          fi
+          node -v
+          npm -v
+          rm -rf node_modules package-lock.json
+          npm install --legacy-peer-deps --include=dev --no-audit --no-fund
+
+      - name: Verify craco installed
+        run: |
+         ls node_modules/.bin | grep craco || true
+         npm list @craco/craco
 
       - name: Build production dist
         run: |

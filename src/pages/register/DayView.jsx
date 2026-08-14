@@ -7,29 +7,61 @@ import UnlockDialog from "./UnlockDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, AlertTriangle, Save } from "lucide-react";
+import {
+  Lock,
+  AlertTriangle,
+  Save,
+  Pencil,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/api";
 import {
   getDayDetail,
   saveDayEntry,
+  deleteDayEntry,
   saveExpense,
+  updateExpense,
+  deleteExpense,
   addNote,
+  updateNote,
+  deleteNote,
   getMonthLabel,
   resolveMonthStatus,
   formatRegisterError,
 } from "@/lib/register";
 
-const emptySales = { cash_sales: "", upi_sales: "", card_sales: "", credit_sales: "" };
+const emptySales = {
+  cash_sales: "",
+  upi_sales: "",
+  card_sales: "",
+  credit_sales: "",
+};
 
-export default function DayView({ financialYear, monthKey, date, monthStatus, onBack, onBackToMonths, onBackToDashboard }) {
+export default function DayView({
+  financialYear,
+  monthKey,
+  date,
+  monthStatus,
+  onBack,
+  onBackToMonths,
+  onBackToDashboard,
+}) {
   const [day, setDay] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const [form, setForm] = useState(emptySales);
+
   const [saving, setSaving] = useState(false);
+  const [deletingSales, setDeletingSales] = useState(false);
+
+  const [editingSales, setEditingSales] = useState(false);
+
   const [expenseSaving, setExpenseSaving] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
+
   const [unlockOpen, setUnlockOpen] = useState(false);
 
   const status = resolveMonthStatus(monthKey, monthStatus);
@@ -39,9 +71,11 @@ export default function DayView({ financialYear, monthKey, date, monthStatus, on
   const load = () => {
     setLoading(true);
     setError(null);
+
     return getDayDetail(financialYear, monthKey, date)
       .then((data) => {
         setDay(data);
+
         setForm({
           cash_sales: data.cashSales ?? "",
           upi_sales: data.upiSales ?? "",
@@ -54,11 +88,51 @@ export default function DayView({ financialYear, monthKey, date, monthStatus, on
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [financialYear, monthKey, date]);
+  useEffect(() => {
+    load();
+  }, [financialYear, monthKey, date]);
+
+  const hasSalesEntry =
+    day &&
+    (
+      day.cashSales != null ||
+      day.upiSales != null ||
+      day.cardSales != null ||
+      day.creditSales != null ||
+      day.grossSales != null
+    );
+
+  const startSalesEdit = () => {
+    if (!editable) return;
+
+    setForm({
+      cash_sales: day?.cashSales ?? "",
+      upi_sales: day?.upiSales ?? "",
+      card_sales: day?.cardSales ?? "",
+      credit_sales: day?.creditSales ?? "",
+    });
+
+    setEditingSales(true);
+  };
+
+  const cancelSalesEdit = () => {
+    setForm({
+      cash_sales: day?.cashSales ?? "",
+      upi_sales: day?.upiSales ?? "",
+      card_sales: day?.cardSales ?? "",
+      credit_sales: day?.creditSales ?? "",
+    });
+
+    setEditingSales(false);
+  };
 
   const submitSales = async (event) => {
     event.preventDefault();
+
+    if (!editable) return;
+
     setSaving(true);
+
     try {
       await saveDayEntry(financialYear, monthKey, date, {
         cash_sales: Number(form.cash_sales || 0),
@@ -66,8 +140,10 @@ export default function DayView({ financialYear, monthKey, date, monthStatus, on
         card_sales: Number(form.card_sales || 0),
         credit_sales: Number(form.credit_sales || 0),
       });
+
       toast.success("Day entry saved");
-      load();
+      setEditingSales(false);
+      await load();
     } catch (err) {
       toast.error(formatRegisterError(err));
     } finally {
@@ -75,12 +151,41 @@ export default function DayView({ financialYear, monthKey, date, monthStatus, on
     }
   };
 
+  const handleDeleteSales = async () => {
+    if (!editable || deletingSales) return;
+
+    const confirmed = window.confirm(
+      `Delete the sales entry for ${fmtDate(date)}?\n\nThis will remove the entire sales entry for this day.`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingSales(true);
+
+    try {
+      await deleteDayEntry(financialYear, monthKey, date);
+
+      toast.success("Day sales entry deleted");
+
+      setEditingSales(false);
+
+      await load();
+    } catch (err) {
+      toast.error(formatRegisterError(err));
+    } finally {
+      setDeletingSales(false);
+    }
+  };
+
   const handleAddExpense = async (expense) => {
     setExpenseSaving(true);
+
     try {
       await saveExpense(financialYear, monthKey, date, expense);
+
       toast.success("Expense added");
-      load();
+
+      await load();
     } catch (err) {
       toast.error(formatRegisterError(err));
     } finally {
@@ -88,12 +193,59 @@ export default function DayView({ financialYear, monthKey, date, monthStatus, on
     }
   };
 
+  const handleEditExpense = async (expenseId, payload) => {
+  setExpenseSaving(true);
+
+  try {
+    await updateExpense(
+      financialYear,
+      monthKey,
+      date,
+      expenseId,
+      payload
+    );
+
+    toast.success("Expense updated");
+    load();
+  } catch (err) {
+    toast.error(formatRegisterError(err));
+  } finally {
+    setExpenseSaving(false);
+  }
+};
+
+const handleDeleteExpense = async (expenseId) => {
+  setExpenseSaving(true);
+
+  try {
+    await deleteExpense(
+      financialYear,
+      monthKey,
+      date,
+      expenseId
+    );
+
+    toast.success("Expense deleted");
+    load();
+  } catch (err) {
+    toast.error(formatRegisterError(err));
+  } finally {
+    setExpenseSaving(false);
+  }
+};
+
   const handleAddNote = async (text) => {
     setNoteSaving(true);
+
     try {
-      await addNote(financialYear, monthKey, { entryDate: date, text });
+      await addNote(financialYear, monthKey, {
+        entryDate: date,
+        text,
+      });
+
       toast.success("Note added");
-      load();
+
+      await load();
     } catch (err) {
       toast.error(formatRegisterError(err));
     } finally {
@@ -101,13 +253,63 @@ export default function DayView({ financialYear, monthKey, date, monthStatus, on
     }
   };
 
+  const handleEditNote = async (noteId, text) => {
+  setNoteSaving(true);
+
+  try {
+    await updateNote(
+      financialYear,
+      monthKey,
+      noteId,
+      text
+    );
+
+    toast.success("Note updated");
+    load();
+  } catch (err) {
+    toast.error(formatRegisterError(err));
+  } finally {
+    setNoteSaving(false);
+  }
+};
+
+const handleDeleteNote = async (noteId) => {
+  setNoteSaving(true);
+
+  try {
+    await deleteNote(
+      financialYear,
+      monthKey,
+      noteId
+    );
+
+    toast.success("Note deleted");
+    load();
+  } catch (err) {
+    toast.error(formatRegisterError(err));
+  } finally {
+    setNoteSaving(false);
+  }
+};
+
   return (
-    <div className="mx-auto max-w-4xl space-y-5" data-testid="register-day-page">
+    <div
+      className="mx-auto max-w-4xl space-y-5"
+      data-testid="register-day-page"
+    >
       <RegisterHeader
         crumbs={[
-          { label: `FY ${financialYear}`, onClick: onBackToMonths },
-          { label: monthLabel, onClick: onBack },
-          { label: fmtDate(date) },
+          {
+            label: `FY ${financialYear}`,
+            onClick: onBackToMonths,
+          },
+          {
+            label: monthLabel,
+            onClick: onBack,
+          },
+          {
+            label: fmtDate(date),
+          },
         ]}
         onBackToDashboard={onBackToDashboard}
         actions={<StatusBadge status={status} />}
@@ -124,17 +326,106 @@ export default function DayView({ financialYear, monthKey, date, monthStatus, on
         <div className="flex flex-col gap-3 rounded-sm border border-slate-300 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-sm text-slate-700">
             <Lock className="h-4 w-4" />
-            <span className="font-semibold">This register is closed.</span>
+            <span className="font-semibold">
+              This register is closed.
+            </span>
           </div>
-          <Button size="sm" variant="outline" className="rounded-sm" onClick={() => setUnlockOpen(true)} data-testid="register-unlock-btn">
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-sm"
+            onClick={() => setUnlockOpen(true)}
+            data-testid="register-unlock-btn"
+          >
             Unlock
           </Button>
         </div>
       )}
 
+      {/* SALES */}
       <section className="rounded-sm border border-slate-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-4 font-heading font-semibold text-slate-800">Sales</h2>
-        <form onSubmit={submitSales} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="font-heading font-semibold text-slate-800">
+            Sales
+          </h2>
+
+          {day && (
+  <section className="rounded-sm border border-slate-200 bg-white p-4 sm:p-5">
+    <h2 className="mb-4 font-heading font-semibold text-slate-800">
+      Day Details
+    </h2>
+
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase text-slate-500">
+          Gross Sales
+        </p>
+        <p className="mt-1 font-mono-nums text-xl font-bold text-emerald-700">
+          {day.grossSales != null
+            ? `₹${Number(day.grossSales).toFixed(2)}`
+            : "—"}
+        </p>
+      </div>
+
+      <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase text-slate-500">
+          Total Expenses
+        </p>
+        <p className="mt-1 font-mono-nums text-xl font-bold text-red-600">
+          {day.totalExpenses != null
+            ? `₹${Number(day.totalExpenses).toFixed(2)}`
+            : "—"}
+        </p>
+      </div>
+
+      <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase text-slate-500">
+          Net Collection
+        </p>
+        <p className="mt-1 font-mono-nums text-xl font-bold text-blue-700">
+          {day.netCollection != null
+            ? `₹${Number(day.netCollection).toFixed(2)}`
+            : "—"}
+        </p>
+      </div>
+    </div>
+  </section>
+)}
+
+          {hasSalesEntry && editable && !editingSales && (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-sm"
+                onClick={startSalesEdit}
+                disabled={deletingSales}
+              >
+                <Pencil className="mr-1.5 h-4 w-4" />
+                Edit
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-sm text-red-600 hover:text-red-700"
+                onClick={handleDeleteSales}
+                disabled={deletingSales}
+              >
+                <Trash2 className="mr-1.5 h-4 w-4" />
+                {deletingSales ? "Deleting…" : "Delete"}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <form
+          onSubmit={submitSales}
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        >
           {[
             ["cash_sales", "Cash Sales"],
             ["upi_sales", "UPI Sales"],
@@ -142,39 +433,95 @@ export default function DayView({ financialYear, monthKey, date, monthStatus, on
             ["credit_sales", "Credit Sales"],
           ].map(([field, fieldLabel]) => (
             <div key={field}>
-              <Label className="text-xs font-semibold uppercase text-slate-600">{fieldLabel} ₹</Label>
+              <Label className="text-xs font-semibold uppercase text-slate-600">
+                {fieldLabel} ₹
+              </Label>
+
               <Input
                 type="number"
                 min="0"
                 step="0.01"
-                disabled={!editable}
+                disabled={!editable || (!editingSales && hasSalesEntry)}
                 value={form[field]}
-                onChange={(e) => setForm({ ...form, [field]: e.target.value })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    [field]: e.target.value,
+                  })
+                }
                 className="mt-1 rounded-sm"
               />
             </div>
           ))}
-          {editable && (
-            <div className="sm:col-span-2 lg:col-span-4">
-              <Button type="submit" disabled={saving} className="w-full rounded-sm bg-slate-800 hover:bg-slate-900 sm:w-auto">
-                <Save className="mr-2 h-4 w-4" />Save day entry
+
+          {editable && (!hasSalesEntry || editingSales) && (
+            <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="rounded-sm bg-slate-800 hover:bg-slate-900"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                {saving ? "Saving…" : "Save day entry"}
               </Button>
+
+              {editingSales && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-sm"
+                  onClick={cancelSalesEdit}
+                  disabled={saving}
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Cancel
+                </Button>
+              )}
             </div>
           )}
         </form>
       </section>
 
+      {/* EXPENSES */}
       <section className="rounded-sm border border-slate-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-4 font-heading font-semibold text-slate-800">Expenses</h2>
-        <ExpenseTable expenses={day?.expenses || []} editable={editable} onAdd={handleAddExpense} saving={expenseSaving} />
+        <h2 className="mb-4 font-heading font-semibold text-slate-800">
+          Expenses
+        </h2>
+
+        <ExpenseTable
+          expenses={day?.expenses || []}
+          editable={editable}
+          onAdd={handleAddExpense}
+          saving={expenseSaving}
+          financialYear={financialYear}
+          monthKey={monthKey}
+          date={date}
+          onChanged={load}
+        />
       </section>
 
+      {/* NOTES */}
       <section className="rounded-sm border border-slate-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-4 font-heading font-semibold text-slate-800">Notes</h2>
-        <NotesPanel notes={day?.notes || []} editable={editable} onAdd={handleAddNote} saving={noteSaving} />
+        <h2 className="mb-4 font-heading font-semibold text-slate-800">
+          Notes
+        </h2>
+
+        <NotesPanel
+          notes={day?.notes || []}
+          editable={editable}
+          onAdd={handleAddNote}
+          saving={noteSaving}
+          financialYear={financialYear}
+          monthKey={monthKey}
+          onChanged={load}
+        />
       </section>
 
-      {loading && <p className="text-center text-sm text-slate-400">Loading day entry…</p>}
+      {loading && (
+        <p className="text-center text-sm text-slate-400">
+          Loading day entry…
+        </p>
+      )}
 
       <UnlockDialog
         open={unlockOpen}

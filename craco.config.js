@@ -13,7 +13,7 @@ try {
 
 // Check if we're in development/preview mode (not production build)
 // Craco sets NODE_ENV=development for start, NODE_ENV=production for build
-const isDevServer = process.env.NODE_ENV !== "production";
+const isDevServer = process.env.NODE_ENV === "development";
 const isLocalDesktopBuild = process.env.REACT_APP_LOCAL_DESKTOP === "true";
 
 const removeLocalDesktopExternalStartupResources = (html) => html
@@ -125,7 +125,7 @@ webpackConfig.devServer = (devServerConfig) => {
 };
 
 // Wrap with visual edits (automatically adds babel plugin, dev server, and overlay in dev mode)
-if (isDevServer) {
+if (false) {
   try {
     const { withVisualEdits } = require("@emergentbase/visual-edits/craco");
     webpackConfig = withVisualEdits(webpackConfig);

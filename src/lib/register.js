@@ -202,13 +202,32 @@ function normalizeNote(row = {}) {
 export function normalizeDayDetail(payload = {}) {
   return {
     date: payload.date,
+
     cashSales: firstDefined(payload.cash_sales, null),
     upiSales: firstDefined(payload.upi_sales, null),
     cardSales: firstDefined(payload.card_sales, null),
     creditSales: firstDefined(payload.credit_sales, null),
+
     grossSales: firstDefined(payload.gross_sales, null),
-    expenses: Array.isArray(payload.expenses) ? payload.expenses : [],
-    notes: Array.isArray(payload.notes) ? payload.notes.map(normalizeNote) : [],
+
+    totalExpenses: firstDefined(
+      payload.total_expenses,
+      null
+    ),
+
+    netCollection: firstDefined(
+      payload.net_collection,
+      null
+    ),
+
+    expenses: Array.isArray(payload.expenses)
+      ? payload.expenses
+      : [],
+
+    notes: Array.isArray(payload.notes)
+      ? payload.notes.map(normalizeNote)
+      : [],
+
     closing: payload.closing || null,
   };
 }
@@ -247,8 +266,73 @@ export async function saveDayEntry(financialYear, monthKey, date, payload) {
   return normalizeDayDetail(data);
 }
 
+export async function deleteDayEntry(financialYear, monthKey, date) {
+  const { data } = await api.delete(
+    `/register/${financialYear}/${monthKey}/days/${date}`
+  );
+  return data;
+}
+
+export async function updateExpense(
+  financialYear,
+  monthKey,
+  date,
+  expenseId,
+  payload
+) {
+  const { data } = await api.put(
+    `/register/${financialYear}/${monthKey}/days/${date}/expenses/${expenseId}`,
+    payload
+  );
+  return data;
+}
+
+export async function deleteExpense(
+  financialYear,
+  monthKey,
+  date,
+  expenseId
+) {
+  const { data } = await api.delete(
+    `/register/${financialYear}/${monthKey}/days/${date}/expenses/${expenseId}`
+  );
+  return data;
+}
+
+export async function updateNote(
+  financialYear,
+  monthKey,
+  noteId,
+  text
+) {
+  const { data } = await api.put(
+    `/register/${financialYear}/${monthKey}/notes/${noteId}`,
+    {
+      text,
+    }
+  );
+  return normalizeNote(data);
+}
+
+export async function deleteNote(
+  financialYear,
+  monthKey,
+  noteId
+) {
+  const { data } = await api.delete(
+    `/register/${financialYear}/${monthKey}/notes/${noteId}`
+  );
+  return data;
+}
+
 export async function saveExpense(financialYear, monthKey, date, payload) {
-  const { data } = await api.post(`/register/${financialYear}/${monthKey}/days/${date}/expenses`, payload);
+  const { data } = await api.post("/expenses", {
+    date,
+    category: payload.category,
+    amount: Number(payload.amount),
+    notes: payload.remarks || payload.notes || "",
+  });
+
   return data;
 }
 
