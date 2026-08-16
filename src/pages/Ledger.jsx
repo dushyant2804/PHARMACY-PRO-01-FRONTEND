@@ -121,6 +121,14 @@ const getDistributorDocumentNumber = (transaction) => {
 const getPurchaseOrderId = (transaction) =>
   transaction.purchase_order_id || transaction.po_id;
 
+const isPurchaseOrderTransaction = (transaction) =>
+  Boolean(
+    transaction?.is_purchase_order_generated ||
+      transaction?.source === "purchase_order" ||
+      transaction?.entry_source === "purchase_order" ||
+      getPurchaseOrderId(transaction),
+  );
+
 const isEditableDistributorTransaction = (transaction) => {
   const kind = getTransactionKind(transaction);
   return [
@@ -624,7 +632,26 @@ useEffect(() => {
   };
 
   const openEditDialog = (transaction) => {
+    const purchaseOrderId = getPurchaseOrderId(transaction);
+
+    if (
+      type === "distributor" &&
+      isPurchaseOrderTransaction(transaction) &&
+      purchaseOrderId
+    ) {
+      // Purchase Order generated transactions are controlled by the PO.
+      // Editing from the ledger must open the original PO instead of creating
+      // a second/independent ledger edit.
+      setOpen(false);
+      setEditOpen(false);
+      setEditingTransaction(null);
+
+      window.location.assign(`/purchase-orders/${purchaseOrderId}`);
+      return;
+    }
+
     setEditingTransaction(transaction);
+
     const paymentMode = getTransactionMode(transaction) || "cash";
 
     setEditForm({
@@ -637,6 +664,7 @@ useEffect(() => {
       notes: transaction.notes || "",
       date: String(getLedgerTxnDate(transaction) || "").slice(0, 10),
     });
+
     setEditOpen(true);
   };
 
@@ -1263,6 +1291,11 @@ useEffect(() => {
                           {billStatusDisplay.label}
                         </span>
                       )}
+                      {isPurchaseOrderTransaction(t) && (
+                        <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">
+                          Purchase Order
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td>
@@ -1371,14 +1404,15 @@ useEffect(() => {
                             Edit
                           </button>
                         )}
-                      {!isOpeningBalanceTransaction(t) && (
-                        <button
-                          onClick={() => handleDelete(t)}
-                          className="text-red-600 text-xs hover:underline"
-                        >
-                          Delete
-                        </button>
-                      )}
+                      {!isOpeningBalanceTransaction(t) &&
+                        !isPurchaseOrderTransaction(t) && (
+                          <button
+                            onClick={() => handleDelete(t)}
+                            className="text-red-600 text-xs hover:underline"
+                          >
+                            Delete
+                          </button>
+                        )}
                     </div>
                   </td>
                 </tr>
