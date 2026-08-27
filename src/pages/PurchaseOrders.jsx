@@ -125,6 +125,7 @@ const getSavedPurchaseOrderTotals = (po, fallbackTotals) => ({
 });
 
 const emptyReturnItem = {
+  purchase_return_id: "",
   medicine_id: "",
   medicine_name: "",
   batch_no: "",
@@ -296,8 +297,10 @@ export default function PurchaseOrders() {
   const [pos, setPos] = useState([]);
   const [dists, setDists] = useState([]);
   const [returnItems, setReturnItems] = useState([]);
+  const [eligiblePurchaseReturns, setEligiblePurchaseReturns] = useState([]);
   const [returnMedicineSuggestions, setReturnMedicineSuggestions] = useState({});
   const [returnBatchOptions, setReturnBatchOptions] = useState({});
+  const [loadingEligibleReturns, setLoadingEligibleReturns] = useState(false);
   const [activeReturnMedicineRow, setActiveReturnMedicineRow] = useState(null);
   const [activeReturnBatchRow, setActiveReturnBatchRow] = useState(null);
   const [open, setOpen] = useState(false);
@@ -341,6 +344,30 @@ export default function PurchaseOrders() {
   useEffect(() => {
     load();
   }, []);
+
+  const loadEligiblePurchaseReturns = async (distributorId) => {
+  if (!distributorId) {
+    setEligiblePurchaseReturns([]);
+    return;
+  }
+
+  setLoadingEligibleReturns(true);
+
+  try {
+    const { data } = await api.get(
+      `/purchase-orders/eligible-purchase-returns/${distributorId}`
+    );
+
+    const returns = normalizeCollection(data);
+    setEligiblePurchaseReturns(returns);
+  } catch (error) {
+    console.error("Failed to load eligible purchase returns:", error);
+    setEligiblePurchaseReturns([]);
+    toast.error("Failed to load existing purchase returns");
+  } finally {
+    setLoadingEligibleReturns(false);
+  }
+};
 
   const updateItem = (i, key, value) => {
     const copy = [...items];
@@ -517,44 +544,142 @@ export default function PurchaseOrders() {
     return normalizeMatchValue(batch.distributor_name) === normalizeMatchValue(selectedDistributor?.name);
   };
 
-  const searchReturnMedicines = async (rowIndex, value) => {
-    updateReturnItem(rowIndex, "medicine_name", value);
-    updateReturnItem(rowIndex, "batch_no", "");
-    setActiveReturnMedicineRow(rowIndex);
-    if (String(value).trim().length < 2 || !distId) return setReturnMedicineSuggestions((prev) => ({ ...prev, [rowIndex]: [] }));
-    try {
-      const { data } = await api.get(`/medicines?search=${encodeURIComponent(value)}`);
-      const eligible = normalizeCollection(data).filter((medicine) => buildBatchOptionsForMedicine(medicine).some(batchBelongsToSelectedDistributor));
-      setReturnMedicineSuggestions((prev) => ({ ...prev, [rowIndex]: eligible }));
-    } catch (error) {
-      setReturnMedicineSuggestions((prev) => ({ ...prev, [rowIndex]: [] }));
-    }
-  };
+  const getPurchaseReturnLabel = (item) => {
+  const medicineName =
+    item.medicine_name ||
+    item.name ||
+    "Unknown Medicine";
 
-  const applyReturnMedicine = (rowIndex, medicine) => {
-    const batches = buildBatchOptionsForMedicine(medicine).filter(batchBelongsToSelectedDistributor);
-    setReturnItems((prev) => prev.map((row, index) => index === rowIndex ? { ...emptyReturnItem, medicine_id: getMedicineId(medicine), medicine_name: getMedicineName(medicine) } : row));
-    setReturnBatchOptions((prev) => ({ ...prev, [rowIndex]: batches }));
-    setReturnMedicineSuggestions((prev) => ({ ...prev, [rowIndex]: [] }));
-    setActiveReturnMedicineRow(null);
-  };
+  const batch =
+    item.batch_number ||
+    item.batch_no ||
+    item.batch ||
+    "No Batch";
 
-  const applyReturnBatch = (rowIndex, batch) => {
-    setReturnItems((prev) => prev.map((row, index) => index === rowIndex ? {
-      ...row,
-      medicine_id: batch.medicine_id || row.medicine_id,
-      batch_no: batch.batch_no,
-      expiry_date: batch.expiry_date,
-      manufacturer: batch.manufacturer,
-      category: batch.category,
-      purchase_price: Number(batch.purchase_price || 0),
-      mrp: Number(batch.mrp || 0),
-      gst_rate: Number(batch.gst_rate || 0),
-      available_quantity: Number(batch.available_quantity || 0),
-      return_quantity: "",
-    } : row));
-    setActiveReturnBatchRow(null);
-  };
+  const expiry =
+    item.expiry_date ||
+    item.expiry ||
+    "";
+
+  const quantity = Number(
+    item.return_quantity ||
+    item.quantity ||
+    0
+  );
+
+  const purchaseRate = Number(
+    item.purchase_rate ??
+    item.purchase_price ??
+    item.rate ??
+    0
+  );
+
+  const credit = roundCurrency(quantity * purchaseRate);
+
+  return [
+    medicineName,
+    `Batch ${batch}`,
+    expiry ? `Exp ${expiry}` : "",
+    `Qty ${quantity}`,
+    `Credit ₹${credit.toFixed(2)}`,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+};
+
+const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
+  const returnQuantity = Number(
+    purchaseReturn.return_quantity ??
+    purchaseReturn.quantity ??
+    purchaseReturn.returned_quantity ??
+    0
+  );
+
+  const purchaseRate = Number(
+    purchaseReturn.purchase_rate ??
+    purchaseReturn.purchase_price ??
+    purchaseReturn.rate ??
+    0
+  );
+
+  setReturnItems((prev) =>
+    prev.map((row, index) =>
+      index === rowIndex
+        ? {
+            ...emptyReturnItem,
+
+            // IMPORTANT:
+            // Preserve the actual purchase return ID so the backend
+            // knows which physical return is being settled.
+            purchase_return_id:
+              purchaseReturn.id ||
+              purchaseReturn.purchase_return_id ||
+              "",
+
+            medicine_id:
+              purchaseReturn.medicine_id ||
+              purchaseReturn.medicineId ||
+              "",
+
+            medicine_name:
+              purchaseReturn.medicine_name ||
+              purchaseReturn.name ||
+              "",
+
+            batch_no:
+              purchaseReturn.batch_number ||
+              purchaseReturn.batch_no ||
+              purchaseReturn.batch ||
+              "",
+
+            expiry_date:
+              purchaseReturn.expiry_date ||
+              purchaseReturn.expiry ||
+              "",
+
+            manufacturer:
+              purchaseReturn.manufacturer ||
+              "",
+
+            category:
+              purchaseReturn.category ||
+              "",
+
+            purchase_price: purchaseRate,
+
+            mrp: Number(
+              purchaseReturn.mrp ||
+              0
+            ),
+
+            gst_rate: Number(
+              purchaseReturn.gst_rate ??
+              purchaseReturn.gst ??
+              0
+            ),
+
+            available_quantity: returnQuantity,
+
+            return_quantity: "",
+          }
+        : row
+    )
+  );
+
+  setReturnMedicineSuggestions((prev) => ({
+    ...prev,
+    [rowIndex]: [],
+  }));
+
+  setReturnBatchOptions((prev) => ({
+    ...prev,
+    [rowIndex]: [],
+  }));
+
+  setActiveReturnMedicineRow(null);
+  setActiveReturnBatchRow(null);
+};
+
 
   const calculatedTotals = calculatePurchaseOrderTotals(items, schemeDiscount, cashDiscount);
   const currentCalculationSignature = getPurchaseOrderCalculationSignature(
@@ -589,6 +714,7 @@ export default function PurchaseOrders() {
     setCashDiscount(0);
     setEditBaselineSignature(null);
     setReturnItems([]);
+    setEligiblePurchaseReturns([]);
     setReturnMedicineSuggestions({});
     setReturnBatchOptions({});
     setItems([{ ...emptyItem }]);
@@ -672,19 +798,30 @@ export default function PurchaseOrders() {
       grand_total: grandTotal,
       purchase_return_credit: purchaseReturnAdjustment,
       final_payable_total: finalPayableTotal,
+      purchase_return_ids: validReturnItems
+        .map((item) => item.purchase_return_id)
+        .filter(Boolean),
+
       purchase_returns: validReturnItems.map((item) => ({
+        id: item.purchase_return_id,
+        purchase_return_id: item.purchase_return_id,
         medicine_id: item.medicine_id,
         medicine_name: item.medicine_name,
         batch_no: item.batch_no,
+        batch_number: item.batch_no,
         expiry_date: item.expiry_date,
         manufacturer: item.manufacturer,
         category: item.category,
         purchase_price: Number(item.purchase_price || 0),
+        purchase_rate: Number(item.purchase_price || 0),
         mrp: Number(item.mrp || 0),
         gst_rate: Number(item.gst_rate || 0),
         available_quantity: Number(item.available_quantity || 0),
         return_quantity: Number(item.return_quantity || 0),
-        return_credit: roundCurrency(Number(item.return_quantity || 0) * Number(item.purchase_price || 0)),
+        return_credit: roundCurrency(
+          Number(item.return_quantity || 0) *
+          Number(item.purchase_price || 0)
+        ),
       })),
       items: validItems.map((i) => {
         const item = { ...i };
@@ -727,6 +864,7 @@ export default function PurchaseOrders() {
       setCashDiscount(0);
       setEditBaselineSignature(null);
       setReturnItems([]);
+      setEligiblePurchaseReturns([]);
       setReturnMedicineSuggestions({});
       setReturnBatchOptions({});
       setRowMedicines({});
@@ -821,7 +959,19 @@ export default function PurchaseOrders() {
                 <select
                   className="border p-2 w-full"
                   value={distId}
-                  onChange={(e) => { setDistId(e.target.value); setReturnItems([]); setReturnMedicineSuggestions({}); setReturnBatchOptions({}); }}
+                  onChange={async (e) => {
+                    const nextDistributorId = e.target.value;
+
+                    setDistId(nextDistributorId);
+                    setReturnItems([]);
+                    setReturnMedicineSuggestions({});
+                    setReturnBatchOptions({});
+                    setEligiblePurchaseReturns([]);
+
+                    if (nextDistributorId) {
+                      await loadEligiblePurchaseReturns(nextDistributorId);
+                    }
+                  }}
                 >
                   <option value="">Select</option>
                   {dists.map((d) => (
@@ -1120,7 +1270,286 @@ export default function PurchaseOrders() {
 </div>
 
 {!distId && <p className="border-t bg-amber-50 px-4 py-2 text-xs text-amber-800">Select a distributor before applying an existing purchase return credit.</p>}
-{returnItems.length > 0 && <div className="border-t border-amber-200 bg-amber-50/50 p-4"><div className="mb-3"><h3 className="font-bold text-amber-950">Apply Existing Purchase Return Credit</h3><p className="text-xs text-amber-900">Use this when a return was already recorded earlier and its credit is being adjusted in this invoice.</p><p className="mt-1 text-xs text-amber-800">Matching a batch here consumes and settles its already-recorded return credit; it does not create a new purchase return. Credit is calculated from return quantity × purchase rate.</p></div><div className="overflow-x-auto"><table className="min-w-[1180px] w-full text-xs"><thead><tr className="text-left text-slate-500"><th className="p-2">Medicine Name</th><th className="p-2">Batch No</th><th className="p-2">Expiry</th><th className="p-2">Manufacturer</th><th className="p-2">Category</th><th className="p-2">Purchase Rate</th><th className="p-2">MRP</th><th className="p-2">GST</th><th className="p-2">Available</th><th className="p-2">Return Qty</th><th className="p-2">Return Credit</th><th /></tr></thead><tbody>{returnItems.map((item, rowIndex) => <tr key={rowIndex} className="border-t border-amber-200 align-top"><td className="relative p-2"><Input value={item.medicine_name} placeholder="Type medicine" onChange={(event) => searchReturnMedicines(rowIndex, event.target.value)} onFocus={() => setActiveReturnMedicineRow(rowIndex)} onBlur={() => setTimeout(() => setActiveReturnMedicineRow(null), 120)} />{activeReturnMedicineRow === rowIndex && (returnMedicineSuggestions[rowIndex] || []).length > 0 && <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded border bg-white shadow">{returnMedicineSuggestions[rowIndex].map((medicine) => <button type="button" key={getMedicineId(medicine)} className="block w-full p-2 text-left hover:bg-slate-50" onMouseDown={(event) => event.preventDefault()} onClick={() => applyReturnMedicine(rowIndex, medicine)}>{getMedicineName(medicine)}</button>)}</div>}</td><td className="relative p-2"><Input value={item.batch_no} readOnly placeholder="Select batch" onFocus={() => setActiveReturnBatchRow(rowIndex)} />{activeReturnBatchRow === rowIndex && (returnBatchOptions[rowIndex] || []).length > 0 && <div className="absolute z-50 mt-1 max-h-52 min-w-[320px] overflow-y-auto rounded border bg-white shadow">{returnBatchOptions[rowIndex].map((batch, index) => <button type="button" key={`${batch.batch_no}-${index}`} className="block w-full p-2 text-left hover:bg-slate-50" onMouseDown={(event) => event.preventDefault()} onClick={() => applyReturnBatch(rowIndex, batch)}>{batchOptionLabel(batch)}</button>)}</div>}</td><td className="p-2"><Input value={item.expiry_date} readOnly /></td><td className="p-2"><Input value={item.manufacturer} readOnly /></td><td className="p-2"><Input value={item.category} readOnly /></td><td className="p-2"><Input value={item.purchase_price} readOnly /></td><td className="p-2"><Input value={item.mrp} readOnly /></td><td className="p-2"><Input value={item.gst_rate} readOnly /></td><td className="p-2"><Input value={item.available_quantity} readOnly /></td><td className="p-2"><Input type="number" min="0" max={item.available_quantity} value={item.return_quantity} onChange={(event) => updateReturnItem(rowIndex, "return_quantity", event.target.value)} /></td><td className="p-2 font-bold text-amber-800">{fmtINR(Number(item.return_quantity || 0) * Number(item.purchase_price || 0))}</td><td className="p-2"><button type="button" onClick={() => removeReturnRow(rowIndex)} className="text-red-600"><Trash2 className="h-4 w-4" /></button></td></tr>)}</tbody></table></div></div>}
+{returnItems.length > 0 && (
+  <div className="border-t border-amber-200 bg-amber-50/50 p-4">
+
+    <div className="mb-3">
+      <h3 className="font-bold text-amber-950">
+        Apply Existing Purchase Return Credit
+      </h3>
+
+      <p className="text-xs text-amber-900">
+        Select an already-recorded purchase return for this distributor
+        and apply its credit against this purchase order.
+      </p>
+
+      <p className="mt-1 text-xs text-amber-800">
+        Only eligible, unsettled purchase returns are shown.
+        Applying one here settles its existing credit; it does not create
+        another purchase return.
+      </p>
+    </div>
+
+    {loadingEligibleReturns && (
+      <div className="rounded border border-amber-200 bg-white p-3 text-sm text-amber-800">
+        Loading eligible purchase returns...
+      </div>
+    )}
+
+    {!loadingEligibleReturns &&
+      eligiblePurchaseReturns.length === 0 && (
+        <div className="rounded border border-amber-200 bg-white p-3 text-sm text-amber-800">
+          No eligible purchase returns are available for this distributor.
+        </div>
+      )}
+
+    <div className="overflow-x-auto">
+
+      <table className="min-w-[1180px] w-full text-xs">
+
+        <thead>
+          <tr className="text-left text-slate-500">
+            <th className="p-2">Existing Return</th>
+            <th className="p-2">Batch No</th>
+            <th className="p-2">Expiry</th>
+            <th className="p-2">Manufacturer</th>
+            <th className="p-2">Category</th>
+            <th className="p-2">Purchase Rate</th>
+            <th className="p-2">MRP</th>
+            <th className="p-2">GST</th>
+            <th className="p-2">Available</th>
+            <th className="p-2">Apply Qty</th>
+            <th className="p-2">Return Credit</th>
+            <th />
+          </tr>
+        </thead>
+
+        <tbody>
+
+          {returnItems.map((item, rowIndex) => {
+
+            const selectedReturn =
+              eligiblePurchaseReturns.find(
+                (purchaseReturn) =>
+                  String(
+                    purchaseReturn.id ||
+                    purchaseReturn.purchase_return_id ||
+                    ""
+                  ) === String(item.purchase_return_id || "")
+              );
+
+            const availableQuantity = Number(
+              item.available_quantity || 0
+            );
+
+            const appliedQuantity = Number(
+              item.return_quantity || 0
+            );
+
+            const returnCredit = roundCurrency(
+              appliedQuantity *
+              Number(item.purchase_price || 0)
+            );
+
+            return (
+              <tr
+                key={rowIndex}
+                className="border-t border-amber-200 align-top"
+              >
+
+                {/* EXISTING RETURN DROPDOWN */}
+                <td className="relative p-2 min-w-[420px]">
+
+                  <Select
+                    value={item.purchase_return_id || ""}
+                    onValueChange={(value) => {
+
+                      const purchaseReturn =
+                        eligiblePurchaseReturns.find(
+                          (entry) =>
+                            String(
+                              entry.id ||
+                              entry.purchase_return_id ||
+                              ""
+                            ) === String(value)
+                        );
+
+                      if (purchaseReturn) {
+                        applyExistingPurchaseReturn(
+                          rowIndex,
+                          purchaseReturn
+                        );
+                      }
+                    }}
+                  >
+
+                    <SelectTrigger className="w-full bg-white">
+                      <SelectValue
+                        placeholder={
+                          loadingEligibleReturns
+                            ? "Loading returns..."
+                            : "Select existing purchase return"
+                        }
+                      />
+                    </SelectTrigger>
+
+                    <SelectContent className="z-[100]">
+
+                      {eligiblePurchaseReturns.map(
+                        (purchaseReturn) => {
+
+                          const returnId =
+                            purchaseReturn.id ||
+                            purchaseReturn.purchase_return_id;
+
+                          if (!returnId) return null;
+
+                          return (
+                            <SelectItem
+                              key={String(returnId)}
+                              value={String(returnId)}
+                            >
+                              {getPurchaseReturnLabel(
+                                purchaseReturn
+                              )}
+                            </SelectItem>
+                          );
+                        }
+                      )}
+
+                    </SelectContent>
+
+                  </Select>
+
+                  {selectedReturn && (
+                    <div className="mt-1 text-[10px] text-slate-500">
+                      Return ID: {item.purchase_return_id}
+                    </div>
+                  )}
+
+                </td>
+
+                {/* BATCH */}
+                <td className="p-2">
+                  <Input
+                    value={item.batch_no}
+                    readOnly
+                  />
+                </td>
+
+                {/* EXPIRY */}
+                <td className="p-2">
+                  <Input
+                    value={item.expiry_date}
+                    readOnly
+                  />
+                </td>
+
+                {/* MANUFACTURER */}
+                <td className="p-2">
+                  <Input
+                    value={item.manufacturer}
+                    readOnly
+                  />
+                </td>
+
+                {/* CATEGORY */}
+                <td className="p-2">
+                  <Input
+                    value={item.category}
+                    readOnly
+                  />
+                </td>
+
+                {/* PURCHASE RATE */}
+                <td className="p-2">
+                  <Input
+                    value={item.purchase_price}
+                    readOnly
+                  />
+                </td>
+
+                {/* MRP */}
+                <td className="p-2">
+                  <Input
+                    value={item.mrp}
+                    readOnly
+                  />
+                </td>
+
+                {/* GST */}
+                <td className="p-2">
+                  <Input
+                    value={item.gst_rate}
+                    readOnly
+                  />
+                </td>
+
+                {/* AVAILABLE */}
+                <td className="p-2">
+                  <Input
+                    value={availableQuantity}
+                    readOnly
+                  />
+                </td>
+
+                {/* APPLY QUANTITY */}
+                <td className="p-2">
+
+                  <Input
+                    type="number"
+                    min="0"
+                    max={availableQuantity}
+                    value={item.return_quantity}
+                    disabled={!item.purchase_return_id}
+                    onChange={(event) => {
+
+                      let value = event.target.value;
+
+                      if (Number(value) > availableQuantity) {
+                        value = String(availableQuantity);
+                      }
+
+                      updateReturnItem(
+                        rowIndex,
+                        "return_quantity",
+                        value
+                      );
+                    }}
+                  />
+
+                </td>
+
+                {/* CREDIT */}
+                <td className="p-2 font-bold text-amber-800 whitespace-nowrap">
+                  {fmtINR(returnCredit)}
+                </td>
+
+                {/* REMOVE */}
+                <td className="p-2">
+
+                  <button
+                    type="button"
+                    onClick={() => removeReturnRow(rowIndex)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+
+                </td>
+
+              </tr>
+            );
+          })}
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+)}
 
   <div className="sticky bottom-[88px] z-10 grid gap-2 border-t bg-white/95 p-3 shadow-[0_-4px_12px_rgba(15,23,42,0.08)] backdrop-blur sm:grid-cols-3 xl:grid-cols-6">
     {[
