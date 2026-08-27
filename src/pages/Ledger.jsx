@@ -672,6 +672,20 @@ useEffect(() => {
     e.preventDefault();
     if (!editingTransaction) return;
 
+    const purchaseOrderId = getPurchaseOrderId(editingTransaction);
+
+    if (
+      type === "distributor" &&
+      isPurchaseOrderTransaction(editingTransaction) &&
+      purchaseOrderId
+    ) {
+      setEditOpen(false);
+      setEditingTransaction(null);
+
+      window.location.assign(`/purchase-orders/${purchaseOrderId}`);
+      return;
+    }
+
     setSavingEdit(true);
     try {
       const editingIsOpeningBalance =
@@ -715,7 +729,22 @@ useEffect(() => {
   };
 
   const handleDelete = async (transaction) => {
+    if (!transaction) return;
+    
     if (isOpeningBalanceTransaction(transaction)) return;
+
+    const purchaseOrderId = getPurchaseOrderId(transaction);
+
+    if (
+      type === "distributor" &&
+      isPurchaseOrderTransaction(transaction) &&
+      purchaseOrderId
+    ) {
+      toast.info(
+        "This purchase entry is controlled by its Purchase Order. Delete the Purchase Order instead."
+      );
+      return;
+    }
 
     try {
       const endpoint =
@@ -730,6 +759,17 @@ useEffect(() => {
     } catch (e) {
       toast.error(formatApiError(e));
     }
+  };
+
+  const handleViewPO = (transaction) => {
+    const purchaseOrderId = getPurchaseOrderId(transaction);
+
+    if (!purchaseOrderId) {
+      toast.error("Purchase Order reference is missing.");
+      return;
+    }
+
+    window.location.assign(`/purchase-orders/${purchaseOrderId}`);
   };
 
   const downloadLedger = async () => {
@@ -1293,7 +1333,7 @@ useEffect(() => {
                       )}
                       {isPurchaseOrderTransaction(t) && (
                         <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">
-                          Purchase Order
+                          PO · {t.purchase_order_no || "Purchase Order"}
                         </span>
                       )}
                     </div>
@@ -1392,28 +1432,56 @@ useEffect(() => {
                   </td>
                   <td>
                     <div className="flex items-center gap-3">
-                      {type === "distributor" &&
-                        isEditableDistributorTransaction(t) && (
-                          <button
-                            type="button"
-                            onClick={() => openEditDialog(t)}
-                            className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
-                            aria-label={`Edit transaction ${t.id}`}
-                          >
-                            <Pencil className="w-3 h-3" />
-                            Edit
-                          </button>
-                        )}
-                      {!isOpeningBalanceTransaction(t) &&
-                        !isPurchaseOrderTransaction(t) && (
-                          <button
-                            onClick={() => handleDelete(t)}
-                            className="text-red-600 text-xs hover:underline"
-                          >
-                            Delete
-                          </button>
-                        )}
-                    </div>
+  {type === "distributor" &&
+    isPurchaseOrderTransaction(t) &&
+    getPurchaseOrderId(t) && (
+      <>
+        <button
+          type="button"
+          onClick={() => openEditDialog(t)}
+          className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
+          aria-label={`Edit Purchase Order ${t.purchase_order_no || getPurchaseOrderId(t)}`}
+        >
+          <Pencil className="w-3 h-3" />
+          Edit PO
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleViewPO(t)}
+          className="text-blue-600 text-xs hover:underline"
+          aria-label={`View Purchase Order ${t.purchase_order_no || getPurchaseOrderId(t)}`}
+        >
+          View PO
+        </button>
+      </>
+    )}
+
+  {type === "distributor" &&
+    !isPurchaseOrderTransaction(t) &&
+    isEditableDistributorTransaction(t) && (
+      <button
+        type="button"
+        onClick={() => openEditDialog(t)}
+        className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
+        aria-label={`Edit transaction ${t.id}`}
+      >
+        <Pencil className="w-3 h-3" />
+        Edit
+      </button>
+    )}
+
+  {!isOpeningBalanceTransaction(t) &&
+    !isPurchaseOrderTransaction(t) && (
+      <button
+        type="button"
+        onClick={() => handleDelete(t)}
+        className="text-red-600 text-xs hover:underline"
+      >
+        Delete
+      </button>
+    )}
+</div>
                   </td>
                 </tr>
               );
