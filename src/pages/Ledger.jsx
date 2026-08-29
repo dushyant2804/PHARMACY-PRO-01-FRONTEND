@@ -762,14 +762,31 @@ useEffect(() => {
   };
 
   const handleViewPO = (transaction) => {
-    const purchaseOrderId = getPurchaseOrderId(transaction);
+    const purchaseOrderId =
+      transaction?.purchase_order_id ||
+      transaction?.po_id ||
+      "";
 
     if (!purchaseOrderId) {
       toast.error("Purchase Order reference is missing.");
       return;
     }
 
-    window.location.assign(`/purchase-orders/${purchaseOrderId}`);
+    if (String(purchaseOrderId).startsWith("po:")) {
+      const realId = String(purchaseOrderId).slice(3);
+
+      if (!realId) {
+        toast.error("Purchase Order reference is invalid.");
+        return;
+      }
+
+      window.location.assign(`/purchase-orders/${realId}`);
+      return;
+    }
+
+    window.location.assign(
+      `/purchase-orders/${purchaseOrderId}`
+    );
   };
 
   const downloadLedger = async () => {
@@ -1402,7 +1419,11 @@ useEffect(() => {
                     <td className="text-sm font-medium">
                       {getPurchaseOrderId(t) ? (
                         <Link
-                          to={`/purchase-orders/${getPurchaseOrderId(t)}`}
+                          to={`/purchase-orders/${
+                        String(getPurchaseOrderId(t)).startsWith("po:")
+                              ? String(getPurchaseOrderId(t)).slice(3)
+                              : getPurchaseOrderId(t)
+                          }`}
                           className="text-blue-600 hover:underline"
                         >
                           {getDistributorDocumentNumber(t)}
