@@ -660,7 +660,8 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
 
             available_quantity: returnQuantity,
 
-            return_quantity: "",
+            // Apply the full selected purchase return quantity by default.
+            return_quantity: returnQuantity,
           }
         : row
     )
@@ -701,8 +702,22 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
   const roundOff = displayTotals.roundOff;
   const grandTotal = displayTotals.grandTotal;
   const validReturnItems = returnItems.filter((item) => item.medicine_name && item.batch_no && Number(item.return_quantity) > 0);
-  const purchaseReturnAdjustment = roundCurrency(validReturnItems.reduce((sum, item) => sum + (Number(item.return_quantity) * Number(item.purchase_price)), 0));
-  const finalPayableTotal = roundCurrency(Math.max(0, grandTotal - purchaseReturnAdjustment));
+  const purchaseReturnAdjustment = shouldUseSavedTotals
+    ? Number(displayTotals.purchaseReturnAdjustment || 0)
+    : roundCurrency(
+        validReturnItems.reduce(
+          (sum, item) =>
+            sum +
+            (Number(item.return_quantity) * Number(item.purchase_price)),
+          0
+        )
+      );
+
+  const finalPayableTotal = shouldUseSavedTotals
+    ? Number(displayTotals.finalPayableTotal ?? 0)
+    : roundCurrency(
+        Math.max(0, grandTotal - purchaseReturnAdjustment)
+      );
 
   const openNewPO = () => {
     setEditingPO(null);
@@ -746,7 +761,44 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
     );
     setRowMedicines({});
     setRowBatchOptions({});
-    setReturnItems((po.purchase_returns || po.return_items || []).map((item) => ({ ...emptyReturnItem, ...item })));
+    setReturnItems(
+      (
+        po.purchase_returns ||
+        po.return_items ||
+        po.purchase_return_details ||
+        []
+      ).map((item) => ({
+         ...emptyReturnItem,
+         ...item,
+
+         purchase_return_id:
+           item.purchase_return_id ||
+           item.id ||
+           "",
+
+         batch_no:
+           item.batch_no ||
+           item.batch_number ||
+           "",
+
+         purchase_price:
+           item.purchase_price ??
+           item.purchase_rate ??
+           0,
+
+         return_quantity:
+           item.return_quantity ??
+           0,
+ 
+         return_amount:
+           item.return_amount ??
+           item.return_credit ??
+           (
+             Number(item.return_quantity || 0) *
+             Number(item.purchase_price ?? item.purchase_rate ?? 0)
+           ),
+      }))
+    );
     setReturnMedicineSuggestions({});
     setReturnBatchOptions({});
     setActiveBatchRow(null);
@@ -923,7 +975,12 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
                 <td>{p.po_no}</td>
                 <td>{fmtDate(p.po_date || p.created_at)}</td>
                 <td>{p.distributor_name}</td>
-                <td>{fmtINR(p.grand_total || p.total || 0)}</td>
+                <td>{fmtINR(
+                       p.final_payable_total ??
+                       p.grand_total ??
+                       p.total ??
+                       0
+                    )}</td>
                 <td>
                   <div className="flex gap-3">
                     <button className="text-blue-600" onClick={() => openEditPO(p)}>
