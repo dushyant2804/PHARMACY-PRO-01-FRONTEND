@@ -115,6 +115,7 @@ export default function Settings() {
   const [localBackendUrl, setLocalBackendUrlState] = useState(getLocalBackendUrl);
   const [slowApiCalls, setSlowApiCalls] = useState(getSlowApiCalls);
   const [environmentStatus, setEnvironmentStatus] = useState({
+    runtimeMode: "—",
     endpoint: "—",
     healthEndpoint: "—",
     backupStatusEndpoint: "—",
@@ -257,36 +258,54 @@ export default function Settings() {
   };
 
   const normalizeBackupStatus = (data = {}) => ({
+    runtimeMode: String(data.runtime_mode || data.mode || "").trim().toUpperCase() || "—",
     backend: normalizeConnectionStatus(data.backend ?? data.backend_status ?? data.status ?? data.ok),
     database: normalizeConnectionStatus(data.database ?? data.database_status ?? data.db_status ?? data.database_connected ?? data.db_connected),
-    lastBackupTime: data.last_backup_time || data.last_backup_at || data.last_successful_backup || "—",
-    pendingSyncCount: Number(data.pending_sync_count ?? data.pending_sync ?? data.pending_uploads ?? 0),
-    lastSuccessfulBackup: data.last_successful_backup || data.last_backup_time || data.last_backup_at || "—",
+    lastBackupTime: data.last_local_backup_at || data.last_backup_time || data.last_backup_at || data.last_successful_backup || "—",
+    pendingSyncCount: Number(data.pending_backup_count ?? data.pending_sync_count ?? data.pending_sync ?? data.pending_uploads ?? 0),
+    lastSuccessfulBackup: data.last_local_backup_at || data.last_successful_backup || data.last_backup_time || data.last_backup_at || "—",
     cloudSyncStatus: formatProductionStatus(data.cloud_sync_status || data.sync_status, "Ready"),
-    pendingUploads: Number(data.pending_uploads ?? data.pending_sync_count ?? 0),
-    atlasConnectionStatus: formatProductionStatus(data.atlas_connection_status || data.mongodb_atlas_status || data.atlas_status || data.cloud_sync_status, "Configured"),
-    atlasLastBackupTime: data.atlas_last_backup_time || data.mongodb_atlas_last_backup_at || data.atlas_last_backup_at || data.last_backup_time || "—",
-    atlasPendingSyncCount: Number(data.atlas_pending_sync_count ?? data.mongodb_atlas_pending_sync_count ?? data.pending_sync_count ?? 0),
-    googleDriveConnectionStatus: formatProductionStatus(data.google_drive_service_account_status || data.google_drive_config_status || data.google_drive_connection_status || data.drive_connection_status, "Not configured"),
-    googleDriveLastBackupTime: data.google_drive_last_backup_time || data.drive_last_backup_at || data.google_drive_last_backup_at || "—",
-    googleDrivePendingUploadCount: Number(data.google_drive_pending_upload_count ?? data.drive_pending_upload_count ?? data.pending_uploads ?? 0),
+    pendingUploads: Number(data.pending_google_drive_upload_count ?? data.pending_uploads ?? data.pending_sync_count ?? 0),
+    atlasConnectionStatus: formatProductionStatus(data.atlas_backup_status ?? data.atlas_connection_status ?? data.mongodb_atlas_status ?? data.atlas_status, "Not configured"),
+    atlasLastBackupTime: data.last_atlas_backup_at || data.atlas_last_backup_time || data.mongodb_atlas_last_backup_at || data.last_backup_time || "—",
+    atlasPendingSyncCount: Number(data.pending_atlas_sync_count ?? data.atlas_pending_sync_count ?? data.mongodb_atlas_pending_sync_count ?? data.pending_sync_count ?? 0),
+    googleDriveConnectionStatus: formatProductionStatus(data.google_drive_connection_status ?? data.google_drive_service_account_status ?? data.google_drive_config_status ?? data.drive_connection_status, "Not configured"),
+    googleDriveLastBackupTime: data.last_google_drive_backup_at || data.last_google_drive_upload_time || data.google_drive_last_backup_time || data.drive_last_backup_at || "—",
+    googleDrivePendingUploadCount: Number(data.pending_google_drive_upload_count ?? data.google_drive_pending_upload_count ?? data.drive_pending_upload_count ?? data.pending_uploads ?? 0),
   });
 
   const refreshEnvironmentStatus = async () => {
     setCheckingEnvironment(true);
     try {
-      const localMode = environmentMode === "local";
-      const healthEndpoint = localMode ? getLocalHealthEndpoints()[0] : `${getApiBaseUrl()}/health`;
-      const backupStatusEndpoint = localMode ? getLocalHealthEndpoints()[3] : `${getApiBaseUrl()}/backup/status`;
-      const [healthResult, backupResult] = localMode
-        ? [
-            await checkLocalHealthEndpoints(),
-            { status: "skipped", value: { data: {} } },
-          ]
-        : await Promise.allSettled([
-            api.get("/health", { params: { t: Date.now() }, headers: { "Cache-Control": "no-store" } }),
-            api.get("/backup/status", { params: { t: Date.now() }, headers: { "Cache-Control": "no-store" } }),
-          ]);
+      const apiBaseUrl = getApiBaseUrl();
+      const apiLooksLocal = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(apiBaseUrl || "");
+      const localMode = environmentMode === "local" || apiLooksLocal;
+      const healthEndpoint = localMode ? getLocalHealthEndpoints()[0] : `${apiBaseUrl}/health`;
+      const backupStatusEndpoint = localMode ? getLocalHealthEndpoints()[2] : `${apiBaseUrl}/backup/status`;
+
+      let healthResult;
+      let backupResult;
+      if (localMode) {
+        const localHealthPromise = checkLocalHealthEndpoints();
+        const localBackupPromise = testHealthEndpoint(getLocalHealthEndpoints()[2]).catch(async (firstError) => {
+          try {
+            return await testHealthEndpoint(getLocalHealthEndpoints()[3]);
+          } catch (secondError) {
+            throw new Error(`${formatApiError(firstError)}; fallback ${formatApiError(secondError)}`);
+          }
+        });
+        const [localHealth, localBackup] = await Promise.allSettled([localHealthPromise, localBackupPromise]);
+        healthResult = localHealth.status === "fulfilled" ? localHealth.value : { ok: false, endpoint: getLocalHealthEndpoints()[0], data: {}, failures: [{ endpoint: getLocalHealthEndpoints()[0], error: formatApiError(localHealth.reason) }] };
+        backupResult = localBackup.status === "fulfilled"
+          ? { status: "fulfilled", value: { data: localBackup.value } }
+          : { status: "rejected", reason: localBackup.reason };
+      } else {
+        [healthResult, backupResult] = await Promise.allSettled([
+          api.get("/health", { params: { t: Date.now() }, headers: { "Cache-Control": "no-store" } }),
+          api.get("/backup/status", { params: { t: Date.now() }, headers: { "Cache-Control": "no-store" } }),
+        ]);
+      }
+
       const healthSucceeded = localMode ? healthResult.ok : healthResult.status === "fulfilled";
       const healthData = localMode ? healthResult.data || {} : healthResult.status === "fulfilled" ? healthResult.value.data || {} : {};
       const backupData = backupResult.status === "fulfilled" ? backupResult.value.data || {} : {};
@@ -320,14 +339,16 @@ export default function Settings() {
       const backendStatus = healthSucceeded || backupEndpointHealthy
         ? normalizeConnectionStatus(healthData.backend ?? healthData.backend_status ?? healthData.status ?? backupData.backend ?? backupData.backend_status ?? backupData.status, "Connected")
         : "Offline";
+      const runtimeMode = String(backupData.runtime_mode || healthData.runtime_mode || healthData.mode || "").trim().toUpperCase() || mergedStatus.runtimeMode;
       setEnvironmentStatus({
         ...mergedStatus,
+        runtimeMode,
         endpoint: localMode && healthResult.endpoint ? healthResult.endpoint : healthEndpoint,
         healthEndpoint: localMode && healthResult.endpoint ? healthResult.endpoint : healthEndpoint,
         backupStatusEndpoint,
         response: {
           health: healthSucceeded ? healthData : { error: localMode ? `Failed URL: ${healthResult.endpoint}` : formatApiError(healthResult.reason) },
-          backupStatus: backupResult.status === "fulfilled" ? backupData : backupResult.status === "skipped" ? { skipped: true } : { error: formatApiError(backupResult.reason) },
+          backupStatus: backupResult.status === "fulfilled" ? backupData : { error: formatApiError(backupResult.reason) },
           localSyncStatus: localSyncStatusResult.data ? localSyncStatusData : { error: formatApiError(localSyncStatusResult.error) },
           failedHealthUrls: localMode ? healthResult.failures : undefined,
         },
@@ -339,6 +360,7 @@ export default function Settings() {
       setCheckingEnvironment(false);
     }
   };
+
 
   const testLocalServer = async (url = localBackendUrl, { showToast = true } = {}) => {
     const normalizedUrl = (url || getLocalBackendUrl()).trim().replace(/\/$/, "");
@@ -586,7 +608,7 @@ export default function Settings() {
             Settings
           </h1>
           <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${environmentMode === "local" ? "bg-amber-100 text-amber-900" : "bg-blue-100 text-blue-900"}`}>
-            {environmentMode === "local" ? "Local Mode" : "Cloud Mode"}
+            {String(environmentStatus.runtimeMode).toUpperCase() === "LOCAL_MODE" ? "Local Mode" : "Cloud Mode"}
           </span>
         </div>
         <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900" aria-label="Settings modules">
@@ -1083,7 +1105,7 @@ export default function Settings() {
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {[
-                [Cloud, "Mode", environmentMode === "local" ? "Local" : "Cloud"],
+                [Cloud, "Mode", String(environmentStatus.runtimeMode).toUpperCase() === "LOCAL_MODE" ? "Local" : "Cloud"],
                 [Server, "Backend", environmentStatus.backend],
                 [Database, "Database", environmentStatus.database],
                 [HardDrive, "Last backup time", environmentStatus.lastBackupTime],
@@ -1144,7 +1166,7 @@ export default function Settings() {
             <div><div className="text-xs uppercase font-semibold text-slate-500">MongoDB Atlas backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.atlas}</div></div>
             <div><div className="text-xs uppercase font-semibold text-slate-500">Google Drive backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.googleDrive}</div></div>
           </div>
-          {environmentMode === "local" && (
+          {String(environmentStatus.runtimeMode).toUpperCase() === "LOCAL_MODE" && (
             <div className="mt-4 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900">
               Local Mode • Last backup: {environmentStatus.lastSuccessfulBackup}
             </div>
