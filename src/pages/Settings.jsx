@@ -130,16 +130,12 @@ export default function Settings() {
     atlasConnectionStatus: "Checking",
     atlasLastBackupTime: "—",
     atlasPendingSyncCount: 0,
-    googleDriveConnectionStatus: "Not configured",
-    googleDriveLastBackupTime: "—",
-    googleDrivePendingUploadCount: 0,
   });
   const [checkingEnvironment, setCheckingEnvironment] = useState(false);
   const [testingLocalServer, setTestingLocalServer] = useState(false);
   const [backupResult, setBackupResult] = useState({
     local: "Local backup pending",
     atlas: "MongoDB Atlas backup pending",
-    googleDrive: "Google Drive upload pending",
     message: "Cloud upload pending",
     tone: "text-amber-700",
   });
@@ -265,13 +261,10 @@ export default function Settings() {
     pendingSyncCount: Number(data.pending_backup_count ?? data.pending_sync_count ?? data.pending_sync ?? data.pending_uploads ?? 0),
     lastSuccessfulBackup: data.last_local_backup_at || data.last_successful_backup || data.last_backup_time || data.last_backup_at || "—",
     cloudSyncStatus: formatProductionStatus(data.cloud_sync_status || data.sync_status, "Ready"),
-    pendingUploads: Number(data.pending_google_drive_upload_count ?? data.pending_uploads ?? data.pending_sync_count ?? 0),
+    pendingUploads: Number(data.pending_backup_count ?? data.pending_sync_count ?? 0),
     atlasConnectionStatus: formatProductionStatus(data.atlas_backup_status ?? data.atlas_connection_status ?? data.mongodb_atlas_status ?? data.atlas_status, "Not configured"),
     atlasLastBackupTime: data.last_atlas_backup_at || data.atlas_last_backup_time || data.mongodb_atlas_last_backup_at || data.last_backup_time || "—",
     atlasPendingSyncCount: Number(data.pending_atlas_sync_count ?? data.atlas_pending_sync_count ?? data.mongodb_atlas_pending_sync_count ?? data.pending_sync_count ?? 0),
-    googleDriveConnectionStatus: formatProductionStatus(data.google_drive_connection_status ?? data.google_drive_service_account_status ?? data.google_drive_config_status ?? data.drive_connection_status, "Not configured"),
-    googleDriveLastBackupTime: data.last_google_drive_backup_at || data.last_google_drive_upload_time || data.google_drive_last_backup_time || data.drive_last_backup_at || "—",
-    googleDrivePendingUploadCount: Number(data.pending_google_drive_upload_count ?? data.google_drive_pending_upload_count ?? data.drive_pending_upload_count ?? data.pending_uploads ?? 0),
   });
 
   const refreshEnvironmentStatus = async () => {
@@ -423,39 +416,31 @@ export default function Settings() {
     setBackupResult({
       local: "Local backup pending",
       atlas: "MongoDB Atlas backup pending",
-      googleDrive: "Google Drive upload pending",
       message: "Cloud upload pending",
       tone: "text-amber-700",
     });
     try {
-      const { data = {} } = await api.post("/backup/run", { targets: ["mongodb_atlas", "google_drive"] });
-      const lastBackupTime = data.last_backup_time || data.last_backup_at || new Date().toISOString();
+      const { data = {} } = await api.post("/backup/run");
+      const lastBackupTime = data.last_backup_time || data.last_backup_at || data.timestamp || new Date().toISOString();
       localStorage.setItem("pharmacyos_last_backup_time", lastBackupTime);
+      const atlas = getBackupResultStatus(data, ["atlas_backup_status", "mongodb_atlas_status"], "MongoDB Atlas backup pending");
+      const hasPendingCloud = String(atlas).toLowerCase().includes("pending") || String(atlas).toLowerCase().includes("queued");
       const nextResult = {
-        local: getBackupResultStatus(data, ["local_backup_status", "local_status"], "Local backup successful"),
-        atlas: getBackupResultStatus(data, ["atlas_backup_status", "mongodb_atlas_status"], "MongoDB Atlas backup successful"),
-        googleDrive: getBackupResultStatus(data, ["google_drive_backup_status", "drive_backup_status"], "Google Drive backup successful"),
-        message: data.message || "Backup successful",
-        tone: "text-emerald-700",
+        local: "Local backup successful",
+        atlas,
+        message: data.message || (hasPendingCloud ? "Saved locally. MongoDB Atlas upload pending." : "Backup successful"),
+        tone: hasPendingCloud ? "text-amber-700" : "text-emerald-700",
       };
-      const hasPendingCloud = [nextResult.atlas, nextResult.googleDrive].some((value) => String(value).toLowerCase().includes("pending"));
-      if (hasPendingCloud) {
-        nextResult.message = "Saved locally. Cloud upload pending.";
-        nextResult.tone = "text-amber-700";
-      }
       setBackupResult(nextResult);
       setEnvironmentStatus((current) => ({
         ...current,
         lastBackupTime,
         lastSuccessfulBackup: lastBackupTime,
-        cloudSyncStatus: formatProductionStatus(data.cloud_sync_status, hasPendingCloud ? "Cloud upload pending" : current.cloudSyncStatus || "Ready"),
-        pendingUploads: Number(data.pending_uploads ?? current.pendingUploads ?? 0),
-        atlasConnectionStatus: formatProductionStatus(data.atlas_connection_status || data.mongodb_atlas_status, current.atlasConnectionStatus),
-        atlasLastBackupTime: data.atlas_last_backup_time || data.mongodb_atlas_last_backup_at || lastBackupTime,
-        atlasPendingSyncCount: Number(data.atlas_pending_sync_count ?? current.atlasPendingSyncCount ?? 0),
-        googleDriveConnectionStatus: formatProductionStatus(data.google_drive_service_account_status || data.google_drive_config_status || data.google_drive_connection_status, current.googleDriveConnectionStatus),
-        googleDriveLastBackupTime: data.google_drive_last_backup_time || data.drive_last_backup_at || lastBackupTime,
-        googleDrivePendingUploadCount: Number(data.google_drive_pending_upload_count ?? data.pending_uploads ?? current.googleDrivePendingUploadCount ?? 0),
+        cloudSyncStatus: formatProductionStatus(data.cloud_sync_status, hasPendingCloud ? "Cloud upload pending" : "Ready"),
+        pendingUploads: Number(data.pending_backup_count ?? current.pendingUploads ?? 0),
+        atlasConnectionStatus: formatProductionStatus(data.atlas_connection_status || data.atlas_backup_status, current.atlasConnectionStatus),
+        atlasLastBackupTime: data.last_atlas_backup_at || lastBackupTime,
+        atlasPendingSyncCount: Number(data.pending_atlas_sync_count ?? current.atlasPendingSyncCount ?? 0),
       }));
       toast[hasPendingCloud ? "warning" : "success"](nextResult.message);
       refreshEnvironmentStatus();
@@ -463,18 +448,10 @@ export default function Settings() {
       setBackupResult({
         local: "Local backup successful",
         atlas: "MongoDB Atlas backup pending",
-        googleDrive: "Google Drive upload pending",
-        message: "Saved locally. Cloud upload pending.",
+        message: "Saved locally. MongoDB Atlas upload pending.",
         tone: "text-amber-700",
       });
-      setEnvironmentStatus((current) => ({
-        ...current,
-        cloudSyncStatus: "Cloud upload pending",
-        pendingUploads: Math.max(Number(current.pendingUploads || 0), 1),
-        atlasConnectionStatus: "Cloud upload pending",
-        googleDriveConnectionStatus: current.googleDriveConnectionStatus === "Connected" ? "Pending" : current.googleDriveConnectionStatus,
-      }));
-      toast.warning("Saved locally. Cloud upload pending.");
+      toast.warning("Saved locally. MongoDB Atlas upload pending.");
     }
   };
 
@@ -1142,15 +1119,7 @@ export default function Settings() {
                 <div className="flex justify-between gap-3"><span className="text-slate-500">Pending sync count</span><span className="font-semibold">{environmentStatus.atlasPendingSyncCount}</span></div>
               </div>
             </div>
-            <div className="rounded-md border border-slate-200 bg-white p-3">
-              <div className="mb-3 flex items-center gap-2 font-heading font-semibold text-slate-900"><Cloud className="h-4 w-4" />Google Drive Backup</div>
-              <p className="mb-3 text-xs text-slate-500">Service-account backup status. No owner login is required.</p>
-              <div className="grid gap-2 text-sm">
-                <div className="flex justify-between gap-3"><span className="text-slate-500">Service-account status</span><span className="font-semibold">{environmentStatus.googleDriveConnectionStatus}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-slate-500">Last backup time</span><span className="font-semibold">{environmentStatus.googleDriveLastBackupTime}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-slate-500">Pending upload count</span><span className="font-semibold">{environmentStatus.googleDrivePendingUploadCount}</span></div>
-              </div>
-            </div>
+
           </div>
           <div className="mt-4 rounded-md border border-emerald-100 bg-white p-3">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Backup schedule</div>
@@ -1164,7 +1133,6 @@ export default function Settings() {
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div><div className="text-xs uppercase font-semibold text-slate-500">Local backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.local}</div></div>
             <div><div className="text-xs uppercase font-semibold text-slate-500">MongoDB Atlas backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.atlas}</div></div>
-            <div><div className="text-xs uppercase font-semibold text-slate-500">Google Drive backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.googleDrive}</div></div>
           </div>
           {String(environmentStatus.runtimeMode).toUpperCase() === "LOCAL_MODE" && (
             <div className="mt-4 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900">
@@ -1174,7 +1142,7 @@ export default function Settings() {
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg border border-emerald-200 bg-white p-3">
               <Button type="button" onClick={backupNow} className="w-full rounded-sm bg-emerald-700 hover:bg-emerald-800"><HardDrive className="mr-2 h-4 w-4" />Backup Now</Button>
-              <p className="mt-2 text-xs text-slate-600">Creates a local backup and uploads it to Atlas and Google Drive.</p>
+              <p className="mt-2 text-xs text-slate-600">Creates a local backup and uploads it to MongoDB Atlas when configured.</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-3">
               <Button
