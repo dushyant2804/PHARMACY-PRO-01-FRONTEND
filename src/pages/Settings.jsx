@@ -127,15 +127,15 @@ export default function Settings() {
     lastSuccessfulBackup: "—",
     cloudSyncStatus: "Checking",
     pendingUploads: 0,
-    atlasConnectionStatus: "Checking",
-    atlasLastBackupTime: "—",
-    atlasPendingSyncCount: 0,
+    b2ConnectionStatus: "Checking",
+    b2LastBackupTime: "—",
+    b2PendingSyncCount: 0,
   });
   const [checkingEnvironment, setCheckingEnvironment] = useState(false);
   const [testingLocalServer, setTestingLocalServer] = useState(false);
   const [backupResult, setBackupResult] = useState({
     local: "Local backup pending",
-    atlas: "MongoDB Atlas backup pending",
+    b2: "Backblaze B2 backup pending",
     message: "Cloud upload pending",
     tone: "text-amber-700",
   });
@@ -262,9 +262,9 @@ export default function Settings() {
     lastSuccessfulBackup: data.last_local_backup_at || data.last_successful_backup || data.last_backup_time || data.last_backup_at || "—",
     cloudSyncStatus: formatProductionStatus(data.cloud_sync_status || data.sync_status, "Ready"),
     pendingUploads: Number(data.pending_backup_count ?? data.pending_sync_count ?? 0),
-    atlasConnectionStatus: formatProductionStatus(data.atlas_backup_status ?? data.atlas_connection_status ?? data.mongodb_atlas_status ?? data.atlas_status, "Not configured"),
-    atlasLastBackupTime: data.last_atlas_backup_at || data.atlas_last_backup_time || data.mongodb_atlas_last_backup_at || data.last_backup_time || "—",
-    atlasPendingSyncCount: Number(data.pending_atlas_sync_count ?? data.atlas_pending_sync_count ?? data.mongodb_atlas_pending_sync_count ?? data.pending_sync_count ?? 0),
+    b2ConnectionStatus: formatProductionStatus(data.b2_connection_status ?? data.b2_backup_status ?? data.b2_configuration, "Not configured"),
+    b2LastBackupTime: data.last_b2_backup_at || data.last_backup_time || data.last_backup_at || "—",
+    b2PendingSyncCount: Number(data.pending_b2_sync_count ?? data.pending_backup_count ?? 0),
   });
 
   const refreshEnvironmentStatus = async () => {
@@ -415,43 +415,45 @@ export default function Settings() {
   const backupNow = async () => {
     setBackupResult({
       local: "Local backup pending",
-      atlas: "MongoDB Atlas backup pending",
-      message: "Cloud upload pending",
+      b2: "Backblaze B2 backup pending",
+      message: "Cloud backup upload pending",
       tone: "text-amber-700",
     });
     try {
       const { data = {} } = await api.post("/backup/run");
-      const lastBackupTime = data.last_backup_time || data.last_backup_at || data.timestamp || new Date().toISOString();
+      const lastBackupTime = data.last_backup_time || data.last_local_backup_at || data.timestamp || new Date().toISOString();
       localStorage.setItem("pharmacyos_last_backup_time", lastBackupTime);
-      const atlas = getBackupResultStatus(data, ["atlas_backup_status", "mongodb_atlas_status"], "MongoDB Atlas backup pending");
-      const hasPendingCloud = String(atlas).toLowerCase().includes("pending") || String(atlas).toLowerCase().includes("queued");
+      const b2 = getBackupResultStatus(data, ["b2_backup_status", "b2_connection_status"], "Backblaze B2 backup pending");
+      const normalizedB2 = String(b2).toLowerCase();
+      const hasPendingCloud = normalizedB2.includes("pending") || normalizedB2.includes("queued");
+      const failedCloud = normalizedB2.includes("failed") || normalizedB2.includes("error") || normalizedB2.includes("needs attention");
       const nextResult = {
         local: "Local backup successful",
-        atlas,
-        message: data.message || (hasPendingCloud ? "Saved locally. MongoDB Atlas upload pending." : "Backup successful"),
-        tone: hasPendingCloud ? "text-amber-700" : "text-emerald-700",
+        b2,
+        message: data.message || (hasPendingCloud ? "Saved locally. Backblaze B2 upload pending." : failedCloud ? "Local backup saved, but Backblaze B2 upload needs attention." : "Backup successful"),
+        tone: hasPendingCloud || failedCloud ? "text-amber-700" : "text-emerald-700",
       };
       setBackupResult(nextResult);
       setEnvironmentStatus((current) => ({
         ...current,
         lastBackupTime,
         lastSuccessfulBackup: lastBackupTime,
-        cloudSyncStatus: formatProductionStatus(data.cloud_sync_status, hasPendingCloud ? "Cloud upload pending" : "Ready"),
+        cloudSyncStatus: formatProductionStatus(data.cloud_sync_status, hasPendingCloud ? "Cloud backup upload pending" : "Ready"),
         pendingUploads: Number(data.pending_backup_count ?? current.pendingUploads ?? 0),
-        atlasConnectionStatus: formatProductionStatus(data.atlas_connection_status || data.atlas_backup_status, current.atlasConnectionStatus),
-        atlasLastBackupTime: data.last_atlas_backup_at || lastBackupTime,
-        atlasPendingSyncCount: Number(data.pending_atlas_sync_count ?? current.atlasPendingSyncCount ?? 0),
+        b2ConnectionStatus: formatProductionStatus(data.b2_connection_status || data.b2_backup_status, current.b2ConnectionStatus),
+        b2LastBackupTime: data.last_b2_backup_at || lastBackupTime,
+        b2PendingSyncCount: Number(data.pending_b2_sync_count ?? current.b2PendingSyncCount ?? 0),
       }));
-      toast[hasPendingCloud ? "warning" : "success"](nextResult.message);
+      toast[hasPendingCloud || failedCloud ? "warning" : "success"](nextResult.message);
       refreshEnvironmentStatus();
     } catch (e) {
       setBackupResult({
-        local: "Local backup successful",
-        atlas: "MongoDB Atlas backup pending",
-        message: "Saved locally. MongoDB Atlas upload pending.",
+        local: "Local backup may have been saved",
+        b2: "Backblaze B2 upload needs attention",
+        message: formatApiError(e) || "Backup upload failed",
         tone: "text-amber-700",
       });
-      toast.warning("Saved locally. MongoDB Atlas upload pending.");
+      toast.warning(formatApiError(e));
     }
   };
 
@@ -1066,7 +1068,7 @@ export default function Settings() {
               <div className="flex items-center gap-2 font-heading font-semibold text-emerald-950">
                 <Server className="h-4 w-4" /> Environment Status
               </div>
-              <p className="mt-1 text-sm text-emerald-900">Review local backup readiness and cloud service-account sync status without changing pharmacy workflow.</p>
+              <p className="mt-1 text-sm text-emerald-900">Review local backup readiness, cloud database sync, and Backblaze B2 disaster-backup status without changing pharmacy workflow.</p>
             </div>
             <Button type="button" variant="outline" onClick={refreshEnvironmentStatus} disabled={checkingEnvironment} className="rounded-sm border-emerald-200 bg-white">
               <RefreshCw className={`mr-2 h-4 w-4 ${checkingEnvironment ? "animate-spin" : ""}`} />
@@ -1099,7 +1101,7 @@ export default function Settings() {
 
         <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 p-4" data-testid="backup-center-section">
           <div className="font-heading font-semibold mb-1">Backup Center</div>
-          <p className="text-sm text-slate-600 mb-4">Run backups, restore data, and monitor cloud sync without interrupting billing.</p>
+          <p className="text-sm text-slate-600 mb-4">Run disaster backups, restore data, and monitor cloud database sync without interrupting billing.</p>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div><div className="text-xs uppercase font-semibold text-slate-500">Backup result</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.message}</div></div>
             <div><div className="text-xs uppercase font-semibold text-slate-500">Last backup time</div><div className="font-semibold">{environmentStatus.lastSuccessfulBackup}</div></div>
@@ -1112,11 +1114,12 @@ export default function Settings() {
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <div className="rounded-md border border-slate-200 bg-white p-3">
-              <div className="mb-3 flex items-center gap-2 font-heading font-semibold text-slate-900"><Database className="h-4 w-4" />MongoDB Atlas Backup</div>
+              <div className="mb-3 flex items-center gap-2 font-heading font-semibold text-slate-900"><Database className="h-4 w-4" />Backblaze B2 Disaster Backup</div>
+              <p className="mb-3 text-xs text-slate-600">Backup files are stored in B2 for disaster recovery. MongoDB remains the separate cloud database used by the phone/cloud app.</p>
               <div className="grid gap-2 text-sm">
-                <div className="flex justify-between gap-3"><span className="text-slate-500">Connection status</span><span className="font-semibold">{environmentStatus.atlasConnectionStatus}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-slate-500">Last backup time</span><span className="font-semibold">{environmentStatus.atlasLastBackupTime}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-slate-500">Pending sync count</span><span className="font-semibold">{environmentStatus.atlasPendingSyncCount}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Connection status</span><span className="font-semibold">{environmentStatus.b2ConnectionStatus}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Last backup upload</span><span className="font-semibold">{environmentStatus.b2LastBackupTime}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Pending uploads</span><span className="font-semibold">{environmentStatus.b2PendingSyncCount}</span></div>
               </div>
             </div>
 
@@ -1132,7 +1135,7 @@ export default function Settings() {
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div><div className="text-xs uppercase font-semibold text-slate-500">Local backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.local}</div></div>
-            <div><div className="text-xs uppercase font-semibold text-slate-500">MongoDB Atlas backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.atlas}</div></div>
+            <div><div className="text-xs uppercase font-semibold text-slate-500">Backblaze B2 backup</div><div className={`font-semibold ${backupResult.tone}`}>{backupResult.b2}</div></div>
           </div>
           {String(environmentStatus.runtimeMode).toUpperCase() === "LOCAL_MODE" && (
             <div className="mt-4 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900">
@@ -1142,7 +1145,7 @@ export default function Settings() {
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg border border-emerald-200 bg-white p-3">
               <Button type="button" onClick={backupNow} className="w-full rounded-sm bg-emerald-700 hover:bg-emerald-800"><HardDrive className="mr-2 h-4 w-4" />Backup Now</Button>
-              <p className="mt-2 text-xs text-slate-600">Creates a local backup and uploads it to MongoDB Atlas when configured.</p>
+              <p className="mt-2 text-xs text-slate-600">Creates a local backup and uploads the backup package to Backblaze B2 when configured.</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-3">
               <Button
