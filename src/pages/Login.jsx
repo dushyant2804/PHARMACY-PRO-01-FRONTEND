@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
 import { toast } from "sonner";
@@ -41,8 +41,8 @@ export default function Login() {
   };
 
   const onSubmit = (event) => {
-    event.preventDefault();
-    signIn(() => login(email, password));
+      event.preventDefault();
+      signIn(() => login(email, password, rememberMe));
   };
 
   const onDemoLogin = () => {

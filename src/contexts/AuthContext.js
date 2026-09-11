@@ -43,16 +43,26 @@ export function AuthProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const applyLoginResponse = (data) => {
-    const token = data?.token || data?.access_token || data?.accessToken;
-    if (token) localStorage.setItem("token", token);
+  const applyLoginResponse = (data, rememberMe = true) => {
+      const token = data?.token || data?.access_token || data?.accessToken;
+
+      if (token) {
+        if (rememberMe) {
+          localStorage.setItem("token", token);
+          sessionStorage.removeItem("token");
+        } else {
+          sessionStorage.setItem("token", token);
+          localStorage.removeItem("token");
+        }
+    }
+
     applyAuthResponse(data);
     return data;
   };
 
-  const login = async (email, password) => {
+  const login = async (email, password, rememberMe = true) => {
     const { data } = await loginRequest(email, password);
-    return applyLoginResponse(data);
+    return applyLoginResponse(data, rememberMe);
   };
 
   const demoLogin = async () => {
