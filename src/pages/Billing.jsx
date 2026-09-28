@@ -358,7 +358,7 @@ export default function Billing() {
       raw: +raw.toFixed(2),
       total: +(sub + gst).toFixed(2),
     };
-  }, [cart, billDiscType, billDiscValue]);
+  }, [cart, billDiscType, billDiscValue, settings?.business_gstin]);
 
   const hasScheduleH = cart.some(
     (c) => c.category === "Schedule H" || c.category === "Schedule H1",
