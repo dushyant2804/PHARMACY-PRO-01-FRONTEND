@@ -116,8 +116,49 @@ const getExpiryDate = (lot) =>
   firstDefined(lot?.expiry_date, lot?.expiry, lot?.expiryDate, "—");
 const getPurchaseRate = (lot) =>
   firstDefined(lot?.purchase_rate, lot?.purchase_price, lot?.rate, 0);
-const getActualCost = (lot) =>
-  firstDefined(lot?.actual_cost, 0);
+
+const getPurchaseQuantity = (lot) =>
+  Number(
+    firstDefined(
+      lot?.purchase_quantity,
+      lot?.purchased_quantity,
+      lot?.quantity,
+      lot?.purchased_units,
+      0,
+    ),
+  ) || 0;
+
+const getFreeQuantity = (lot) =>
+  Number(
+    firstDefined(
+      lot?.free_quantity,
+      lot?.free_qty,
+      lot?.free_units,
+      0,
+    ),
+  ) || 0;
+
+const getSchemeLabel = (lot) => {
+  const paid = getPurchaseQuantity(lot);
+  const free = getFreeQuantity(lot);
+
+  if (paid <= 0 || free <= 0) return "—";
+  return `${paid} + ${free} free`;
+};
+
+const getActualCost = (lot) => {
+  const persisted = Number(lot?.actual_cost);
+  if (Number.isFinite(persisted) && persisted > 0) return persisted;
+
+  const purchaseRate = Number(getPurchaseRate(lot)) || 0;
+  const gstRate = Number(lot?.gst_rate) || 0;
+  const paid = getPurchaseQuantity(lot);
+  const free = getFreeQuantity(lot);
+  const totalUnits = paid + free;
+  const schemeFactor = totalUnits > 0 ? paid / totalUnits : 1;
+
+  return purchaseRate * (1 + gstRate / 100) * schemeFactor;
+};
 
 const normalizeExpiryStatus = (status) => {
   const value = String(status || "")
@@ -823,8 +864,24 @@ export default function Inventory() {
                           />
 
                           <DetailItem
+                            label="GST"
+                            value={`${Number(batch?.gst_rate || 0)}%`}
+                          />
+
+                          <DetailItem
+                            label="Purchase Scheme"
+                            value={getSchemeLabel(batch)}
+                            valueClassName={
+                              getFreeQuantity(batch) > 0
+                                ? "text-emerald-700"
+                                : ""
+                            }
+                          />
+
+                          <DetailItem
                             label="Actual Cost"
                             value={fmtINR(getActualCost(batch))}
+                            valueClassName="text-indigo-700"
                           />
 
                           <DetailItem
