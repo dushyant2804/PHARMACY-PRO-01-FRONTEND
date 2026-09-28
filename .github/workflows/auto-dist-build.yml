@@ -9,6 +9,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-dist:
     name: Build frontend dist artifact
@@ -63,6 +66,27 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Package public frontend release
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          cd dist
+          zip -r ../pharmacyos-frontend-dist.zip .
+          cd ..
+
+      - name: Publish public frontend release
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view frontend-latest >/dev/null 2>&1; then
+            echo "Updating existing frontend-latest release"
+          else
+            gh release create frontend-latest \
+              --title "PharmacyOS Frontend Latest" \
+              --notes "Latest public PharmacyOS frontend build."
+          fi
+          gh release upload frontend-latest pharmacyos-frontend-dist.zip --clobber
+
       - name: Upload frontend dist artifact
         id: upload-frontend-dist
         uses: actions/upload-artifact@v4
@@ -78,7 +102,7 @@ jobs:
           DISPATCH_TOKEN: ${{ secrets.UPDATE_REPO_DISPATCH_TOKEN }}
           UPDATE_REPO: ${{ vars.UPDATE_REPO }}
           LATEST_VERSION: ${{ steps.package-version.outputs.version }}
-          FRONTEND_ARTIFACT_URL: ${{ steps.upload-frontend-dist.outputs.artifact-url }}
+          FRONTEND_ARTIFACT_URL: https://github.com/${{ github.repository }}/releases/download/frontend-latest/pharmacyos-frontend-dist.zip
           RELEASE_NOTES: ${{ github.event.head_commit.message || github.event.repository.description || '' }}
         run: |
           if [ -z "$DISPATCH_TOKEN" ]; then
