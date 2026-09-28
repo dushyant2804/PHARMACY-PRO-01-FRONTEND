@@ -45,12 +45,14 @@ const getAvailableQty = (item) =>
   );
 
 export const getInventoryLots = (medicine) => {
+  // Prefer the backend-enriched batches because they include purchase
+  // quantity/free quantity from purchase orders. Raw stock_lots may not.
   const lots = firstDefined(
+    medicine?.batches,
     medicine?.stock_lots,
     medicine?.stockLots,
     medicine?.lots,
     medicine?.inventory_lots,
-    medicine?.batches,
     [],
   );
 
