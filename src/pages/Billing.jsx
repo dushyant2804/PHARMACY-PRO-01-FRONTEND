@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import api, { fmtINR, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,6 +94,7 @@ export default function Billing() {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [settings, setSettings] = useState({});
 
   useEffect(() => {
     api
@@ -110,6 +111,11 @@ export default function Billing() {
       .get("/doctors")
       .then((r) => setDoctors(Array.isArray(r.data) ? r.data : []))
       .catch(() => setDoctors([]));
+
+    api
+      .get("/settings")
+      .then((r) => setSettings(r.data || {}))
+      .catch(() => setSettings({}));
   }, []);
 
   // FIXED: Added missing newBill function
@@ -307,6 +313,7 @@ export default function Billing() {
   };
 
   const totals = useMemo(() => {
+    const gstEnabled = Boolean(settings?.business_gstin?.trim());
     let raw = 0;
 
     const lines = cart.map((it) => {
@@ -336,7 +343,9 @@ export default function Billing() {
 
       const after = l.taxable - billDisc * share;
 
-      const g = after - after / (1 + l.gst_rate / 100);
+      const g = gstEnabled
+        ? after - after / (1 + l.gst_rate / 100)
+        : 0;
 
       gst += g;
       sub += after - g;
@@ -1058,10 +1067,12 @@ export default function Billing() {
               <span className="font-mono-nums">−{fmtINR(totals.bill_disc)}</span>
             </div>
 
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-400">GST</span>
-              <span className="font-mono-nums">{fmtINR(totals.gst)}</span>
-            </div>
+           {settings?.business_gstin?.trim() && (
+              <div className="flex justify-between">
+                <span className="text-slate-400">GST</span>
+                <span className="font-mono-nums">{fmtINR(totals.gst)}</span>
+              </div>
+           )}
 
             <div className="border-t border-slate-700 pt-2 space-y-1">
               <div className="flex justify-between text-sm"><span className="text-slate-400">Paid</span><span className="font-mono-nums">{fmtINR(payment.mode === "credit" ? Number(payment.paid || 0) : totals.total)}</span></div>

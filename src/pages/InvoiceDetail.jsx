@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+﻿import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import api, { fmtINR, fmtDate } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ export default function InvoiceDetail() {
   const [downloading, setDownloading] = useState(false);
   const printRef = useRef(null);
   const { user } = useAuth();
+  const gstEnabled = Boolean(inv?.gst_enabled);
 
   useEffect(() => {
     api.get(`/invoices/${id}`).then((r) => setInv(r.data)).catch(() => setInv(false));
@@ -110,8 +111,16 @@ export default function InvoiceDetail() {
               <div className="font-heading text-2xl font-bold">{settings?.business_name || "PharmacyOS"}</div>
             {settings?.business_address && <div className="text-xs text-slate-600">{settings.business_address}</div>}
             {settings?.business_phone && <div className="text-xs text-slate-600">Ph: {settings.business_phone}</div>}
-            {settings?.business_gstin && <div className="text-xs font-mono text-slate-600">GSTIN: {settings.business_gstin}</div>}
-              <div className="text-xs text-slate-500 mt-1">GST-Compliant Tax Invoice</div>
+            {inv?.gst_enabled && (
+              <>
+                  <div className="text-xs font-mono text-slate-600">
+                      GSTIN: {settings.business_gstin}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                      GST-Compliant Tax Invoice
+                  </div>
+             </>
+            )}
             </div>
           </div>
           <div className="text-right">
@@ -147,7 +156,11 @@ export default function InvoiceDetail() {
             <tr>
               <th>Medicine</th><th>Batch</th><th>Exp</th>
               <th className="text-right">Qty</th><th className="text-right">MRP</th>
-              <th className="text-right">Disc%</th><th className="text-right">GST%</th><th className="text-right">Amount</th>
+              <th className="text-right">Disc%</th>
+              {inv?.gst_enabled && (
+                <th className="text-right">GST%</th>
+              )}
+             <th className="text-right">Amount</th>
             </tr>
           </thead>
           <tbody>
@@ -159,8 +172,10 @@ export default function InvoiceDetail() {
                 <td className="num-cell">{it.quantity}</td>
                 <td className="num-cell">{fmtINR(it.mrp)}</td>
                 <td className="num-cell">{it.discount_pct}</td>
-                <td className="num-cell">{it.gst_rate}</td>
-                <td className="num-cell font-semibold">{fmtINR(it.line_total)}</td>
+                {inv?.gst_enabled && (
+                  <td className="num-cell">{it.gst_rate}</td>
+                )}
+               <td className="num-cell font-semibold">{fmtINR(it.line_total)}</td>
               </tr>
             ))}
           </tbody>
@@ -172,7 +187,12 @@ export default function InvoiceDetail() {
             {inv.bill_discount > 0 && (
               <div className="flex justify-between text-emerald-700"><span>Bill Discount</span><span className="font-mono-nums">−{fmtINR(inv.bill_discount)}</span></div>
             )}
-            <div className="flex justify-between"><span className="text-slate-500">GST</span><span className="font-mono-nums">{fmtINR(inv.gst_total)}</span></div>
+            {inv?.gst_enabled && (
+              <div className="flex justify-between">
+                 <span className="text-slate-500">GST</span>
+                 <span className="font-mono-nums">{fmtINR(inv.gst_total)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-slate-300 pt-2 font-heading font-bold text-base">
               <span>Total</span><span className="font-mono-nums">{fmtINR(inv.total)}</span>
             </div>
