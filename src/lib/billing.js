@@ -230,6 +230,7 @@ export const toInvoiceItem = (item) => {
 
   return {
     ...invoiceItem,
+    name: invoiceItem.name || invoiceItem.medicine_name || "",
     quantity: Number(invoiceItem.quantity),
     discount_pct: getEffectiveDiscountPct(
       subtotal,
