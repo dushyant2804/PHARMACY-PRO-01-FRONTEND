@@ -147,7 +147,7 @@ export default function Billing() {
       });
       setCustomerType(invoice.customer_id ? "existing" : ((invoice.customer_name || "Walk-in") === "Walk-in" ? "walkin" : "new"));
       setReferringDoctor(invoice.referring_doctor || "");
-      setInvoiceDate(String(invoice.invoice_date || invoice.created_at || getTodayDateInputValue()).slice(0, 10));
+      setInvoiceDate(invoice.invoice_date || (invoice.created_at ? indiaDate(invoice.created_at) : getTodayDateInputValue()));
       setBillDiscType(Number(invoice.bill_discount || 0) > 0 ? "amt" : "none");
       setBillDiscValue(Number(invoice.bill_discount || 0) > 0 ? String(invoice.bill_discount) : "");
       setPayment({
@@ -1118,6 +1118,7 @@ export default function Billing() {
                   <SelectItem value="upi">UPI</SelectItem>
                   <SelectItem value="card">Card</SelectItem>
                   <SelectItem value="credit">Credit</SelectItem>
+                  <SelectItem value="mixed">Mixed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
