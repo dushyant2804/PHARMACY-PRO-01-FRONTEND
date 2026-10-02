@@ -436,7 +436,7 @@ export default function Billing() {
     if (invoiceDateError) {
       return toast.error(invoiceDateError);
     }
-    if (payment.mode === "credit" && !customer.id) {
+    if ((payment.mode === "credit" || (payment.mode === "mixed" && Number(payment.paid || 0) < totals.total)) && !customer.id) {
       customerSearchRef.current?.focus();
       return toast.error("Select an existing customer for a credit bill");
     }
@@ -471,9 +471,9 @@ export default function Billing() {
           payment_mode: payment.mode,
 
           paid_amount:
-            payment.mode === "credit"
+            ["credit", "mixed"].includes(payment.mode)
               ? Number(payment.paid || 0)
-              : Number(payment.paid) || totals.total,
+              : totals.total,
 
           bill_discount_amount:
             billDiscType === "amt" ? Number(billDiscValue || 0) : 0,
@@ -1122,7 +1122,7 @@ export default function Billing() {
                 </SelectContent>
               </Select>
             </div>
-            {payment.mode === "credit" && (
+            {["credit", "mixed"].includes(payment.mode) && (
               <div>
                 <Label className="text-xs uppercase font-semibold text-slate-600">Paid Now</Label>
                 <Input type="number" min="0" step="0.01" value={payment.paid} onChange={(e) => setPayment({ ...payment, paid: e.target.value })} placeholder="0.00" className="mt-1 rounded-sm text-right" />
@@ -1150,8 +1150,8 @@ export default function Billing() {
            )}
 
             <div className="border-t border-slate-700 pt-2 space-y-1">
-              <div className="flex justify-between text-sm"><span className="text-slate-400">Paid</span><span className="font-mono-nums">{fmtINR(payment.mode === "credit" ? Number(payment.paid || 0) : totals.total)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-slate-400">Due</span><span className="font-mono-nums">{fmtINR(payment.mode === "credit" ? Math.max(totals.total - Number(payment.paid || 0), 0) : 0)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">Paid</span><span className="font-mono-nums">{fmtINR(["credit", "mixed"].includes(payment.mode) ? Number(payment.paid || 0) : totals.total)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">Due</span><span className="font-mono-nums">{fmtINR(["credit", "mixed"].includes(payment.mode) ? Math.max(totals.total - Number(payment.paid || 0), 0) : 0)}</span></div>
             </div>
 
             <div className="border-t border-slate-700 pt-2 flex justify-between">
