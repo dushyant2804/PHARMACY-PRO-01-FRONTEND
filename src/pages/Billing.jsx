@@ -21,7 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import Autocomplete from "@/components/Autocomplete";
 import {
@@ -56,6 +56,9 @@ import {
 
 export default function Billing() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editInvoiceId = searchParams.get("edit");
+  const loadedEditRef = useRef("");
 
   const [meds, setMeds] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -95,6 +98,9 @@ export default function Billing() {
   const [saving, setSaving] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [settings, setSettings] = useState({});
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [privacyPassword, setPrivacyPassword] = useState("");
+  const [editRequiresPassword, setEditRequiresPassword] = useState(false);
 
   useEffect(() => {
     api
@@ -117,6 +123,61 @@ export default function Billing() {
       .then((r) => setSettings(r.data || {}))
       .catch(() => setSettings({}));
   }, []);
+
+  useEffect(() => {
+    if (!editInvoiceId || !meds.length || loadedEditRef.current === editInvoiceId) return;
+    loadedEditRef.current = editInvoiceId;
+    let cancelled = false;
+    api.get(`/invoices/${editInvoiceId}`).then(({ data: invoice }) => {
+      if (cancelled) return;
+      setEditingInvoice(invoice);
+      const indiaDate = (value) => {
+        const parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+        }).formatToParts(new Date(value));
+        const part = (type) => parts.find((item) => item.type === type)?.value || "";
+        return `${part("year")}-${part("month")}-${part("day")}`;
+      };
+      setEditRequiresPassword(Boolean(invoice.created_at && indiaDate(invoice.created_at) < getTodayDateInputValue()));
+      setCustomer({
+        id: invoice.customer_id || "",
+        name: invoice.customer_name || "Walk-in",
+        phone: invoice.customer_phone || "",
+        gstin: invoice.customer_gstin || "",
+      });
+      setCustomerType(invoice.customer_id ? "existing" : ((invoice.customer_name || "Walk-in") === "Walk-in" ? "walkin" : "new"));
+      setReferringDoctor(invoice.referring_doctor || "");
+      setInvoiceDate(String(invoice.invoice_date || invoice.created_at || getTodayDateInputValue()).slice(0, 10));
+      setBillDiscType(Number(invoice.bill_discount || 0) > 0 ? "amt" : "none");
+      setBillDiscValue(Number(invoice.bill_discount || 0) > 0 ? String(invoice.bill_discount) : "");
+      setPayment({
+        mode: ["cash", "upi", "card", "credit"].includes(invoice.payment_mode) ? invoice.payment_mode : "cash",
+        paid: String(invoice.paid_amount ?? ""),
+      });
+      setNotes(invoice.notes || "");
+      setCart((invoice.items || []).map((item) => {
+        const itemName = item.name || item.medicine_name || "";
+        const matchingMeds = meds.filter((medicine) => (medicine.name || medicine.medicine_name) === itemName);
+        const available = matchingMeds.reduce((sum, medicine) => sum + getMedicineStock(medicine), 0);
+        return {
+          ...item,
+          name: itemName,
+          medicine_name: itemName,
+          stock: available + Number(item.units_dispensed || item.quantity || 0),
+          low_stock: false,
+          discount_type: "pct",
+          discount_value: Number(item.discount_pct || 0),
+          units_per_box: Math.max(Number(item.units_per_box || 1), 1),
+          unit_type: item.unit_type || "unit",
+        };
+      }));
+    }).catch((error) => {
+      loadedEditRef.current = "";
+      toast.error(formatApiError(error) || "Unable to load invoice for editing");
+      navigate("/invoices");
+    });
+    return () => { cancelled = true; };
+  }, [editInvoiceId, meds, navigate]);
 
   // FIXED: Added missing newBill function
   const newBill = () => {
@@ -424,9 +485,12 @@ export default function Billing() {
         invoiceDate,
       );
 
-      const { data } = await api.post("/invoices", payload);
+      const requestPayload = editingInvoice ? { ...payload, privacy_password: privacyPassword } : payload;
+      const { data } = editingInvoice
+        ? await api.put(`/invoices/${editingInvoice.id}`, requestPayload)
+        : await api.post("/invoices", requestPayload);
 
-      toast.success(`Invoice ${data.invoice_no} created`);
+      toast.success(editingInvoice ? `Invoice ${data.invoice_no} updated` : `Invoice ${data.invoice_no} created`);
 
       navigate(`/invoices/${data.id}`);
     } catch (e) {
@@ -1030,6 +1094,15 @@ export default function Billing() {
             </div>
           </div>
 
+          {editingInvoice && editRequiresPassword && (
+            <div className="bg-amber-50 border border-amber-200 rounded-sm p-4 space-y-2">
+              <div className="font-semibold text-amber-900">Older invoice — admin authorization required</div>
+              <p className="text-xs text-amber-800">Enter the privacy password. The server will verify that the signed-in user is an admin.</p>
+              <Label htmlFor="invoice-edit-privacy-password" className="text-xs uppercase font-semibold text-amber-800">Privacy Password</Label>
+              <Input id="invoice-edit-privacy-password" type="password" autoComplete="current-password" value={privacyPassword} onChange={(event) => setPrivacyPassword(event.target.value)} className="rounded-sm" />
+            </div>
+          )}
+
           <div className="bg-white border border-blue-200 rounded-sm p-4 space-y-3">
             <div>
               <div className="font-heading font-semibold">Payment</div>
@@ -1092,7 +1165,7 @@ export default function Billing() {
               disabled={saving || cart.length === 0}
               className="w-full rounded-sm bg-blue-600 hover:bg-blue-700 h-11 mt-3 font-semibold"
             >
-              {saving ? "Creating…" : "Create Invoice →  F6"}
+              {saving ? (editingInvoice ? "Saving changes…" : "Creating…") : (editingInvoice ? "Save Invoice Changes" : "Create Invoice →  F6")}
             </Button>
           </div>
         </div>
