@@ -126,7 +126,7 @@ export default function InvoiceDetail() {
           <div className="text-right">
             <div className="text-xs uppercase tracking-wider text-slate-500">Invoice No.</div>
             <div className="font-mono-nums font-bold text-lg">{inv.invoice_no}</div>
-            <div className="text-xs font-mono-nums">{fmtDate(inv.created_at)}</div>
+            <div className="text-xs font-mono-nums">{fmtDate(inv.invoice_date || inv.date || inv.created_at)}</div>
           </div>
         </div>
 
