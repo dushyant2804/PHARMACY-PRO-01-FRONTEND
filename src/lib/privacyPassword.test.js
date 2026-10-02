@@ -17,13 +17,22 @@ import {
 test("saves Privacy Password with PATCH through the shared API client", async () => {
   const apiClient = { patch: jest.fn().mockResolvedValue({ data: {} }) };
 
-  await savePrivacyPasswordRequest(apiClient, "secret-value");
+  await savePrivacyPasswordRequest(
+    apiClient,
+    "current-secret",
+    "new-secret"
+  );
 
   expect(apiClient.patch).toHaveBeenCalledWith(PRIVACY_PASSWORD_PATH, {
-    privacy_password: "secret-value",
+    current_password: "current-secret",
+    new_password: "new-secret",
   });
-  expect(buildPrivacyPasswordPayload("secret-value")).toEqual({
-    privacy_password: "secret-value",
+
+  expect(
+    buildPrivacyPasswordPayload("current-secret", "new-secret")
+  ).toEqual({
+    current_password: "current-secret",
+    new_password: "new-secret",
   });
 });
 

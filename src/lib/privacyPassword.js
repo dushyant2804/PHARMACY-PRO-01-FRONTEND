@@ -7,8 +7,8 @@ export const buildPrivacyPasswordPayload = (
   currentPassword,
   newPassword
 ) => ({
-  current_privacy_password: currentPassword,
-  privacy_password: newPassword,
+  current_password: currentPassword,
+  new_password: newPassword,
 });
 
 export const savePrivacyPasswordRequest = (
