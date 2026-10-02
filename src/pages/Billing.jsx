@@ -161,6 +161,7 @@ export default function Billing() {
         const available = matchingMeds.reduce((sum, medicine) => sum + getMedicineStock(medicine), 0);
         return {
           ...item,
+          medicine_id: item.medicine_id || matchingMeds[0]?.id || matchingMeds[0]?.medicine_key || itemName,
           name: itemName,
           medicine_name: itemName,
           stock: available + Number(item.units_dispensed || item.quantity || 0),
@@ -551,7 +552,7 @@ export default function Billing() {
             <Zap className="h-4 w-4" /> Quick Counter Mode
           </div>
           <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight text-slate-900 mt-1">
-            New Bill
+            {editingInvoice ? `Edit Invoice ${editingInvoice.invoice_no}` : "New Bill"}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Search → Enter → quantity → Enter. Stock deducts when the invoice is
@@ -1162,7 +1163,7 @@ export default function Billing() {
 
             <Button
               onClick={submit}
-              disabled={saving || cart.length === 0}
+              disabled={saving || cart.length === 0 || Boolean(editInvoiceId && !editingInvoice)}
               className="w-full rounded-sm bg-blue-600 hover:bg-blue-700 h-11 mt-3 font-semibold"
             >
               {saving ? (editingInvoice ? "Saving changes…" : "Creating…") : (editingInvoice ? "Save Invoice Changes" : "Create Invoice →  F6")}
