@@ -21,7 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import Autocomplete from "@/components/Autocomplete";
 import {
@@ -56,6 +56,9 @@ import {
 
 export default function Billing() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editInvoiceId = searchParams.get("edit");
+  const loadedEditRef = useRef("");
 
   const [meds, setMeds] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -95,6 +98,9 @@ export default function Billing() {
   const [saving, setSaving] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [settings, setSettings] = useState({});
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [privacyPassword, setPrivacyPassword] = useState("");
+  const [editRequiresPassword, setEditRequiresPassword] = useState(false);
 
   useEffect(() => {
     api
@@ -117,6 +123,62 @@ export default function Billing() {
       .then((r) => setSettings(r.data || {}))
       .catch(() => setSettings({}));
   }, []);
+
+  useEffect(() => {
+    if (!editInvoiceId || !meds.length || loadedEditRef.current === editInvoiceId) return;
+    loadedEditRef.current = editInvoiceId;
+    let cancelled = false;
+    api.get(`/invoices/${editInvoiceId}`).then(({ data: invoice }) => {
+      if (cancelled) return;
+      setEditingInvoice(invoice);
+      const indiaDate = (value) => {
+        const parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+        }).formatToParts(new Date(value));
+        const part = (type) => parts.find((item) => item.type === type)?.value || "";
+        return `${part("year")}-${part("month")}-${part("day")}`;
+      };
+      setEditRequiresPassword(Boolean(invoice.created_at && indiaDate(invoice.created_at) < getTodayDateInputValue()));
+      setCustomer({
+        id: invoice.customer_id || "",
+        name: invoice.customer_name || "Walk-in",
+        phone: invoice.customer_phone || "",
+        gstin: invoice.customer_gstin || "",
+      });
+      setCustomerType(invoice.customer_id ? "existing" : ((invoice.customer_name || "Walk-in") === "Walk-in" ? "walkin" : "new"));
+      setReferringDoctor(invoice.referring_doctor || "");
+      setInvoiceDate(invoice.invoice_date || (invoice.created_at ? indiaDate(invoice.created_at) : getTodayDateInputValue()));
+      setBillDiscType(Number(invoice.bill_discount || 0) > 0 ? "amt" : "none");
+      setBillDiscValue(Number(invoice.bill_discount || 0) > 0 ? String(invoice.bill_discount) : "");
+      setPayment({
+        mode: ["cash", "upi", "card", "credit", "mixed"].includes(invoice.payment_mode) ? invoice.payment_mode : "cash",
+        paid: String(invoice.paid_amount ?? ""),
+      });
+      setNotes(invoice.notes || "");
+      setCart((invoice.items || []).map((item) => {
+        const itemName = item.name || item.medicine_name || "";
+        const matchingMeds = meds.filter((medicine) => (medicine.name || medicine.medicine_name) === itemName);
+        const available = matchingMeds.reduce((sum, medicine) => sum + getMedicineStock(medicine), 0);
+        return {
+          ...item,
+          medicine_id: item.medicine_id || matchingMeds[0]?.id || matchingMeds[0]?.medicine_key || itemName,
+          name: itemName,
+          medicine_name: itemName,
+          stock: available + Number(item.units_dispensed || item.quantity || 0),
+          low_stock: false,
+          discount_type: "pct",
+          discount_value: Number(item.discount_pct || 0),
+          units_per_box: Math.max(Number(item.units_per_box || 1), 1),
+          unit_type: item.unit_type || "unit",
+        };
+      }));
+    }).catch((error) => {
+      loadedEditRef.current = "";
+      toast.error(formatApiError(error) || "Unable to load invoice for editing");
+      navigate("/invoices");
+    });
+    return () => { cancelled = true; };
+  }, [editInvoiceId, meds, navigate]);
 
   // FIXED: Added missing newBill function
   const newBill = () => {
@@ -374,7 +436,7 @@ export default function Billing() {
     if (invoiceDateError) {
       return toast.error(invoiceDateError);
     }
-    if (payment.mode === "credit" && !customer.id) {
+    if ((payment.mode === "credit" || (payment.mode === "mixed" && Number(payment.paid || 0) < totals.total)) && !customer.id) {
       customerSearchRef.current?.focus();
       return toast.error("Select an existing customer for a credit bill");
     }
@@ -409,9 +471,9 @@ export default function Billing() {
           payment_mode: payment.mode,
 
           paid_amount:
-            payment.mode === "credit"
+            ["credit", "mixed"].includes(payment.mode)
               ? Number(payment.paid || 0)
-              : Number(payment.paid) || totals.total,
+              : totals.total,
 
           bill_discount_amount:
             billDiscType === "amt" ? Number(billDiscValue || 0) : 0,
@@ -424,9 +486,12 @@ export default function Billing() {
         invoiceDate,
       );
 
-      const { data } = await api.post("/invoices", payload);
+      const requestPayload = editingInvoice ? { ...payload, privacy_password: privacyPassword } : payload;
+      const { data } = editingInvoice
+        ? await api.put(`/invoices/${editingInvoice.id}`, requestPayload)
+        : await api.post("/invoices", requestPayload);
 
-      toast.success(`Invoice ${data.invoice_no} created`);
+      toast.success(editingInvoice ? `Invoice ${data.invoice_no} updated` : `Invoice ${data.invoice_no} created`);
 
       navigate(`/invoices/${data.id}`);
     } catch (e) {
@@ -487,7 +552,7 @@ export default function Billing() {
             <Zap className="h-4 w-4" /> Quick Counter Mode
           </div>
           <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight text-slate-900 mt-1">
-            New Bill
+            {editingInvoice ? `Edit Invoice ${editingInvoice.invoice_no}` : "New Bill"}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Search → Enter → quantity → Enter. Stock deducts when the invoice is
@@ -1030,6 +1095,15 @@ export default function Billing() {
             </div>
           </div>
 
+          {editingInvoice && editRequiresPassword && (
+            <div className="bg-amber-50 border border-amber-200 rounded-sm p-4 space-y-2">
+              <div className="font-semibold text-amber-900">Older invoice — admin authorization required</div>
+              <p className="text-xs text-amber-800">Enter the privacy password. The server will verify that the signed-in user is an admin.</p>
+              <Label htmlFor="invoice-edit-privacy-password" className="text-xs uppercase font-semibold text-amber-800">Privacy Password</Label>
+              <Input id="invoice-edit-privacy-password" type="password" autoComplete="current-password" value={privacyPassword} onChange={(event) => setPrivacyPassword(event.target.value)} className="rounded-sm" />
+            </div>
+          )}
+
           <div className="bg-white border border-blue-200 rounded-sm p-4 space-y-3">
             <div>
               <div className="font-heading font-semibold">Payment</div>
@@ -1044,10 +1118,11 @@ export default function Billing() {
                   <SelectItem value="upi">UPI</SelectItem>
                   <SelectItem value="card">Card</SelectItem>
                   <SelectItem value="credit">Credit</SelectItem>
+                  <SelectItem value="mixed">Mixed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {payment.mode === "credit" && (
+            {["credit", "mixed"].includes(payment.mode) && (
               <div>
                 <Label className="text-xs uppercase font-semibold text-slate-600">Paid Now</Label>
                 <Input type="number" min="0" step="0.01" value={payment.paid} onChange={(e) => setPayment({ ...payment, paid: e.target.value })} placeholder="0.00" className="mt-1 rounded-sm text-right" />
@@ -1075,8 +1150,8 @@ export default function Billing() {
            )}
 
             <div className="border-t border-slate-700 pt-2 space-y-1">
-              <div className="flex justify-between text-sm"><span className="text-slate-400">Paid</span><span className="font-mono-nums">{fmtINR(payment.mode === "credit" ? Number(payment.paid || 0) : totals.total)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-slate-400">Due</span><span className="font-mono-nums">{fmtINR(payment.mode === "credit" ? Math.max(totals.total - Number(payment.paid || 0), 0) : 0)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">Paid</span><span className="font-mono-nums">{fmtINR(["credit", "mixed"].includes(payment.mode) ? Number(payment.paid || 0) : totals.total)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-400">Due</span><span className="font-mono-nums">{fmtINR(["credit", "mixed"].includes(payment.mode) ? Math.max(totals.total - Number(payment.paid || 0), 0) : 0)}</span></div>
             </div>
 
             <div className="border-t border-slate-700 pt-2 flex justify-between">
@@ -1089,10 +1164,10 @@ export default function Billing() {
 
             <Button
               onClick={submit}
-              disabled={saving || cart.length === 0}
+              disabled={saving || cart.length === 0 || Boolean(editInvoiceId && !editingInvoice)}
               className="w-full rounded-sm bg-blue-600 hover:bg-blue-700 h-11 mt-3 font-semibold"
             >
-              {saving ? "Creating…" : "Create Invoice →  F6"}
+              {saving ? (editingInvoice ? "Saving changes…" : "Creating…") : (editingInvoice ? "Save Invoice Changes" : "Create Invoice →  F6")}
             </Button>
           </div>
         </div>

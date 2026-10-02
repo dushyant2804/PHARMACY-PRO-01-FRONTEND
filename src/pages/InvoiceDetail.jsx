@@ -1,8 +1,8 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import api, { fmtINR, fmtDate } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Printer, Mail, MessageCircle, Download } from "lucide-react";
+import { Printer, Mail, MessageCircle, Download, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { getInvoicePaymentStatus, getInvoiceProfit, PAYMENT_STATUS } from "@/lib/invoices";
@@ -10,6 +10,7 @@ import { invoiceShareMessage, whatsappUrl as makeWhatsappUrl } from "@/lib/shari
 
 export default function InvoiceDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [inv, setInv] = useState(null);
   const [settings, setSettings] = useState(null);
   const [downloading, setDownloading] = useState(false);
@@ -72,6 +73,7 @@ export default function InvoiceDetail() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between no-print">
         <h1 className="font-heading text-2xl md:text-3xl font-bold">Invoice {inv.invoice_no}</h1>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="rounded-sm" onClick={() => navigate(`/billing?edit=${encodeURIComponent(id)}`)} data-testid="edit-invoice-btn"><Pencil className="w-4 h-4 mr-2" />Edit Invoice</Button>
           <Button variant="outline" className="rounded-sm" onClick={() => window.print()} data-testid="print-btn">
             <Printer className="w-4 h-4 mr-2" />Print
           </Button>
