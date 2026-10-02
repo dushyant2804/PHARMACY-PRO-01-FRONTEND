@@ -34,10 +34,28 @@ export default function Autocomplete({
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const lowered = (value || "").toLowerCase().trim();
-  const filtered = lowered.length >= 1
-    ? items.filter((i) => i.label.toLowerCase().includes(lowered)).slice(0, 8)
-    : items.slice(0, 8);
+  const lowered = String(value ?? "").toLowerCase().trim();
+
+const filteredItems = items.filter((i) => {
+  const label = typeof i?.label === "string" ? i.label : "";
+  const itemValue = typeof i?.value === "string" ? i.value : "";
+
+  return label.trim() !== "" || itemValue.trim() !== "";
+});
+
+const filtered = lowered.length >= 1
+  ? filteredItems
+      .filter((i) => {
+        const label = typeof i.label === "string" ? i.label : "";
+        const itemValue = typeof i.value === "string" ? i.value : "";
+
+        return (
+          label.toLowerCase().includes(lowered) ||
+          itemValue.toLowerCase().includes(lowered)
+        );
+      })
+      .slice(0, 8)
+  : filteredItems.slice(0, 8);
 
   return (
     <div className="relative" ref={ref}>
