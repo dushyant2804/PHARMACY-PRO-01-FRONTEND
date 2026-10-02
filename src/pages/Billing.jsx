@@ -151,7 +151,7 @@ export default function Billing() {
       setBillDiscType(Number(invoice.bill_discount || 0) > 0 ? "amt" : "none");
       setBillDiscValue(Number(invoice.bill_discount || 0) > 0 ? String(invoice.bill_discount) : "");
       setPayment({
-        mode: ["cash", "upi", "card", "credit"].includes(invoice.payment_mode) ? invoice.payment_mode : "cash",
+        mode: ["cash", "upi", "card", "credit", "mixed"].includes(invoice.payment_mode) ? invoice.payment_mode : "cash",
         paid: String(invoice.paid_amount ?? ""),
       });
       setNotes(invoice.notes || "");
