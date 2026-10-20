@@ -513,10 +513,8 @@ export default function Dashboard() {
       if (document.visibilityState === "visible") load(false);
     };
     window.addEventListener("focus", refreshWhenVisible);
-    document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
       window.removeEventListener("focus", refreshWhenVisible);
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, []);
   if (loading) return <DashboardSkeleton />;
