@@ -279,7 +279,11 @@ export default function Reports() {
   const salesExist = number(sales?.total_sales) > 0 || number(sales?.invoice_count) > 0 || hasValues(monthlySales, ["sales"]);
   const averageBill = number(sales?.invoice_count) ? number(sales?.total_sales) / number(sales?.invoice_count) : number(sales?.average_bill_value);
   const averageProfit = number(sales?.invoice_count) ? number(sales?.estimated_profit) / number(sales?.invoice_count) : number(sales?.average_profit_per_invoice);
-  const highestDay = firstDefined(sales?.highest_billing_day, sales?.highest_day, "—");
+  const highestDayRaw = firstDefined(sales?.highest_billing_day, sales?.highest_day, "—");
+  // The API may return { date, sales }; never pass an object directly to React.
+  const highestDay = highestDayRaw && typeof highestDayRaw === "object"
+    ? [highestDayRaw.date, highestDayRaw.sales !== undefined ? fmtINR(highestDayRaw.sales) : null].filter(Boolean).join(" · ") || "—"
+    : highestDayRaw;
   const riskCards = buildExpiryRiskCards(stock?.expiry_analytics || {}, stock || {});
   const aging = (side) => firstDefined(outstanding?.aging?.[side], outstanding?.aging_buckets?.[side], outstanding?.[`${side}_aging`], {});
   const agingTone = { "0_30": "bg-emerald-50 text-emerald-700", "31_60": "bg-amber-50 text-amber-700", "61_90": "bg-orange-50 text-orange-700", "90_plus": "bg-red-50 text-red-700" };
