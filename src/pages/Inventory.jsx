@@ -143,9 +143,13 @@ const getFreeQuantity = (lot) =>
 const getSchemeLabel = (lot) => {
   const paid = getPurchaseQuantity(lot);
   const free = getFreeQuantity(lot);
+  const discountPercent = Math.min(100, Math.max(0, Number(lot?.discount_percent || 0)));
+  const parts = [];
 
-  if (paid <= 0 || free <= 0) return "—";
-  return `${paid} + ${free} free`;
+  if (paid > 0 && free > 0) parts.push(`${paid} + ${free} free`);
+  if (discountPercent > 0) parts.push(`${discountPercent}% discount`);
+
+  return parts.length ? parts.join(" · ") : "—";
 };
 
 const getActualCost = (lot) => {
@@ -159,7 +163,8 @@ const getActualCost = (lot) => {
   const totalUnits = paid + free;
   const schemeFactor = totalUnits > 0 ? paid / totalUnits : 1;
 
-  return purchaseRate * (1 + gstRate / 100) * schemeFactor;
+  const discountPercent = Math.min(100, Math.max(0, Number(lot?.discount_percent || 0)));
+  return purchaseRate * (1 - discountPercent / 100) * (1 + gstRate / 100) * schemeFactor;
 };
 
 const normalizeExpiryStatus = (status) => {

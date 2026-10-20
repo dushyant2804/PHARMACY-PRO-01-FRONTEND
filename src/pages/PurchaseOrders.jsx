@@ -55,39 +55,57 @@ const getPurchaseOrderCalculationSignature = (items, schemeDiscount, cashDiscoun
       quantity: Number(item.quantity || 0),
       purchase_price: Number(item.purchase_price || 0),
       gst_rate: Number(item.gst_rate || 0),
+      discount_percent: Number(item.discount_percent || 0),
+      free_quantity: Number(item.free_quantity || 0),
     })),
     scheme_discount: Number(schemeDiscount || 0),
     cash_discount: Number(cashDiscount || 0),
   });
 
+const getLineDiscountAmount = (item) => {
+  const quantity = Math.max(0, Number(item?.quantity || 0));
+  const purchasePrice = Math.max(0, Number(item?.purchase_price || 0));
+  const percent = Math.min(100, Math.max(0, Number(item?.discount_percent || 0)));
+  const lineSubtotal = roundCurrency(quantity * purchasePrice);
+  return roundCurrency(lineSubtotal * percent / 100);
+};
+
+const getLineDiscountTotal = (items) =>
+  roundCurrency((items || []).reduce((sum, item) => sum + getLineDiscountAmount(item), 0));
+
 const calculatePurchaseOrderTotals = (items, schemeDiscount, cashDiscount) => {
   const slabs = new Map();
 
   items.forEach((item) => {
-    const quantity = Number(item.quantity || 0);
-    const purchasePrice = Number(item.purchase_price || 0);
-    const gstRate = Number(item.gst_rate || 0);
-    const lineSubtotal = quantity * purchasePrice;
-
+    const quantity = Math.max(0, Number(item.quantity || 0));
+    const purchasePrice = Math.max(0, Number(item.purchase_price || 0));
+    const gstRate = Math.max(0, Number(item.gst_rate || 0));
+    const lineSubtotal = roundCurrency(quantity * purchasePrice);
     if (!Number.isFinite(lineSubtotal) || lineSubtotal <= 0) return;
 
-    slabs.set(gstRate, (slabs.get(gstRate) || 0) + lineSubtotal);
+    const lineDiscount = Math.min(lineSubtotal, getLineDiscountAmount(item));
+    const slab = slabs.get(gstRate) || { subtotal: 0, lineDiscount: 0 };
+    slab.subtotal += lineSubtotal;
+    slab.lineDiscount += lineDiscount;
+    slabs.set(gstRate, slab);
   });
 
-  const subTotal = roundCurrency(
-    Array.from(slabs.values()).reduce((sum, slabSubtotal) => sum + slabSubtotal, 0)
-  );
-  const discount = roundCurrency(Number(schemeDiscount || 0) + Number(cashDiscount || 0));
+  const subTotal = roundCurrency(Array.from(slabs.values()).reduce((sum, slab) => sum + slab.subtotal, 0));
+  const lineDiscountTotal = roundCurrency(Array.from(slabs.values()).reduce((sum, slab) => sum + slab.lineDiscount, 0));
+  const afterLineDiscount = Math.max(0, subTotal - lineDiscountTotal);
+  const cashDiscountValue = Math.min(Math.max(0, Number(cashDiscount || 0)), afterLineDiscount);
 
   let taxableTotal = 0;
   let totalCGST = 0;
   let totalSGST = 0;
 
-  slabs.forEach((slabSubtotal, gstRate) => {
-    const slabDiscount = subTotal > 0 ? (discount * slabSubtotal) / subTotal : 0;
-    const slabTaxable = slabSubtotal - slabDiscount;
-    const slabGST = (slabTaxable * gstRate) / 100;
-
+  slabs.forEach((slab, gstRate) => {
+    const slabAfterLineDiscount = Math.max(0, slab.subtotal - slab.lineDiscount);
+    const slabCashDiscount = afterLineDiscount > 0
+      ? cashDiscountValue * slabAfterLineDiscount / afterLineDiscount
+      : 0;
+    const slabTaxable = Math.max(0, slabAfterLineDiscount - slabCashDiscount);
+    const slabGST = slabTaxable * gstRate / 100;
     taxableTotal += slabTaxable;
     totalCGST += roundCurrency(slabGST / 2);
     totalSGST += roundCurrency(slabGST / 2);
@@ -96,14 +114,14 @@ const calculatePurchaseOrderTotals = (items, schemeDiscount, cashDiscount) => {
   taxableTotal = roundCurrency(taxableTotal);
   totalCGST = roundCurrency(totalCGST);
   totalSGST = roundCurrency(totalSGST);
-
   const total = roundCurrency(taxableTotal + totalCGST + totalSGST);
   const grandTotal = roundCurrency(Math.round(total));
   const roundOff = roundCurrency(grandTotal - total);
 
   return {
     subTotal,
-    discount,
+    discount: roundCurrency(lineDiscountTotal + cashDiscountValue),
+    schemeDiscount: lineDiscountTotal,
     taxableTotal,
     totalCGST,
     totalSGST,
@@ -133,6 +151,7 @@ const emptyReturnItem = {
   manufacturer: "",
   category: "",
   purchase_price: 0,
+  discount_percent: 0,
   mrp: 0,
   gst_rate: 0,
   available_quantity: 0,
@@ -148,6 +167,7 @@ const emptyItem = {
   quantity: "",
   free_quantity: "",
   purchase_price: 0,
+  discount_percent: 0,
   mrp: 0,
   gst_rate: 5,
   pack_size: "",
@@ -467,6 +487,7 @@ export default function PurchaseOrders() {
         "expiry_date",
         "mrp",
         "purchase_price",
+        "discount_percent",
         "pack_size",
         "gst_rate",
         "manufacturer",
@@ -574,7 +595,8 @@ export default function PurchaseOrders() {
     0
   );
 
-  const credit = roundCurrency(quantity * purchaseRate);
+  const discountPercent = Math.min(100, Math.max(0, Number(item.discount_percent || 0)));
+  const credit = roundCurrency(quantity * purchaseRate * (1 - discountPercent / 100));
 
   return [
     medicineName,
@@ -646,6 +668,7 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
               "",
 
             purchase_price: purchaseRate,
+            discount_percent: Number(purchaseReturn.discount_percent || 0),
 
             mrp: Number(
               purchaseReturn.mrp ||
@@ -682,10 +705,11 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
 };
 
 
-  const calculatedTotals = calculatePurchaseOrderTotals(items, schemeDiscount, cashDiscount);
+  const calculatedSchemeDiscount = getLineDiscountTotal(items);
+  const calculatedTotals = calculatePurchaseOrderTotals(items, calculatedSchemeDiscount, cashDiscount);
   const currentCalculationSignature = getPurchaseOrderCalculationSignature(
     items,
-    schemeDiscount,
+    calculatedSchemeDiscount,
     cashDiscount
   );
   const shouldUseSavedTotals =
@@ -708,7 +732,8 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
         validReturnItems.reduce(
           (sum, item) =>
             sum +
-            (Number(item.return_quantity) * Number(item.purchase_price)),
+            (Number(item.return_quantity) * Number(item.purchase_price) *
+              (1 - Math.min(100, Math.max(0, Number(item.discount_percent || 0))) / 100)),
           0
         )
       );
@@ -747,17 +772,20 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
     setInvoiceRef(po.invoice_ref || "");
     setNotes(po.notes || "");
     setPoDate(po.po_date || new Date().toISOString().split("T")[0]);
-    setSchemeDiscount(po.scheme_discount || 0);
+    setSchemeDiscount(0);
     setCashDiscount(po.cash_discount || 0);
     const poItems = (po.items || []).map((i) => ({ ...emptyItem, ...i }));
 
     setItems(poItems);
+    const lineDiscountTotal = getLineDiscountTotal(poItems);
     setEditBaselineSignature(
-      getPurchaseOrderCalculationSignature(
-        poItems,
-        po.scheme_discount || 0,
-        po.cash_discount || 0
-      )
+      Number(po.scheme_discount || 0) === lineDiscountTotal
+        ? getPurchaseOrderCalculationSignature(
+            poItems,
+            lineDiscountTotal,
+            po.cash_discount || 0
+          )
+        : null
     );
     setRowMedicines({});
     setRowBatchOptions({});
@@ -840,7 +868,7 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
       invoice_ref: invoiceRef || "",
       notes: notes || "",
       po_date: poDate,
-      scheme_discount: Number(schemeDiscount || 0),
+      scheme_discount: calculatedSchemeDiscount,
       cash_discount: Number(cashDiscount || 0),
       round_off: roundOff,
 
@@ -866,13 +894,15 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
         category: item.category,
         purchase_price: Number(item.purchase_price || 0),
         purchase_rate: Number(item.purchase_price || 0),
+        discount_percent: Number(item.discount_percent || 0),
         mrp: Number(item.mrp || 0),
         gst_rate: Number(item.gst_rate || 0),
         available_quantity: Number(item.available_quantity || 0),
         return_quantity: Number(item.return_quantity || 0),
         return_credit: roundCurrency(
           Number(item.return_quantity || 0) *
-          Number(item.purchase_price || 0)
+          Number(item.purchase_price || 0) *
+          (1 - Math.min(100, Math.max(0, Number(item.discount_percent || 0))) / 100)
         ),
       })),
       items: validItems.map((i) => {
@@ -885,6 +915,7 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
           quantity: Number(item.quantity || 0),
           free_quantity: Number(item.free_quantity || 0),
           purchase_price: Number(item.purchase_price || 0),
+          discount_percent: Math.min(100, Math.max(0, Number(item.discount_percent || 0))),
         };
       }),
     };
@@ -1083,6 +1114,7 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
         <th className="p-2">Qty*</th>
         <th className="p-2">Free Qty</th>
         <th className="p-2">Purchase*</th>
+        <th className="p-2">Discount (%)</th>
         <th className="p-2">MRP*</th>
         <th className="p-2">GST %*</th>
         <th className="p-2">Pack Size</th>
@@ -1270,9 +1302,30 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
           <td className="p-2">
             <Input
               type="number"
+              min="0"
+              step="0.01"
               value={it.purchase_price}
               onChange={(e) => updateItem(i, "purchase_price", e.target.value)}
             />
+          </td>
+
+          <td className="p-2">
+            <Input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={it.discount_percent ?? 0}
+              aria-label={`Discount percentage for ${it.name || `line ${i + 1}`}`}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value !== "" && (Number(value) > 100 || Number(value) < 0)) return;
+                updateItem(i, "discount_percent", value);
+              }}
+            />
+            <div className="mt-1 text-[10px] text-slate-500">
+              −{fmtINR(getLineDiscountAmount(it))}
+            </div>
           </td>
 
           <td className="p-2">
@@ -1299,7 +1352,7 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
           </td>
 
           <td className="p-2 whitespace-nowrap text-right font-semibold text-slate-700">
-            {fmtINR(Number(it.quantity || 0) * Number(it.purchase_price || 0))}
+            {fmtINR(Math.max(0, Number(it.quantity || 0) * Number(it.purchase_price || 0) - getLineDiscountAmount(it)))}
           </td>
 
           <td className="p-2">
@@ -1639,11 +1692,8 @@ const applyExistingPurchaseReturn = (rowIndex, purchaseReturn) => {
       <Input
         type="number"
         step="0.01"
-        value={schemeDiscount}
-        onBlur={() => setSchemeDiscount(roundCurrency(schemeDiscount).toFixed(2))}
-        onChange={(e) =>
-          setSchemeDiscount(e.target.value)
-        }
+        value={calculatedSchemeDiscount.toFixed(2)}
+        readOnly
       />
     </div>
 
