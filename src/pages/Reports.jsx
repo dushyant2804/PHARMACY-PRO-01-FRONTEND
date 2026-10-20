@@ -227,7 +227,9 @@ async function optionalGet(url, params) {
 export default function Reports() {
   const [start, setStart] = useState(initialStart);
   const [end, setEnd] = useState(initialEnd);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("sales");
+  const [loadedSections, setLoadedSections] = useState({ stock: false, outstanding: false, analytics: false });
   const [salesLoading, setSalesLoading] = useState(false);
   const [sales, setSales] = useState(null);
   const [stock, setStock] = useState(null);
@@ -258,25 +260,50 @@ export default function Reports() {
     loadSales();
   }, [loadSales]);
 
-  // These summaries do not depend on the selected sales date range.
-  // Load them once instead of repeating all analytics requests on every date change.
+  // Load secondary report data only when its tab is opened. Sales stays fast,
+  // and expensive analytics are not fetched until the user actually needs them.
   useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      optionalGet("/reports/stock-valuation"),
-      optionalGet("/reports/outstanding"),
-      optionalGet("/reports/expiry-analytics"),
-      optionalGet("/reports/recovery-movement"),
-      optionalGet("/reports/analytics"),
-      optionalGet("/reports/purchase-returns"),
-    ]).then(([stockData, outstandingData, expiryData, recoveryData, analyticsData, returnsData]) => {
-      setStock({ ...(stockData || {}), expiry_analytics: expiryData ?? stockData?.expiry_analytics ?? null });
-      setOutstanding(outstandingData);
-      setRecoveryPayload(recoveryData ?? outstandingData?.recovery_movement ?? outstandingData ?? null);
-      setAnalytics({ ...(analyticsData || {}), purchase_returns: returnsData ?? analyticsData?.purchase_returns });
-      setLoading(false);
-    });
-  }, []);
+    let cancelled = false;
+    const loadSection = async () => {
+      if (activeTab === "stock" && !loadedSections.stock) {
+        setLoading(true);
+        const [stockData, expiryData] = await Promise.all([
+          optionalGet("/reports/stock-valuation"),
+          optionalGet("/reports/expiry-analytics"),
+        ]);
+        if (!cancelled) {
+          setStock({ ...(stockData || {}), expiry_analytics: expiryData ?? stockData?.expiry_analytics ?? null });
+          setLoadedSections((current) => ({ ...current, stock: true }));
+          setLoading(false);
+        }
+      } else if (activeTab === "outstanding" && !loadedSections.outstanding) {
+        setLoading(true);
+        const [outstandingData, recoveryData] = await Promise.all([
+          optionalGet("/reports/outstanding"),
+          optionalGet("/reports/recovery-movement"),
+        ]);
+        if (!cancelled) {
+          setOutstanding(outstandingData);
+          setRecoveryPayload(recoveryData ?? outstandingData?.recovery_movement ?? outstandingData ?? null);
+          setLoadedSections((current) => ({ ...current, outstanding: true }));
+          setLoading(false);
+        }
+      } else if (activeTab === "analytics" && !loadedSections.analytics) {
+        setLoading(true);
+        const [analyticsData, returnsData] = await Promise.all([
+          optionalGet("/reports/analytics"),
+          optionalGet("/reports/purchase-returns"),
+        ]);
+        if (!cancelled) {
+          setAnalytics({ ...(analyticsData || {}), purchase_returns: returnsData ?? analyticsData?.purchase_returns });
+          setLoadedSections((current) => ({ ...current, analytics: true }));
+          setLoading(false);
+        }
+      }
+    };
+    loadSection();
+    return () => { cancelled = true; };
+  }, [activeTab, loadedSections]);
 
   const monthlySales = useMemo(() => normalizeMonthly(sales), [sales]);
   const purchaseVsSales = useMemo(() => normalizeMonthly(purchaseSalesPayload), [purchaseSalesPayload]);
@@ -311,8 +338,9 @@ export default function Reports() {
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><div className="premium-kicker">Business intelligence</div><h1 className="mt-2 text-3xl font-extrabold tracking-tight">Reports command center</h1><p className="text-sm text-slate-500">Action-focused pharmacy intelligence from recorded transactions only.</p></div><BarChart3 className="h-10 w-10 text-emerald-700" /></div>
-    {loading && <LoadingPanel />}
-    <Tabs defaultValue="sales"><TabsList className="h-auto flex-wrap rounded-xl bg-white/70 p-1 shadow-sm"><TabsTrigger value="sales">Sales</TabsTrigger><TabsTrigger value="stock">Stock & Expiry</TabsTrigger><TabsTrigger value="outstanding">Outstanding</TabsTrigger><TabsTrigger value="analytics">Analytics</TabsTrigger></TabsList>
+    {salesLoading && activeTab === "sales" && <LoadingPanel label="Loading sales report…" />}
+    {loading && activeTab !== "sales" && <LoadingPanel />}
+    <Tabs value={activeTab} onValueChange={setActiveTab}><TabsList className="h-auto flex-wrap rounded-xl bg-white/70 p-1 shadow-sm"><TabsTrigger value="sales">Sales</TabsTrigger><TabsTrigger value="stock">Stock & Expiry</TabsTrigger><TabsTrigger value="outstanding">Outstanding</TabsTrigger><TabsTrigger value="analytics">Analytics</TabsTrigger></TabsList>
       <TabsContent value="sales" className="mt-5 space-y-5">
         <div className="premium-panel flex flex-wrap items-end gap-3 p-4"><div><Label>From</Label><Input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></div><div><Label>To</Label><Input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></div><Button onClick={loadSales} className="bg-emerald-900" disabled={salesLoading}>{salesLoading ? "Refreshing…" : "Refresh data"}</Button></div>
         {!salesExist && !salesLoading ? <EmptyState>Data not available currently.</EmptyState> : <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Total Sales" value={fmtINR(sales?.total_sales)} /><Kpi label="GST" value={fmtINR(sales?.total_gst)} /><Kpi label="Invoice Count" value={number(sales?.invoice_count)} /><Kpi label="Estimated Profit" value={fmtINR(sales?.estimated_profit)} tone="text-emerald-700" /><Kpi label="Average Bill Value" value={fmtINR(averageBill)} /><Kpi label="Average Profit Per Invoice" value={fmtINR(averageProfit)} tone="text-emerald-700" /><Kpi label="Highest Billing Day" value={highestDay} /></div>
