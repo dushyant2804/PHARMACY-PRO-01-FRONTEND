@@ -165,10 +165,8 @@ export default function Distributors() {
       if (document.visibilityState === "visible") load();
     };
     window.addEventListener("focus", refreshWhenVisible);
-    document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
       window.removeEventListener("focus", refreshWhenVisible);
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, []);
 
