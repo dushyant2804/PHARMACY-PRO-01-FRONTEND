@@ -241,20 +241,35 @@ export default function Reports() {
   const loadSales = useCallback(async () => {
     setSalesLoading(true);
     const params = { start, end };
-    const [salesData, topData, paymentData, purchaseSalesData] = await Promise.all([
-      optionalGet("/reports/sales", params), optionalGet("/reports/top-selling-medicines", params), optionalGet("/reports/payment-modes", params), optionalGet("/reports/purchase-vs-sales", params),
+    const [salesData, purchaseSalesData] = await Promise.all([
+      optionalGet("/reports/sales", params),
+      optionalGet("/reports/purchase-vs-sales", params),
     ]);
-    setSales(salesData); setTopSellingPayload(topData ?? salesData?.top_selling_medicines ?? null); setPaymentsPayload(paymentData ?? salesData?.payment_modes ?? null); setPurchaseSalesPayload(purchaseSalesData ?? salesData?.purchase_vs_sales ?? salesData?.monthly ?? null); setSalesLoading(false);
+    // /reports/sales already returns top-revenue and payment-mode arrays;
+    // avoid issuing duplicate requests for the same report data.
+    setSales(salesData);
+    setTopSellingPayload(salesData?.top_revenue_medicines ?? salesData?.top_selling_medicines ?? null);
+    setPaymentsPayload(salesData?.payment_mode_distribution ?? salesData?.payment_modes ?? null);
+    setPurchaseSalesPayload(purchaseSalesData ?? salesData?.purchase_vs_sales ?? salesData?.monthly ?? null);
+    setSalesLoading(false);
   }, [start, end]);
 
   useEffect(() => {
     setLoading(true);
     loadSales();
     Promise.all([
-      optionalGet("/reports/stock-valuation"), optionalGet("/reports/outstanding"), optionalGet("/reports/expiry-analytics"), optionalGet("/reports/recovery-movement"), optionalGet("/dashboard/summary"), optionalGet("/reports/analytics"), optionalGet("/reports/purchase-returns"),
-    ]).then(([stockData, outstandingData, expiryData, recoveryData, dashboardData, analyticsData, returnsData]) => {
-      setStock({ ...(stockData || {}), expiry_analytics: expiryData ?? stockData?.expiry_analytics ?? dashboardData?.expiry_analytics ?? dashboardData });
-      setOutstanding(outstandingData); setRecoveryPayload(recoveryData ?? outstandingData?.recovery_movement ?? outstandingData ?? null); setAnalytics({ ...(analyticsData || {}), purchase_returns: returnsData ?? analyticsData?.purchase_returns }); setLoading(false);
+      optionalGet("/reports/stock-valuation"),
+      optionalGet("/reports/outstanding"),
+      optionalGet("/reports/expiry-analytics"),
+      optionalGet("/reports/recovery-movement"),
+      optionalGet("/reports/analytics"),
+      optionalGet("/reports/purchase-returns"),
+    ]).then(([stockData, outstandingData, expiryData, recoveryData, analyticsData, returnsData]) => {
+      setStock({ ...(stockData || {}), expiry_analytics: expiryData ?? stockData?.expiry_analytics ?? null });
+      setOutstanding(outstandingData);
+      setRecoveryPayload(recoveryData ?? outstandingData?.recovery_movement ?? outstandingData ?? null);
+      setAnalytics({ ...(analyticsData || {}), purchase_returns: returnsData ?? analyticsData?.purchase_returns });
+      setLoading(false);
     });
   }, [loadSales]);
 
