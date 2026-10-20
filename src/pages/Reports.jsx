@@ -255,8 +255,13 @@ export default function Reports() {
   }, [start, end]);
 
   useEffect(() => {
-    setLoading(true);
     loadSales();
+  }, [loadSales]);
+
+  // These summaries do not depend on the selected sales date range.
+  // Load them once instead of repeating all analytics requests on every date change.
+  useEffect(() => {
+    setLoading(true);
     Promise.all([
       optionalGet("/reports/stock-valuation"),
       optionalGet("/reports/outstanding"),
@@ -271,7 +276,7 @@ export default function Reports() {
       setAnalytics({ ...(analyticsData || {}), purchase_returns: returnsData ?? analyticsData?.purchase_returns });
       setLoading(false);
     });
-  }, [loadSales]);
+  }, []);
 
   const monthlySales = useMemo(() => normalizeMonthly(sales), [sales]);
   const purchaseVsSales = useMemo(() => normalizeMonthly(purchaseSalesPayload), [purchaseSalesPayload]);
