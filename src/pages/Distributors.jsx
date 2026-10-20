@@ -158,6 +158,18 @@ export default function Distributors() {
     load();
   }, []);
 
+  // Re-fetch authoritative ledger-derived KPIs when returning to this page.
+  // This prevents summary cards from remaining stale after ledger edits.
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    window.addEventListener("focus", refreshWhenVisible);
+    return () => {
+      window.removeEventListener("focus", refreshWhenVisible);
+    };
+  }, []);
+
   /*
    * F4 opens the Add Distributor form.
    *

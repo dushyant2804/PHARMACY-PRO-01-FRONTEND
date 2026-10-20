@@ -480,12 +480,12 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const load = async () => {
+  const load = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const summaryRes = await api.get("/dashboard/summary");
       setData(summaryRes.data || {});
-      setLoading(false);
+      if (showLoading) setLoading(false);
       const loadHeavyPanels = () => {
       const requests = [
         api.get("/reports/outstanding").then((res) => setOutstanding(res.data)).catch((e) => { console.warn("Failed to load outstanding totals", e); setOutstanding(null); }),
@@ -499,10 +499,24 @@ export default function Dashboard() {
       } else {
         loadHeavyPanels();
       }
-    } catch (e) { toast.error("Failed to load dashboard"); } finally { setLoading(false); }
+    } catch (e) {
+      if (showLoading) toast.error("Failed to load dashboard");
+    } finally {
+      if (showLoading) setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") load(false);
+    };
+    window.addEventListener("focus", refreshWhenVisible);
+    return () => {
+      window.removeEventListener("focus", refreshWhenVisible);
+    };
+  }, []);
   if (loading) return <DashboardSkeleton />;
   if (!data) return null;
 
@@ -542,17 +556,32 @@ export default function Dashboard() {
     { label: "Distributor Payables", value: fmtINR(distributorPayables), sub: "Outstanding supplier dues", tone: "slate", icon: Truck, path: "/reports" },
   ];
 
-  return <div className="dashboard-shell">
-    <section className="dashboard-hero dashboard-hero--compact">
-      <div>
-        <div className="premium-kicker text-amber-600">Live pharmacy command center</div>
-        <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 md:text-2xl">{greeting}, {userName}</h1>
-        <p className="mt-1 text-sm font-semibold text-emerald-700">{businessName}</p>
+  const primaryKpis = kpis.filter((kpi) => ["Today Sales", "Today Profit", "Customer Receivables", "Distributor Payables"].includes(kpi.label));
+  const attentionKpis = kpis.filter((kpi) => !primaryKpis.includes(kpi));
+
+  return <div className="dashboard-shell space-y-6">
+    <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-800 p-5 text-white shadow-lg md:p-7">
+      <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full border-[28px] border-white/5" />
+      <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-emerald-200">PharmacyOS · Daily overview</div>
+          <h1 className="mt-2 text-2xl font-extrabold tracking-tight md:text-3xl">{greeting}, {userName}</h1>
+          <p className="mt-1 text-sm font-semibold text-emerald-100">{businessName}</p>
+          <p className="mt-3 max-w-xl text-xs leading-5 text-emerald-100/80">Your sales, profitability, stock risks and supplier position—together in one place.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[["Register", "/register"], ["Inventory", "/inventory"], ["Reports", "/reports"], ["Distributors", "/distributors"]].map(([label, path]) => (
+            <button key={label} type="button" onClick={() => navigate(path)} className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/20">{label}<ArrowRight className="ml-2 inline h-3.5 w-3.5" /></button>
+          ))}
+        </div>
       </div>
-      <p className="max-w-xl text-xs leading-5 text-slate-500 md:text-right">Today's sales, stock pressure, expiry risk and cash position in one compact operational view.</p>
     </section>
 
-    <section><SectionHeader eyebrow="Today's pulse" title="Daily decision metrics" /><div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-7">{kpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div></section>
+    <section className="space-y-3">
+      <SectionHeader eyebrow="Business at a glance" title="Key financials" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{primaryKpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">{attentionKpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div>
+    </section>
 
     <section><SectionHeader eyebrow="Pharmacy intelligence" title="What deserves your attention" action="Open reports" onAction={() => navigate("/reports")} /><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{SMART_CARD_CONFIG.map((config) => <SmartMedicineCard key={config.key} config={config} items={getSmartList(data, config.keys)} onClick={() => navigate(config.key === "expiry" || config.key === "dead" ? "/inventory" : "/reports")} />)}</div></section>
 
