@@ -590,7 +590,7 @@ export default function Dashboard() {
 
     <section className="space-y-3">
       <SectionHeader eyebrow="Business at a glance" title="Key financials" />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{primaryKpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">{primaryKpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">{attentionKpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div>
     </section>
 
