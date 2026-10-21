@@ -477,6 +477,7 @@ export default function Dashboard() {
   const [purchaseReturns, setPurchaseReturns] = useState([]);
   const [inventoryBatches, setInventoryBatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [registerSummary, setRegisterSummary] = useState(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -509,6 +510,18 @@ export default function Dashboard() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const financialYear = `${startYear}-${String((startYear + 1) % 100).padStart(2, "0")}`;
+    let active = true;
+    api.get(`/register/${financialYear}/${monthKey}`)
+      .then((res) => { if (active) setRegisterSummary(res.data?.summary || null); })
+      .catch((error) => { console.warn("Failed to load Register monthly metrics", error); if (active) setRegisterSummary(null); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") load(false);
     };
@@ -528,8 +541,6 @@ export default function Dashboard() {
   const expiredItems = firstDefined(data.expired_items, data.expired, []);
   const expiringSoonCount = firstDefined(data.expiring_soon_count, expiringSoonItems.length, 0);
   const patientAlerts = getPatientAlerts(data);
-  const todaySales = toNumber(firstDefined(data.today_sales, data.sales_today, data.daily_sales_total, 0));
-  const todayProfit = toNumber(firstDefined(data.today_profit, data.profit_today, data.daily_profit, 0));
   const todayCustomers = toNumber(firstDefined(data.today_customer_count, data.customers_today_count, data.today_customers, data.today_invoices_count, 0));
   const rawLowStockItems = firstDefined(data.low_stock_items, []);
   const lowStockItems = rawLowStockItems.filter((item) => {
@@ -545,10 +556,10 @@ export default function Dashboard() {
   const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
 
   const kpis = [
-    // TODO(backend-integration): repoint this KPI at the Register FY/month/day summary once
-    // the backend exposes it — `daily_sales_total` is the legacy Daily Sales field.
-    { label: "Today Sales", value: fmtINR(todaySales), sub: "Open the register", tone: "emerald", icon: IndianRupee, path: "/register" },
-    { label: "Today Profit", value: fmtINR(todayProfit), sub: "Review profit reports", tone: "blue", icon: TrendingUp, path: "/reports" },
+    { label: "Monthly Sales", value: registerSummary?.gross_sales != null ? fmtINR(registerSummary.gross_sales) : "—", sub: "Recorded Register sales", tone: "emerald", icon: IndianRupee, path: "/register" },
+    { label: "Average Daily Sales", value: registerSummary?.average_daily_sales != null ? fmtINR(registerSummary.average_daily_sales) : "—", sub: "Recorded Register days only", tone: "blue", icon: TrendingUp, path: "/register" },
+    { label: "Monthly Expenses", value: registerSummary?.total_expenses != null ? fmtINR(registerSummary.total_expenses) : "—", sub: "All recorded Register expenses", tone: "orange", icon: WalletCards, path: "/register" },
+    { label: "Profit", value: registerSummary?.net_profit != null ? fmtINR(registerSummary.net_profit) : "—", sub: "Monthly sales minus expenses", tone: "violet", icon: TrendingUp, path: "/reports" },
     { label: "Today Customers", value: todayCustomers, sub: "View customer activity", tone: "violet", icon: Users, path: "/customers" },
     { label: "Low Stock Count", value: lowStockCount, sub: "Needs replenishment", tone: "orange", icon: PackageSearch, path: "/inventory" },
     { label: "Expiring Soon", value: expiringSoonCount, sub: "Act before expiry", tone: "red", icon: Clock3, path: "/inventory" },
@@ -556,7 +567,7 @@ export default function Dashboard() {
     { label: "Distributor Payables", value: fmtINR(distributorPayables), sub: "Outstanding supplier dues", tone: "slate", icon: Truck, path: "/reports" },
   ];
 
-  const primaryKpis = kpis.filter((kpi) => ["Today Sales", "Today Profit", "Customer Receivables", "Distributor Payables"].includes(kpi.label));
+  const primaryKpis = kpis.filter((kpi) => ["Monthly Sales", "Average Daily Sales", "Monthly Expenses", "Profit", "Customer Receivables", "Distributor Payables"].includes(kpi.label));
   const attentionKpis = kpis.filter((kpi) => !primaryKpis.includes(kpi));
 
   return <div className="dashboard-shell space-y-6">
@@ -570,7 +581,7 @@ export default function Dashboard() {
           <p className="mt-3 max-w-xl text-xs leading-5 text-emerald-100/80">Your sales, profitability, stock risks and supplier position—together in one place.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {[["Register", "/register"], ["Inventory", "/inventory"], ["Reports", "/reports"], ["Distributors", "/distributors"]].map(([label, path]) => (
+          {[["Home", "/home"], ["Register", "/register"], ["Inventory", "/inventory"], ["Reports", "/reports"], ["Distributors", "/distributors"]].map(([label, path]) => (
             <button key={label} type="button" onClick={() => navigate(path)} className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/20">{label}<ArrowRight className="ml-2 inline h-3.5 w-3.5" /></button>
           ))}
         </div>
@@ -579,7 +590,7 @@ export default function Dashboard() {
 
     <section className="space-y-3">
       <SectionHeader eyebrow="Business at a glance" title="Key financials" />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{primaryKpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">{primaryKpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">{attentionKpis.map((kpi) => <StatCard key={kpi.label} {...kpi} onClick={() => navigate(kpi.path)} />)}</div>
     </section>
 

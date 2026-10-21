@@ -17,6 +17,7 @@ import Login from "@/pages/Login";
 import ForgotPassword from "@/pages/ForgotPassword";
 import PasswordExpired from "@/pages/PasswordExpired";
 import Dashboard from "@/pages/Dashboard";
+import HomePage from "@/pages/HomePage";
 import Inventory from "@/pages/Inventory";
 import StockAdjustments from "@/pages/StockAdjustments";
 import Billing from "@/pages/Billing";
@@ -132,6 +133,24 @@ function App() {
               element={
                 <Protected>
                   <Dashboard />
+                </Protected>
+              }
+            />
+
+            <Route
+              path="/dashboard"
+              element={
+                <Protected>
+                  <Dashboard />
+                </Protected>
+              }
+            />
+
+            <Route
+              path="/home"
+              element={
+                <Protected>
+                  <HomePage />
                 </Protected>
               }
             />

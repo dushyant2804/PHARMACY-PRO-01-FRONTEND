@@ -53,6 +53,9 @@ export default function DayView({
   const [error, setError] = useState(null);
 
   const [form, setForm] = useState(emptySales);
+  const [collectionForm, setCollectionForm] = useState("");
+  const [editingCollection, setEditingCollection] = useState(false);
+  const [savingCollection, setSavingCollection] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [deletingSales, setDeletingSales] = useState(false);
@@ -82,6 +85,8 @@ export default function DayView({
         card_sales: data.cardSales ?? "",
         credit_sales: data.creditSales ?? "",
       });
+      setCollectionForm(data.totalCollection ?? "");
+      setEditingCollection(false);
     })
     .catch((err) => setError(formatRegisterError(err)))
     .finally(() => setLoading(false));
@@ -146,6 +151,28 @@ useEffect(() => {
       toast.error(formatRegisterError(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const submitCollection = async (event) => {
+    event.preventDefault();
+    if (!editable || savingCollection) return;
+    setSavingCollection(true);
+    try {
+      await saveDayEntry(financialYear, monthKey, date, {
+        cash_sales: Number(day?.cashSales || 0),
+        upi_sales: Number(day?.upiSales || 0),
+        card_sales: Number(day?.cardSales || 0),
+        credit_sales: Number(day?.creditSales || 0),
+        total_collection: Number(collectionForm || 0),
+      });
+      toast.success("Total collection saved");
+      setEditingCollection(false);
+      await load();
+    } catch (err) {
+      toast.error(formatRegisterError(err));
+    } finally {
+      setSavingCollection(false);
     }
   };
 
@@ -354,7 +381,7 @@ const handleDeleteNote = async (noteId) => {
       Day Details
     </h2>
 
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
         <p className="text-xs font-semibold uppercase text-slate-500">
           Gross Sales
@@ -378,14 +405,25 @@ const handleDeleteNote = async (noteId) => {
       </div>
 
       <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase text-slate-500">
-          Net Collection
-        </p>
-        <p className="mt-1 font-mono-nums text-xl font-bold text-blue-700">
-          {day.netCollection != null
-            ? `₹${Number(day.netCollection).toFixed(2)}`
-            : "—"}
-        </p>
+        <p className="text-xs font-semibold uppercase text-slate-500">Total Collection</p>
+        {editable && editingCollection ? (
+          <form onSubmit={submitCollection} className="mt-2 space-y-2">
+            <Input type="number" min="0" step="0.01" value={collectionForm} onChange={(event) => setCollectionForm(event.target.value)} aria-label="Total collection" />
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" disabled={savingCollection}>{savingCollection ? "Saving…" : "Save"}</Button>
+              <Button type="button" size="sm" variant="outline" disabled={savingCollection} onClick={() => { setCollectionForm(day?.totalCollection ?? ""); setEditingCollection(false); }}>Cancel</Button>
+            </div>
+          </form>
+        ) : (
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <p className="font-mono-nums text-xl font-bold text-blue-700">{day.totalCollection != null ? `₹${Number(day.totalCollection).toFixed(2)}` : "—"}</p>
+            {editable && <Button type="button" size="sm" variant="outline" onClick={() => setEditingCollection(true)}>Edit</Button>}
+          </div>
+        )}
+      </div>
+      <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase text-slate-500">Net Collection</p>
+        <p className="mt-1 font-mono-nums text-xl font-bold text-emerald-700">{day.netCollection != null ? `₹${Number(day.netCollection).toFixed(2)}` : "—"}</p>
       </div>
     </div>
   </section>

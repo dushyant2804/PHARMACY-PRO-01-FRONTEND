@@ -117,8 +117,10 @@ function normalizeMoneyTotals(totals = {}) {
     cardSales: firstDefined(totals.card_sales, null),
     creditSales: firstDefined(totals.credit_sales, null),
     grossSales: firstDefined(totals.gross_sales, null),
+    totalCollection: firstDefined(totals.total_collection, null),
     totalExpenses: firstDefined(totals.total_expenses, totals.expenses, null),
     netProfit: firstDefined(totals.net_profit, totals.net, null),
+    collectionProfit: firstDefined(totals.collection_profit, null),
   };
 }
 
@@ -166,6 +168,8 @@ export function normalizeMonthRegister(payload = {}) {
     unlockExpiresAt: payload.unlock_expires_at || null,
     summary: {
       ...normalizeMoneyTotals(summary),
+      totalCollection: firstDefined(summary.total_collection, null),
+      collectionProfit: firstDefined(summary.collection_profit, null),
       highestSalesDay: summary.highest_sales_day || null,
       highestExpenseDay: summary.highest_expense_day || null,
       averageDailySales: firstDefined(summary.average_daily_sales, null),
@@ -180,6 +184,7 @@ export function normalizeMonthRegister(payload = {}) {
       cardSales: firstDefined(row.card_sales, null),
       creditSales: firstDefined(row.credit_sales, null),
       grossSales: firstDefined(row.gross_sales, null),
+      totalCollection: firstDefined(row.total_collection, null),
       expenses: firstDefined(row.expenses, null),
       net: firstDefined(row.net, null),
       noteCount: firstDefined(row.note_count, 0),
@@ -209,6 +214,7 @@ export function normalizeDayDetail(payload = {}) {
     creditSales: firstDefined(payload.credit_sales, null),
 
     grossSales: firstDefined(payload.gross_sales, null),
+    totalCollection: firstDefined(payload.total_collection, null),
 
     totalExpenses: firstDefined(
       payload.total_expenses,
