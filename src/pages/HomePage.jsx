@@ -5,7 +5,7 @@ import { getApiMode } from "@/lib/api";
 import {
   Activity, BookOpen, Boxes, ClipboardList, FileBarChart2,
   FileText, Home, PackageSearch, Receipt, Settings, ShieldCheck,
-  ShoppingCart, Truck, Users, WalletCards,
+  ShoppingCart, Truck, Users,
 } from "lucide-react";
 
 const MODULES = [
@@ -19,7 +19,7 @@ const MODULES = [
   { label: "Invoices", description: "Issued bills and invoice history", path: "/invoices", icon: FileText, tone: "bg-indigo-50 text-indigo-700" },
   { label: "Reports", description: "Business reports and analytics", path: "/reports", icon: FileBarChart2, tone: "bg-teal-50 text-teal-700" },
   { label: "Daily Closing", description: "Cash reconciliation and closing", path: "/daily-closing", icon: ClipboardList, tone: "bg-slate-100 text-slate-700" },
-  { label: "Customers' Ledger", description: "Review customer account entries", path: "/customers", icon: WalletCards, tone: "bg-lime-50 text-lime-700" },
+  { label: "Patients", description: "Patient profiles and refill alerts", path: "/patients", icon: Users, tone: "bg-lime-50 text-lime-700" },
   { label: "Settings", description: "Application and pharmacy settings", path: "/settings", icon: Settings, tone: "bg-slate-100 text-slate-700" },
 ];
 
