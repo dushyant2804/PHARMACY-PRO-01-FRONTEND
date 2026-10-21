@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getApiMode } from "@/lib/api";
 import {
   Activity, BookOpen, Boxes, ClipboardList, FileBarChart2,
-  FileText, Home, PackageSearch, Receipt, Settings, ShieldCheck,
+  FileText, Home, Receipt, Settings, ShieldCheck,
   ShoppingCart, Truck, Users,
 } from "lucide-react";
 
