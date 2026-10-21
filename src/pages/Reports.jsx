@@ -232,6 +232,7 @@ export default function Reports() {
   const [loadedSections, setLoadedSections] = useState({ stock: false, outstanding: false, analytics: false });
   const [salesLoading, setSalesLoading] = useState(false);
   const [sales, setSales] = useState(null);
+  const [registerFinance, setRegisterFinance] = useState(null);
   const [stock, setStock] = useState(null);
   const [outstanding, setOutstanding] = useState(null);
   const [topSellingPayload, setTopSellingPayload] = useState(null);
@@ -243,10 +244,12 @@ export default function Reports() {
   const loadSales = useCallback(async () => {
     setSalesLoading(true);
     const params = { start, end };
-    const [salesData, purchaseSalesData] = await Promise.all([
+    const [salesData, purchaseSalesData, registerData] = await Promise.all([
       optionalGet("/reports/sales", params),
       optionalGet("/reports/purchase-vs-sales", params),
+      optionalGet("/register/financial-summary", { start_date: start, end_date: end }),
     ]);
+    setRegisterFinance(registerData);
     // /reports/sales already returns top-revenue and payment-mode arrays;
     // avoid issuing duplicate requests for the same report data.
     setSales(salesData);
@@ -343,6 +346,26 @@ export default function Reports() {
     <Tabs value={activeTab} onValueChange={setActiveTab}><TabsList className="h-auto flex-wrap rounded-xl bg-white/70 p-1 shadow-sm"><TabsTrigger value="sales">Sales</TabsTrigger><TabsTrigger value="stock">Stock & Expiry</TabsTrigger><TabsTrigger value="outstanding">Outstanding</TabsTrigger><TabsTrigger value="analytics">Analytics</TabsTrigger></TabsList>
       <TabsContent value="sales" className="mt-5 space-y-5">
         <div className="premium-panel flex flex-wrap items-end gap-3 p-4"><div><Label>From</Label><Input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></div><div><Label>To</Label><Input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></div><Button onClick={loadSales} className="bg-emerald-900" disabled={salesLoading}>{salesLoading ? "Refreshing…" : "Refresh data"}</Button></div>
+        <section className="space-y-4">
+          <div><div className="premium-kicker">Source of truth · Register</div><h2 className="mt-1 text-xl font-extrabold text-slate-900">Register financial summary</h2><p className="mt-1 text-xs text-slate-500">Sales come from Register entries. Total collection includes payments received against older credit; invoice totals are not added to sales.</p></div>
+          {registerFinance?.summary ? <>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <Kpi label="Register Sales" value={fmtINR(registerFinance.summary.gross_sales)} />
+              <Kpi label="Total Collection" value={fmtINR(registerFinance.summary.total_collection)} tone="text-blue-700" />
+              <Kpi label="Register Expenses" value={fmtINR(registerFinance.summary.total_expenses)} tone="text-rose-700" />
+              <Kpi label="Profit" value={fmtINR(registerFinance.summary.net_profit)} tone="text-emerald-700" help="Sales minus expenses" />
+              <Kpi label="Collection-Based Profit" value={fmtINR(registerFinance.summary.collection_profit)} tone="text-blue-700" help="Collection minus expenses" />
+              <Kpi label="Average Daily Sales" value={fmtINR(registerFinance.summary.average_daily_sales)} help={`${number(registerFinance.summary.working_days)} recorded days`} />
+            </div>
+            <div className="grid gap-5 xl:grid-cols-2">
+              <ChartCard title="Monthly Register Sales vs Collection" subtitle="Register sales exclude old-credit collections; collection tracks actual money received." empty={!Array.isArray(registerFinance.monthly) || registerFinance.monthly.length === 0}>
+                <ResponsiveContainer><AreaChart data={registerFinance.monthly || []}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="month_label" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Legend /><Area type="monotone" dataKey="gross_sales" name="Sales" stroke="#0f766e" fill="#ccfbf1" strokeWidth={2} /><Area type="monotone" dataKey="total_collection" name="Collection" stroke="#2563eb" fill="#dbeafe" strokeWidth={2} /></AreaChart></ResponsiveContainer>
+              </ChartCard>
+              <DataTable title="Daily Register Activity" subtitle="Daily sales, actual collection, expenses and both profit views." columns={["Date", "Sales", "Collection", "Expenses", "Profit", "Collection Profit"]} rows={(registerFinance.daily || []).slice(-10).reverse()} emptyText="No Register activity in this date range." renderRow={(row) => <tr key={row.date}>{td(row.date, "font-semibold text-slate-800")}{td(fmtINR(row.gross_sales))}{td(fmtINR(row.total_collection), "text-blue-700")}{td(fmtINR(row.total_expenses), "text-rose-700")}{td(fmtINR(row.profit), "font-bold text-emerald-700")}{td(fmtINR(row.net_collection), "font-bold text-blue-700")}</tr>} />
+            </div>
+          </> : <EmptyState compact>Register financial data is unavailable for this date range.</EmptyState>}
+        </section>
+        <div><div className="premium-kicker">Supporting records</div><h2 className="mt-1 text-xl font-extrabold text-slate-900">Invoice and billing analytics</h2><p className="mt-1 text-xs text-slate-500">These metrics describe issued invoices only. They are not added to Register sales.</p></div>
         {!salesExist && !salesLoading ? <EmptyState>Data not available currently.</EmptyState> : <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Total Sales" value={fmtINR(sales?.total_sales)} /><Kpi label="GST" value={fmtINR(sales?.total_gst)} /><Kpi label="Invoice Count" value={number(sales?.invoice_count)} /><Kpi label="Estimated Profit" value={fmtINR(sales?.estimated_profit)} tone="text-emerald-700" /><Kpi label="Average Bill Value" value={fmtINR(averageBill)} /><Kpi label="Average Profit Per Invoice" value={fmtINR(averageProfit)} tone="text-emerald-700" /><Kpi label="Highest Billing Day" value={highestDay} /></div>
         <div className="grid gap-5 xl:grid-cols-3"><ChartCard title="Monthly Sales Trend" subtitle="Use dips to plan promotions and staffing." empty={!hasValues(monthlySales, ["sales"])} emptyText="Data not available currently."><ResponsiveContainer><AreaChart data={monthlySales}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="month" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Area type="monotone" dataKey="sales" name="Sales" stroke="#0f766e" fill="#ccfbf1" strokeWidth={3} /></AreaChart></ResponsiveContainer></ChartCard><ChartCard title="Monthly Profit Trend" subtitle="Track whether revenue growth is also profitable." empty={!hasValues(monthlySales, ["profit"])} emptyText="Data not available currently."><ResponsiveContainer><LineChart data={monthlySales}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="month" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Line type="monotone" dataKey="profit" name="Profit" stroke="#0f766e" strokeWidth={3} /></LineChart></ResponsiveContainer></ChartCard><ChartCard title="Payment Mode Distribution" subtitle="Check cash, UPI, and card collection concentration." empty={!payments.length} emptyText="Data not available currently."><ResponsiveContainer><BarChart data={payments}><CartesianGrid stroke="#e2e8f0" vertical={false} /><XAxis dataKey="name" /><YAxis width={70} /><Tooltip formatter={moneyTip} /><Bar dataKey="value" name="Collections">{payments.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer></ChartCard></div>
         <div className="grid gap-5 xl:grid-cols-2"><DataTable title="Top Revenue Medicines" subtitle="Prioritize availability for the medicines driving sales." columns={["Medicine", "Units Sold", "Revenue"]} rows={topRevenue.slice(0, 10)} emptyText="Data not available currently." renderRow={(row) => <tr key={row.id || row.name}>{td(row.name, "font-semibold text-slate-800")}{td(row.units)}{td(fmtINR(row.revenue), "font-bold")}</tr>} /><DataTable title="Top Profit Medicines" subtitle="Protect these margins when applying discounts." columns={["Medicine", "Profit", "Margin %"]} rows={topProfit.slice(0, 10)} emptyText="Data not available currently." renderRow={(row) => <tr key={row.id || row.name}>{td(row.name, "font-semibold text-slate-800")}{td(fmtINR(row.profit), "font-bold text-emerald-700")}{td(pct(row.margin))}</tr>} /></div></>}
